@@ -31,14 +31,14 @@ class GeminiAgent(BaseAgent):
     def run_prompt(self, inline_prompt: Optional[str] = None, prompt_name: Optional[str] = None, 
                    params: Optional[Dict[str, Any]] = None, context: Optional[str] = None, 
                    session_id: Optional[str] = None) -> Optional[Tuple[str, Optional[str]]]:
-        """Run a prompt using Gemini CLI."""
+        """Run a prompt using Gemini CLI with auto_edit approval mode by default."""
         prompt_content = self._prepare_prompt_content(inline_prompt, prompt_name, params, context)
         if prompt_content is None:
             return None
             
         try:
-            # Execute the prompt using Gemini CLI
-            result = self._execute_gemini_prompt(prompt_content)
+            # Execute the prompt using Gemini CLI with auto_edit by default
+            result = self._execute_gemini_prompt(prompt_content, approval_mode='auto_edit')
             if result:
                 # Log the result
                 self.logger.info(result)
@@ -51,7 +51,7 @@ class GeminiAgent(BaseAgent):
             self.logger.error(f"Error running Gemini prompt: {e}")
             return None
             
-    def _execute_gemini_prompt(self, prompt_content: str) -> Optional[str]:
+    def _execute_gemini_prompt(self, prompt_content: str, approval_mode: Optional[str] = None) -> Optional[str]:
         """Execute the prompt using Gemini CLI."""
         try:
             # Build the command using -p/--prompt for non-interactive mode with quoted prompt
@@ -59,6 +59,11 @@ class GeminiAgent(BaseAgent):
                 self.command,
                 '--prompt', f'"{prompt_content}"'
             ]
+            
+            # Add approval mode if specified
+            if approval_mode == 'auto_edit':
+                cmd.extend(['--approval-mode', 'auto_edit'])
+                self.logger.debug("Added --approval-mode auto_edit to Gemini command")
             
             # Add any additional CLI options from config
             if 'additional_args' in self.config:

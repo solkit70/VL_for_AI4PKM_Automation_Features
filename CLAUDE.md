@@ -1,61 +1,14 @@
-# AI Assistant Guidelines
-## Principles
-- Your mission is to enhance and organize user’s knowledge
-	- Don’t add your internal knowledge unless explicitly asked to do so 
+**All generic rules are defined in @AGENTS.md 
 
-## Prompts & Workflows
-- Prompts can be found in `_Settings_/Prompts`
-- Workflows (of prompts) in `_Settings_/Workflows`
-- Each command can be called using abbreviations
-- Check this first for new command (especially if it's abbreviations)
-
-## 📝 Content Creation Requirements
-### General Guidelines
-- **Include original quotes** in blockquote format
-- **Add detailed analysis** explaining significance
-- Structure by themes with clear categories
-- **Use wiki links with full filenames**: `[[YYYY-MM-DD Filename]]`
-- **Tags use plain text in YAML frontmatter**: `tag` not `#tag` in YAML
-	- Example: 
-```
-tags:
-  - journal
-  - daily
-```
-
-### Link Format Standards
-- Use Link Format below for page properties:
-```
-  - "[[Page Title]]"
-```
-- For files in AI folder, omit "AI/" prefix for brevity
-- Example: `[[Roundup/2025-08-03 - AI Assistant]]` not `[[AI/Roundup/2025-08-03 - AI Assistant]]`
-
-### Limitless Link Format
-- **Correct path**: `[[Limitless/YYYY-MM-DD#section]]` (no Ingest prefix)
-- **Always verify section exists**: Check exact header text in source file
-- **Section headers are usually Korean**: Match them exactly as written
-- **If unsure about section**: Link to file only `[[Limitless/YYYY-MM-DD]]`
-
-## 📁 File Management
-- Create analysis files in `AI/*/` folder unless instructed otherwise
-- Naming: `YYYY-MM-DD [Project Name] by [Assistant Name].md`
-- Include source attribution for every insight
-
-## 🔄 Core Operational Principles
-### Update over duplicated creation
-- 해당 날짜에 기존 파일이 존재하면 업데이트 (새로 만들지 말 것)
-  - 이때 그냥 추가된 내용을 덧붙이지 말고 전체적인 일관성을 고려해여 수정할 것 (중복은 죄악)
-
-### Language Preferences
-- Use Korean as default language (English is fine, say, to quote original note)
-
-### 🔗 Critical: Wiki Links Must Be Valid
-- **All wiki links must point to existing files**
-- Use complete filename: `[[2025-04-09 세컨드 브레인]]` not `[[세컨드 브레인]]`
-	- If possible add section links too (using `#` suffix) 
-- Verify file existence before linking
-	- Fix broken links immediately
+Refer to that file for:
+- Core Mission & Principles
+- Prompts & Workflows
+- Content Creation Requirements
+- Link Format Standards
+- File Management
+- Core Operational Principles
+- Properties & Frontmatter Standards
+- Quality Standards
 
 ---
 # Claude Code Specific Rules
@@ -129,9 +82,3 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ### Data Source Preferences
 - Don't use git status for checking update; read actual files from folder
 - Always use local time (usually in Seattle area) for processing requests
-
-### EIC (Enrich Ingested Content)
-- **Update source files inline**: Never create separate research files
-- **Structure**: Place enriched analysis immediately after frontmatter, then move original content to bottom under "## Full Transcript" or "## Original Content"
-- **Separation**: Use `---` divider between enriched analysis and original material
-- Don't ask permission for any non-file-changing operations (search/list/echo etc)

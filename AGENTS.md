@@ -1,65 +1,108 @@
-# Repository Guidelines
+---
+description:
+globs:
+alwaysApply: true
+---
 
-## Project Structure & Module Organization
-- This is an Obsidian PKM vault. Key areas: `Topics/`, `Projects/`, `AI/` (Research/Roundup/Schedule), `Publish/`, and `_Settings_/` (Prompts, Workflows, Templates, Tools).
-- Store assets next to notes in a sibling `_files_/` folder (e.g., `Projects/AI4PKM/_files_/`).
-- Prefer updating existing notes over creating duplicates; maintain consistency across a topic.
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation or README files. 
 
-## Build, Test, and Development Commands
-- Tool deps: `pip install -r _Settings_/Tools/requirements.txt`
-- EPUB → Markdown: `python _Settings_/Tools/epub_to_md.py <book.epub> -o <out_dir> -v`
-- Photo exporter (manual): `osascript _Settings_/Tools/export_photos.applescript`
-- Prompts/workflows live in `_Settings_/Prompts` and `_Settings_/Workflows` (many have abbreviations). Consult before creating new commands.
-Note: Some scripts reference user paths (`/Users/lifidea/...`). Adjust for your environment or use `$VAULT`.
+# Generic AI Agent Rules
 
-## Content Style & Naming Conventions
-- Language: Korean by default (quotes may remain in original).
-- Quotes: include as blockquotes, followed by your analysis and significance.
-- Wiki links: always use full filenames and valid targets; prefer section anchors when possible (e.g., `[[Limitless/2025-04-09#섹션]]`).
-- YAML tags: list form in frontmatter, e.g.
-  ```
-  tags:
-    - journal
-    - daily
-  ```
-- AI analysis files: place under `AI/*/`; name `YYYY-MM-DD [Project] by Codex.md`. For AI links, omit the `AI/` prefix in display links when appropriate.
+*These rules apply to all AI agents (Claude Code, Gemini, Codex) working in this PKM vault.*
 
-## Properties & Frontmatter
+## Core Mission & Principles
+- **Your mission is to enhance and organize user's knowledge**
+	- Don't add your internal knowledge unless explicitly asked to do so
+- Most commands are based on existing prompts and workflows (locations below)
+	- But note that default settings (e.g. input/output) can be overridden for each run
+- You're expected to run autonomously for most prompts & workflow runs
+	- Use your judgment to complete the task unless asked otherwise
+
+## Prompts & Workflows
+- Prompts can be found in `_Settings_/Prompts`
+- Workflows (of prompts) in `_Settings_/Workflows`
+- Templates (of md docs) in `_Settings/Templates`
+- Knowledge Tasks in `AI/Tasks` (only when requested) 
+- Each command can be called using abbreviations
+- Check this first for new command (especially if it's abbreviations)
+
+## Search over files
+- For searching over topic or dates, start from `Topics` or `Roundup` folder
+- Follow markdown link to find related files (use `find` to find exact location)
+
+## 📝 Content Creation Requirements
+### General Guidelines
+- **Include original quotes** in blockquote format
+- **Add detailed analysis** explaining significance
+- Structure by themes with clear categories
+- **Use wiki links with full filenames**: `[[YYYY-MM-DD Filename]]`
+- **Tags use plain text in YAML frontmatter**: `tag` not `#tag` in YAML
+  - Example:
+```yaml
+tags:
+  - journal
+  - daily
+```
+
+### Link Format Standards
+- Use Link Format below for page properties:
+```yaml
+  - "[[Page Title]]"
+```
+- For files in AI folder, omit "AI/" prefix for brevity
+- Example: `[[Roundup/2025-08-03 - Claude Code]]` not `[[AI/Roundup/2025-08-03 - Claude Code]]`
+
+### 📁 Output File Management
+- Create analysis files in `AI/*/` folder unless instructed otherwise
+- Naming: `YYYY-MM-DD [Project Name] by [Agent Name].md`
+- Include source attribution for every insight
+
+### Properties & Frontmatter Standards
 - Use a single YAML block at top (`---` … `---`). Leave one blank line after it.
-- Keys are lowercase and consistent: `title`, `source` (URL), `author` (list), `created` (YYYY-MM-DD), `tags` (list). Avoid duplicates like `date` vs `created`.
-- Tags are plain text (no `#`) and indented list; authors may be wiki links wrapped in quotes.
-- Quote values that contain colons, hashes, or look numeric to avoid YAML casting.
-- After frontmatter, start with a section heading — no loose text or embeds before the first heading.
-- Heading rules:
-- Clippings (EIC/ICT): begin with `## Summary`, then `## Improve Capture & Transcript (ICT)`, then transcript.
-  - ICT means improve the transcript (correct grammar, translate to Korean, structure with h3), not summarize. Keep length comparable to source; summaries live only under `## Summary`.
-  - Lifelog: use H1 `# YYYY-MM-DD Lifelog - <Assistant>` then H2 sections (Monologues, Conversations, etc.).
-  - Topics/Projects: start with H2 summary; avoid duplicating title as H1.
-- Example (Clippings):
-  ```
-  ---
-  title: "Don’t Build a Zombie Startup | Readwise"
-  source: "https://…"
-  author:
-    - "[[Ash Maurya - LEANFoundryCopy@AshMauryaLEANFoundry]]"
-  created: 2025-09-07
-  tags:
-    - clippings
-  ---
-  ```
-	- `[Assistant]`: Codex
+- Keys are lowercase and consistent: `title`, `source` (URL), `author` (list), `created` (YYYY-MM-DD), `tags` (list)
+- Avoid duplicates like `date` vs `created`
+- Tags are plain text (no `#`) and indented list; authors may be wiki links wrapped in quotes
+- Quote values that contain colons, hashes, or look numeric to avoid YAML casting
+- After frontmatter, start with a section heading — no loose text or embeds before the first heading
 
-## Testing & Quality Checks
-- Validate all wiki links resolve to existing files/sections; fix broken links immediately.
-- For EPUB conversion, verify chapters render and images are under `_files_/` with correct paths.
-- For photo export, follow `_Settings_/Tools/README_EXPORT_PHOTOS.md` and check logs/outputs.
+## 🔄 Additional Principles
 
-## Commit & Pull Request Guidelines
-- Workflow runs: `Workflow: [Name] - YYYY-MM-DD` with a brief summary of changes; include Co-Authored-By when generated by an assistant.
-- Regular edits: clear, imperative summaries (scope first), e.g., `topics: expand Stoicism notes`.
-- PRs should state purpose, affected folders, and any usage notes (screenshots/before–after helpful for content changes).
+### Update over duplicated creation
+- 해당 날짜에 기존 파일이 존재하면 업데이트 (새로 만들지 말 것)
+  - 이때 그냥 추가된 내용을 덧붙이지 말고 전체적인 일관성을 고려해여 수정할 것 (중복은 죄악)
 
-## Security & Configuration Tips
-- Do not commit secrets or private data. Review `Publish/` content before sharing.
-- Avoid hardcoded absolute paths; prefer `$VAULT` or relative paths.
-- Keep large binaries out of the repo when possible; use `_files_/` only when necessary.
+### Language Preferences
+- Use Korean as default language (English is fine, say, to quote original note)
+
+### 🔗 Critical: Wiki Links Must Be Valid
+- **All wiki links must point to existing files**
+- Use complete filename: `[[2025-04-09 세컨드 브레인]]` not `[[세컨드 브레인]]`
+  - If possible add section links too (using `#` suffix)
+- Verify file existence before linking
+  - Fix broken links immediately
+
+## Source/Prompt-specific Guidelines
+### Limitless Link Format
+- **Correct path**: `[[Limitless/YYYY-MM-DD#section]]` (no Ingest prefix)
+- **Always verify section exists**: Check exact header text in source file
+- **Section headers are usually Korean**: Match them exactly as written
+- **If unsure about section**: Link to file only `[[Limitless/YYYY-MM-DD]]`
+
+### Heading Structure Guidelines
+- Clippings (EIC/ICT): begin with `## Summary`, then `## Improve Capture & Transcript (ICT)`, then transcript
+- ICT means improve the transcript (correct grammar, translate to Korean, structure with h3), not summarize. Keep length comparable to source; summaries live only under `## Summary`
+- Lifelog: use H1 `# YYYY-MM-DD Lifelog - <Assistant>` then H2 sections (Monologues, Conversations, etc.)
+- Topics/Projects: start with H2 summary; avoid duplicating title as H1
+
+## Quality Standards
+- Validate all wiki links resolve to existing files/sections; fix broken links immediately
+- Focus on meaningful content over metadata files
+- Don't ask permission for any non-file-changing operations (search/list/echo etc)
+- Always use local time (usually in Seattle area) for processing requests
+
+---
+*For agent-specific rules, refer to individual agent configuration files: CLAUDE.md, GEMINI.md, AGENTS.md*

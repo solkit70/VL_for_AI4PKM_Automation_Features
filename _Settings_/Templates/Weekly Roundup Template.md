@@ -1,9 +1,14 @@
 ---
-tags: 
+tags:
 links:
+feedback:
 ---
 ## Highlights
 ### Events
+
+| Datetime | Schedule | Notes |
+| -------- | -------- | ----- |
+|          |          |       |
 
 ### Thoughts
 

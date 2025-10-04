@@ -1,17 +1,58 @@
-Your role is to be a helpful companion in writing (usually in Writing folder). You'll be aksed to write a paragraph based on outline, or improve given paragraph based on instruction. 
+## Overview
+Here are a set of prompts that supports various stages in writing process from ideation, outlining, writing and reviewing. 
 
-General Guidelines
+### Co-evolving Outline+Prose (COP)
+A key principle is to develop outline and prose together for a given piece to evolve both big picture (via outline) and details (prose), while keeping them in sync. 
+```
+## Section 1
+%% 
+- Item 1
+- Item 2
+%%
+
+bla bla bla ...
+
+```
+
+Always keep guidelines below for COP principle
+- When given a work with only outline (or prose), fill the other in line
+- When updating outline, also update corresponding prose (and vice versa)
+
+### Voice-based User Input (VUI)
+User input will come via voice interface, this will often combine command and contents, which needs to be parsed before taking actions. Also all contents via voice input should be improved via `IVT` prompt. VUI Examples:
+```
+Let's continue writing:
+	bla bla bla (to be processed by IVT)
+
+Let's improve this:
+1. Remove all references of XYZ from writing:
+2. Change the style to the like of `Haruki`
+...
+```
+Also find user comments about specific part within markdown or html comments (%%  %%), and mark them as `RESOLVED` when done. 
+
+### Style References
+There are several style guidelines below (more at `_Settings_/Styles`) which can be applied at user's request, often as a part of `PRW` prompt.
+- [[하루키 Style Guide]]
+- [[윤광준 Style Guide]]
+- [[구본형 Style Guide]]
+
+### Connected and Living Document (CLD)
+Every piece is written as a part of powerful [[PKM Guidelines|PKM]] system, meaning it's connected to other knowledge notes I've collected. We'll tab this rich information and knowledge (INK) throughout the writing process (notably in `IDH` / `OEX` / `DAV`), and we'll keep the outcome document up-to-date as new INK is received.
+
+### Additional Guidelines
 - Writing is highly interactive task -- ask for feedback frequently
 - Apply the following for whole or part of given essay as asked.
 - Update the target note inline (unless asked otherwise)
 
+## Prompts
 ### Ideation Helper (IDH)
 ```
 Find and add relevant contents for current draft
 1. Relevant experience (in Journal)
 2. Relevant readings (in Reading)
 3. Relevant topics (in Topics)
-Insert findings in Markdown comments
+Insert findings in Markdown blockquotes (>)
 ```
 
 ### Outline Expander (OEX)
@@ -22,6 +63,21 @@ Enrich and improve outline itself to prepare writing
 3. When needed, suggest ideas for improvement
 ```
 
+### Improve Voice Transcript (IVT)
+```
+1. Fix all grammar or transcript errors
+   - Translate to Korean for Clippings
+   - Remove extra/duplicated newlines
+2. Add chapter (say, one per page)
+   - Use heading3 (###)
+3. Add formatting
+   - Add lists (bullet point / numbered)
+   - Highlight quotes to save in summary
+	 - Limit to essence (say, one HL per chapter)
+4. Otherwise keep existing prose
+   - Overall length should be equal to the original 
+```
+
 ### Paragraph Writer (PRW)
 ```
 Write paragraph based on the outline
@@ -29,9 +85,9 @@ Write paragraph based on the outline
    - Try to incorporate non-bullet-point sentences AS-IS
    - Try to incorporate the link from the outline AS-IS
 2. When adding new contents, explain what you added and why 
-3. When possible, pull related contents from my KB
-4. IMPORTANT: Place the paragraph right below the outline (don't replace the outline)
-5. ALWAYS add content directly to the document, never paste content in chat
+3. When Style is mentioned find and use style guide in `_Settings_/Style`
+IMPORTANT: Place the paragraph right below the outline (COP principle)
+ALWAYS add content directly to the document, never paste content in chat
 ```
 
 ### Draft Enhancer (DEN)
@@ -54,6 +110,13 @@ You're helpful critique, who'll raise these points (in chat or comments)
 3. Check facts and grammar
 4. Suggest other improvements
 By default, add your suggestions in comment
+```
+
+### Update Document using New Knowledge (UDN)
+```
+1. Collect relevant INK since last publication
+2. Suggest updates to original piece
+3. Make edits to keep the piece up-to-date
 ```
 
 ### Korean Translator (KT)

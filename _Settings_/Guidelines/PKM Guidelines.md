@@ -26,7 +26,7 @@ Need to constantly experiment with multiple AI tools and models
 %%[[PKM Workflow.excalidraw|🖋 Edit in Excalidraw]]%%
 
 ## PKM Workflows
-AI is used extensively for my PKM practices. These workflows ensure my KB is kept up-to-date.
+AI is used extensively for my PKM practices. These workflows ensure my KB is kept up-to-date. This workflows can be run with simple prompts like `DIR for 9/10-14` or `DIR for past week (backfill as needed)`.
 - [[Daily Ingestion and Roundup (DIR)]]
 - [[Weekly Roundup and Planning (WRP)]]
 - [[Continuous Knowledge Upkeep (CKU)]]
@@ -34,9 +34,12 @@ AI is used extensively for my PKM practices. These workflows ensure my KB is kep
 ![[PKM System Architecture.excalidraw.svg]]
 %%[[PKM System Architecture.excalidraw|🖋 Edit in Excalidraw]]%%
 
-The following prompts and templates are extensively used within workflows to represent individual step and input/output notes.
-- `_Settings_/Prompts`
-- `_Settings_/Templates`
+The following prompts and templates are extensively used within workflows to represent individual step and input/output notes. [[PKM Prompts]] note provides more details of each prompt.
+- `_Settings_/Prompts` - All prompts follow the standardized [[Prompt Template]] structure
+- `_Settings_/Templates` - Including the [[Prompt Template]] that ensures consistent Input/Output/Main Process/Caveats format across all workflow prompts
+
+## PKM Automations
+While most of workflow can be run with single command, we provide a CLI tool for further automating the execution. The tool allows batch execution (based on cron) or single test run of any workflows configured. Also, the tool supports all of major CLI Agents -- `Gemini CLI`, `Claude Code` and `Codex CLI` so that each agent can be used interchangeably. 
 
 ## PKM Applications
 PKM supports following applications
@@ -44,7 +47,9 @@ PKM supports following applications
 ![[Ad-hoc Research within PKM (ARP)]]
 
 ### Contents Creation
+AI also powers writing and various types of contents creation. 
 ![[PKM Writing Workflow.excalidraw.svg]]
+
 ![[Interactive Writing Assistant (IWA)]]
 
 ![[Create Thread Postings (CTP)]]

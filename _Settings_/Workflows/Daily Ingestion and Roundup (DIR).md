@@ -2,7 +2,7 @@
 Here's how daily contents are ingested and processed into daily roundup, which is essentially episodic memory for my PKM.
 
 ### Process
-1. [[(beta) Pick and Process Photos (PPP)]]
+1. [[Pick and Process Photos (PPP)]]
 	- Photos from each day are processed into photo log
 	- Photos are ingested from iCloud Photos (via Applescript)
 2. [[Process Life Logs (PLL)]] 

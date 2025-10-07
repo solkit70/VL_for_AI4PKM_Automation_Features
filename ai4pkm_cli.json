@@ -12,14 +12,17 @@
     }
   },
   "gobi_sync": {
+    "local_timezone": "America/Los_Angeles",
     "api_base_url": "https://api.joingobi.com/api",
     "output_dir": "Ingest/Gobi"
   },
   "gobi_sync_by_tags": {
+    "local_timezone": "America/Los_Angeles",
     "api_base_url": "https://api.joingobi.com/api",
     "output_dir": "Ingest/GobiByTags"
   },
   "limitless_sync": {
+    "local_timezone": "America/Los_Angeles",
     "api_base_url": "https://api.limitless.ai/v1",
     "output_dir": "Ingest/Limitless",
     "start_days_ago": 7
@@ -35,6 +38,9 @@
   "notes_processing": {
     "destination_folder": "Ingest/Apple Notes/",
     "days": 7
+  },
+  "web_api": {
+      "port": 8000
   },
   "cron_jobs": [
     {
@@ -78,7 +84,7 @@
       "command": "sync-gobi",
       "cron": "* * * * *",
       "description": "Automatically sync Gobi data every 30 minutes",
-      "enabled": false
+      "enabled": true
     }
   ]
 }

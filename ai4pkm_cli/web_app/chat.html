@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <title>AI4PKM Chat</title>
+    <link rel="stylesheet" href="/static/chat.css">
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-header">
+            <h1>AI4PKM Assistant</h1>
+            <div id="status-indicator">
+                <span class="status-dot"></span>
+                <span id="status-text">Ready</span>
+            </div>
+        </div>
+        
+        <div id="chat-messages">
+            <div class="message assistant-message">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <p>Hello! I'm your AI4PKM assistant. Ask me anything about your knowledge base!</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chat-input-container">
+            <textarea 
+                id="chat-input" 
+                placeholder="Type your message here..." 
+                rows="1"
+            ></textarea>
+            <button id="send-button" aria-label="Send message">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <script src="/static/chat.js"></script>
+</body>
+</html>
+

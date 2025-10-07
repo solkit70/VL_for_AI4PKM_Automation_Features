@@ -33,6 +33,11 @@ class Server:
     def _setup_routes(self):
         """Setup API routes."""
 
+        # Chat UI route
+        @self.app.route("/chat")
+        def chat_ui():
+            return send_from_directory(self.web_app_dir, "chat.html")
+
         # Route for the web application - serves index.html for any non-API path
         @self.app.route("/", defaults={'path': ''})
         @self.app.route("/<path:path>")
@@ -140,31 +145,58 @@ class Server:
                                 self.logger.info(f"Generated response: {len(response_text)} characters")
                             
                             # Split response into chunks for streaming
-                            words = response_text.split(' ')
-                            chunk_size = 5  # Stream 5 words at a time
-                            
-                            for i in range(0, len(words), chunk_size):
-                                chunk_words = words[i:i + chunk_size]
-                                chunk_text = " ".join(chunk_words)
+                            if is_voice:
+                                # For voice, split by words (removes newlines)
+                                words = response_text.split(' ')
+                                chunk_size = 5  # Stream 5 words at a time
                                 
-                                # Create SSE chunk in Vapi format
-                                chunk_data = {
-                                    "id": f"resp_{conversation_id}",
-                                    "object": "chat.completion.chunk",
-                                    "created": created,
-                                    "model": "ai4pkm",
-                                    "choices": [{
-                                        "index": 0,
-                                        "delta": {
-                                            "role": "assistant",
-                                            "content": chunk_text + (" " if i + chunk_size < len(words) else "")
-                                        },
-                                        "logprobs": None,
-                                        "finish_reason": None
-                                    }]
-                                }
+                                for i in range(0, len(words), chunk_size):
+                                    chunk_words = words[i:i + chunk_size]
+                                    chunk_text = " ".join(chunk_words)
+                                    
+                                    # Create SSE chunk in Vapi format
+                                    chunk_data = {
+                                        "id": f"resp_{conversation_id}",
+                                        "object": "chat.completion.chunk",
+                                        "created": created,
+                                        "model": "ai4pkm",
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "content": chunk_text + (" " if i + chunk_size < len(words) else "")
+                                            },
+                                            "logprobs": None,
+                                            "finish_reason": None
+                                        }]
+                                    }
+                                    
+                                    yield f"data: {json.dumps(chunk_data)}\n\n"
+                            else:
+                                # For text chat, stream by characters to preserve newlines
+                                chunk_size = 50  # Stream 50 characters at a time
                                 
-                                yield f"data: {json.dumps(chunk_data)}\n\n"
+                                for i in range(0, len(response_text), chunk_size):
+                                    chunk_text = response_text[i:i + chunk_size]
+                                    
+                                    # Create SSE chunk in Vapi format
+                                    chunk_data = {
+                                        "id": f"resp_{conversation_id}",
+                                        "object": "chat.completion.chunk",
+                                        "created": created,
+                                        "model": "ai4pkm",
+                                        "choices": [{
+                                            "index": 0,
+                                            "delta": {
+                                                "role": "assistant",
+                                                "content": chunk_text
+                                            },
+                                            "logprobs": None,
+                                            "finish_reason": None
+                                        }]
+                                    }
+                                    
+                                    yield f"data: {json.dumps(chunk_data)}\n\n"
                             
                             # Send final chunk to indicate completion
                             final_chunk = {

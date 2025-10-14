@@ -31,17 +31,15 @@ class GeminiAgent(BaseAgent):
     def run_prompt(self, inline_prompt: Optional[str] = None, prompt_name: Optional[str] = None, 
                    params: Optional[Dict[str, Any]] = None, context: Optional[str] = None, 
                    session_id: Optional[str] = None) -> Optional[Tuple[str, Optional[str]]]:
-        """Run a prompt using Gemini CLI with auto_edit approval mode by default."""
+        """Run a prompt using Gemini CLI with yolo approval mode by default."""
         prompt_content = self._prepare_prompt_content(inline_prompt, prompt_name, params, context)
         if prompt_content is None:
             return None
             
         try:
-            # Execute the prompt using Gemini CLI with auto_edit by default
-            result = self._execute_gemini_prompt(prompt_content, approval_mode='auto_edit')
+            # Execute the prompt using Gemini CLI with yolo by default
+            result = self._execute_gemini_prompt(prompt_content, approval_mode='yolo')
             if result:
-                # Log the result
-                self.logger.info(result)
                 return result, None  # Gemini CLI doesn't support session continuity
             else:
                 self.logger.error("No response received from Gemini CLI")
@@ -64,6 +62,9 @@ class GeminiAgent(BaseAgent):
             if approval_mode == 'auto_edit':
                 cmd.extend(['--approval-mode', 'auto_edit'])
                 self.logger.debug("Added --approval-mode auto_edit to Gemini command")
+            elif approval_mode == 'yolo':
+                cmd.extend(['--approval-mode', 'yolo'])
+                self.logger.debug("Added --approval-mode yolo to Gemini command")
             
             # Add any additional CLI options from config
             if 'additional_args' in self.config:

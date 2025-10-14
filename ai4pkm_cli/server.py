@@ -114,16 +114,32 @@ class Server:
                     # This is a voice call
                     is_voice = True
                 
-                # Extract the latest user message from messages array
+                # Extract messages and build conversation context
                 messages = data.get('messages', [])
-                user_messages = [msg for msg in messages if msg.get('role') == 'user']
-                if not user_messages:
-                    return jsonify({"error": "No user message found in messages"}), 400
-                    
-                message = user_messages[-1].get('content', '')
+                if not messages:
+                    return jsonify({"error": "No messages found in request"}), 400
+                
+                # Build conversation context from all messages
+                conversation_context = ""
+                for msg in messages:
+                    role = msg.get('role', '')
+                    content = msg.get('content', '')
+                    if role == 'user':
+                        conversation_context += f"User: {content}\n\n"
+                    elif role == 'assistant':
+                        conversation_context += f"Assistant: {content}\n\n"
+                
+                conversation_context = f'''## System Prompt ##
+You are a personal superintelligence. Answer based on the transcription and image capture data in Ingest/Gobi/yyyy-MM-dd.md.
+
+## Conversation ##
+{conversation_context}
+
+Assistant:'''
+
                 conversation_id = data.get('call', {}).get('id')
                 
-                self.logger.info(f"Received chat completions request: {message[:100]}...")
+                self.logger.info(f"Full conversation context:\n{conversation_context}")
                 
                 # Check if streaming is requested
                 stream = data.get('stream', False)
@@ -131,8 +147,8 @@ class Server:
                 if stream:
                     # Return SSE streaming response
                     def generate_stream():
-                        # Execute the prompt using the configured agent
-                        result = self.agent.run_prompt(inline_prompt=message)
+                        # Execute the prompt using the configured agent with full conversation context
+                        result = self.agent.run_prompt(inline_prompt=conversation_context)
                         created = int(time.time())
 
                         if result and result[0]:
@@ -258,7 +274,7 @@ class Server:
                     )
                 else:
                     # Non-streaming response (original behavior)
-                    result = self.agent.run_prompt(inline_prompt=message)
+                    result = self.agent.run_prompt(inline_prompt=conversation_context)
                     
                     if result and result[0]:
                         response_text = result[0]

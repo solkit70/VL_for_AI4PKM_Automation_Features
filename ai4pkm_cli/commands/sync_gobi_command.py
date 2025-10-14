@@ -47,7 +47,7 @@ class SyncGobiCommand:
                 self.logger.info(f"Using system local timezone: {timezone_name}")
             self.output_dir.mkdir(parents=True, exist_ok=True)
             
-            transcriptions, frames = self.fetch_all_data()
+            transcriptions, frames = self.fetch_all_data(timezone_name)
 
             markdowns = self.format_data_markdown(transcriptions, frames, timezone_name)
 
@@ -63,7 +63,7 @@ class SyncGobiCommand:
             self.logger.error(f"An error occurred during Gobi sync command: {e}")
             return False
 
-    def fetch_all_data(self):
+    def fetch_all_data(self, timezone_name):
         print("ℹ️  Fetching recent data...")
 
         last_sync_time_file = self.output_dir / "lastSyncTime.txt"
@@ -71,7 +71,7 @@ class SyncGobiCommand:
             with open(last_sync_time_file, "r") as f:
                 last_sync_time = int(f.read())
                 last_sync_time = int(
-                    datetime.fromtimestamp(last_sync_time / 1000)
+                    datetime.fromtimestamp(last_sync_time / 1000).astimezone(pytz.timezone(timezone_name))
                     .replace(hour=0, minute=0, second=0, microsecond=0)
                     .timestamp()
                     * 1000

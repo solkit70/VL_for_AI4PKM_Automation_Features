@@ -163,7 +163,6 @@ class CronManager:
                 time_diff = (now - prev_run).total_seconds()
                 if 0 <= time_diff < 60:
                     if not enabled:
-                        self.logger.info(f"Skipping disabled job: {job}")
                         continue
 
                     agent = self._get_agent_for_job(job)

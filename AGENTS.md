@@ -33,6 +33,7 @@ NEVER proactively create documentation or README files.
 ## Search over files
 - For searching over topic or dates, start from `Topics` or `Roundup` folder
 - Follow markdown link to find related files (use `find` to find exact location)
+* **파일 검색 시 `.gitignore` 고려**: 파일 목록을 찾거나 내용을 검색할 때, `.gitignore`에 의해 제외될 수 있는 경우 `respect_git_ignore=False` 옵션을 사용하여 모든 관련 파일을 포함한다.
 
 ## 📝 Content Creation Requirements
 ### General Guidelines
@@ -84,6 +85,11 @@ tags:
   - If possible add section links too (using `#` suffix)
 - Verify file existence before linking
   - Fix broken links immediately
+- **Link to original sources, not topic indices**
+  - Topic files (e.g., `Topics/Business & Career/Career.md`) are indices/aggregations
+  - Always link to the original article, clipping, or document where content first appeared
+  - Example: Link to `[[Ingest/Articles/2025-08-15 역스킬 현상]]` not `[[Topics/Business & Career/Career#역스킬]]`
+  - This maintains proper source attribution and traceability
 
 ## Source/Prompt-specific Guidelines
 ### Limitless Link Format

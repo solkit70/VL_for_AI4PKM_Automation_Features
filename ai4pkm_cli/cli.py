@@ -312,7 +312,12 @@ class PKMApp:
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('*.md', MarkdownFileHandler),
             ],
-            excluded_patterns=['.git', 'ai4pkm_cli', '_Settings_'],
+            excluded_patterns=[
+                '.git',
+                'ai4pkm_cli',
+                '_Settings_',
+                'AI/Tasks',
+            ],
             logger=self.logger,
             workspace_path=os.getcwd()
         )

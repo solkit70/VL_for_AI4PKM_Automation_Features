@@ -1,38 +1,24 @@
-Generate knowledge tasks from multiple sources and process them efficiently.
+Generate knowledge tasks from task generation request file and process them efficiently.
 
 ## Main Process
 
 ```
-0. RUN HELPER SCRIPT
-   └─ Execute: python _Settings_/Tools/automation/ktg_helper.py --days 3 --output _Settings_/Tools/ktg_candidates.json --verbose
-   └─ Load JSON results from ktg_candidates.json
-   └─ Review metadata (scan_date, total_candidates)
-
-1. PROCESS SOURCES (from helper script results)¹
-   └─ Unprocessed docs → Create EIC task²
-   └─ Tagged docs (#TODO, #TOWRITE, #TOREAD, #TOSEARCH)³
-   └─ Limitless PKM requests⁴ → Update Journal or create task
-   └─ Recent calendar events → GES⁵ (manual check via MCP)
-
-2. VALIDATE
-   └─ Time scope check (already done by helper script)
+1. VALIDATE
    └─ Duplicate check in AI/Tasks/YYYY-MM-DD*
    └─ Status consistency⁶
 
-3. PROCESS
+2. PROCESS
    └─ Simple tasks: Execute immediately⁷
    └─ Complex tasks: Create task file⁸
 
-4. CREATE TASK (if complex)
+3. CREATE TASK (if complex)
    └─ Use [[Task Template]]
    └─ File: AI/Tasks/YYYY-MM-DD [Description].md
    └─ Properties: Priority, Status, Source
    └─ Structure: Input, Context, Requirements, Inferred
 
-5. CLEANUP
-   └─ Update source status
-   └─ Remove TODO tags
-   └─ Mark completed duplicates
+4. CLEANUP (only if task creation request source is "Markdown")
+   └─ Remove the tags that triggered task creation
 ```
 
 ## Caveats

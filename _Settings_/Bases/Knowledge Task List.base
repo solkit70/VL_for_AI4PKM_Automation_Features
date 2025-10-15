@@ -3,7 +3,7 @@ views:
     name: Table
     filters:
       and:
-        - file.path.startsWith("AI/Tasks/")
+        - file.folder == "AI/Tasks"
         - file.ext == "md"
     order:
       - file.name

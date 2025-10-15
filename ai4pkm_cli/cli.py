@@ -13,6 +13,8 @@ from .config import Config
 from .agent_factory import AgentFactory
 from .commands.command_runner import CommandRunner
 from .server import Server
+from watchdog.observers import Observer
+from .watchdog.file_watchdog import FileWatchdogHandler
 
 
 class PKMApp:
@@ -299,7 +301,32 @@ class PKMApp:
         # Display welcome message
         self._display_welcome()
 
+        from .watchdog.handlers.task_request_file_handler import TaskRequestFileHandler
+        from .watchdog.handlers.gobi_file_handler import GobiFileHandler
+        from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
+        from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
+        event_handler = FileWatchdogHandler(
+            pattern_handlers=[
+                ('AI/Tasks/Requests/*/*.md', TaskRequestFileHandler),
+                ('Ingest/Gobi/*.md', GobiFileHandler),
+                ('Ingest/Limitless/*.md', LimitlessFileHandler),
+                ('*.md', MarkdownFileHandler),
+            ],
+            excluded_patterns=['.git', 'ai4pkm_cli', '_Settings_'],
+            logger=self.logger,
+            workspace_path=os.getcwd()
+        )
+
+        # Create an Observer instance
+        observer = Observer()
+        observer.schedule(event_handler, '.', recursive=True)
+        observer.start()
+        self.console.print(f"\n[green]🐶 File Watchdog Monitoring started.[/green]")
+
         self.cron_manager.start()
+
+        observer.stop()
+        observer.join()
 
     def _display_welcome(self):
         """Display welcome message and status."""

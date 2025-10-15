@@ -60,19 +60,19 @@ class BaseFileHandler(ABC):
             if not os.path.exists(requests_dir):
                 return None
             
-            # Find all markdown files in the requests directory
-            files = [f for f in os.listdir(requests_dir) if f.endswith('.md')]
+            # Find all json files in the requests directory
+            files = [f for f in os.listdir(requests_dir) if f.endswith('.json')]
             
             if not files:
                 return None
             
-            # Parse timestamps from filenames (format: YYYY-MM-DD-{milliseconds}.md)
+            # Parse timestamps from filenames (format: YYYY-MM-DD-{milliseconds}.json)
             latest_timestamp = None
             
             for filename in files:
                 # Extract date and milliseconds from filename
-                # Pattern: YYYY-MM-DD-{milliseconds}.md
-                match = re.match(r'(\d{4}-\d{2}-\d{2})-(\d+)\.md', filename)
+                # Pattern: YYYY-MM-DD-{milliseconds}.json
+                match = re.match(r'(\d{4}-\d{2}-\d{2})-(\d+)\.json', filename)
                 if match:
                     date_str = match.group(1)
                     milliseconds_str = match.group(2)

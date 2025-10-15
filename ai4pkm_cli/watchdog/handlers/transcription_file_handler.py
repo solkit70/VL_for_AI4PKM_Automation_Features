@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 from datetime import datetime
 from typing import List, Tuple, Dict
 from ..file_watchdog import BaseFileHandler
@@ -67,20 +68,20 @@ class TranscriptionFileHandler(BaseFileHandler):
     
     def _save_candidates_to_file(self, candidates: List[Dict]) -> None:
         """
-        Save task creation request candidates to a markdown file.
+        Save task creation request candidates to a JSON file.
         
-        Saves to: AI/Tasks/Requests/{source}/YYYY-MM-DD-{milliseconds}.md
+        Saves to: AI/Tasks/Requests/{source}/YYYY-MM-DD-{milliseconds}.json
         
         Args:
             candidates: List of candidate dictionaries
         """
         try:
-            # Generate filename: YYYY-MM-DD-{milliseconds}.md
+            # Generate filename: YYYY-MM-DD-{milliseconds}.json
             now = datetime.now()
             date_str = now.strftime('%Y-%m-%d')
             # Get milliseconds since epoch
             milliseconds = int(now.timestamp() * 1000)
-            filename = f"{date_str}-{milliseconds}.md"
+            filename = f"{date_str}-{milliseconds}.json"
             
             # Get output directory (AI/Tasks/Requests/{source}/)
             output_dir = self._get_requests_dir()
@@ -88,59 +89,35 @@ class TranscriptionFileHandler(BaseFileHandler):
             
             output_path = os.path.join(output_dir, filename)
             
-            # Generate markdown content
-            content = self._generate_markdown_content(candidates, now)
+            # Generate JSON content
+            content = self._generate_json_content(candidates, now)
             
             # Write to file
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+                json.dump(content, f, indent=2, ensure_ascii=False)
             
             self.logger.info(f"Saved {len(candidates)} task creation request(s) to: {output_path}")
             
         except Exception as e:
             self.logger.error(f"Error saving candidates to file: {e}")
     
-    def _generate_markdown_content(self, candidates: List[Dict], generated_time: datetime) -> str:
+    def _generate_json_content(self, candidates: List[Dict], generated_time: datetime) -> Dict:
         """
-        Generate markdown content for candidates.
+        Generate JSON content for candidates.
         
         Args:
             candidates: List of candidate dictionaries
             generated_time: Time when the file was generated
             
         Returns:
-            Markdown formatted string
+            Dictionary to be serialized as JSON
         """
-        lines = []
-        
-        # Frontmatter
-        lines.append("---")
-        lines.append(f"generated: {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"handler: {self.__class__.__name__}")
-        lines.append(f"total_requests: {len(candidates)}")
-        lines.append("---")
-        lines.append("")
-        
-        # Title
-        lines.append(f"# Task Creation Requests - {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append("")
-        lines.append(f"Found {len(candidates)} task creation request(s) in transcripts.")
-        lines.append("")
-        
-        # Each candidate
-        for idx, candidate in enumerate(candidates, 1):
-            lines.append(f"## Request {idx}")
-            lines.append("")
-            lines.append(f"- **File**: `{candidate['file']}`")
-            lines.append(f"- **Timestamp**: {candidate['timestamp']}")
-            lines.append(f"- **Has Preference**: {'✓' if candidate['has_preference'] else '✗'}")
-            lines.append("")
-            lines.append("### Context")
-            lines.append("")
-            lines.append("```")
-            lines.append(candidate['context'])
-            lines.append("```")
-            lines.append("")
-        
-        return '\n'.join(lines)
+        return {
+            "metadata": {
+                "generated": generated_time.strftime('%Y-%m-%d %H:%M:%S'),
+                "handler": self.__class__.__name__,
+                "total_requests": len(candidates)
+            },
+            "requests": candidates
+        }
 

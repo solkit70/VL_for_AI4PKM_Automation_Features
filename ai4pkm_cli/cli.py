@@ -309,7 +309,7 @@ class PKMApp:
         from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
-                ('AI/Tasks/Requests/*/*.md', TaskRequestFileHandler),
+                ('AI/Tasks/Requests/*/*.json', TaskRequestFileHandler),
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('Ingest/Clippings/*.md', ClippingFileHandler),

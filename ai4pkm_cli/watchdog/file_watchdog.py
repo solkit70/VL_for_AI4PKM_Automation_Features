@@ -55,7 +55,6 @@ class BaseFileHandler(ABC):
             datetime object of last sync, or None if no files exist
         """
         try:
-            return None
             requests_dir = self._get_requests_dir()
             
             if not os.path.exists(requests_dir):

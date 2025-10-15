@@ -304,12 +304,14 @@ class PKMApp:
         from .watchdog.handlers.task_request_file_handler import TaskRequestFileHandler
         from .watchdog.handlers.gobi_file_handler import GobiFileHandler
         from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
+        from .watchdog.handlers.clipping_file_handler import ClippingFileHandler
         from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
                 ('AI/Tasks/Requests/*/*.md', TaskRequestFileHandler),
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
+                ('Ingest/Clippings/*.md', ClippingFileHandler),
                 ('*.md', MarkdownFileHandler),
             ],
             excluded_patterns=[

@@ -305,6 +305,7 @@ class PKMApp:
         from .watchdog.handlers.gobi_file_handler import GobiFileHandler
         from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
         from .watchdog.handlers.clipping_file_handler import ClippingFileHandler
+        from .watchdog.handlers.hashtag_file_handler import HashtagFileHandler
         from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
@@ -312,12 +313,11 @@ class PKMApp:
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('Ingest/Clippings/*.md', ClippingFileHandler),
-                ('*.md', MarkdownFileHandler),
+                ('*.md', HashtagFileHandler),
             ],
             excluded_patterns=[
                 '.git',
                 'ai4pkm_cli',
-                '_Settings_',
                 'AI/Tasks',
             ],
             logger=self.logger,

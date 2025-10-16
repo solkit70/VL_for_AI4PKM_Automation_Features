@@ -5,6 +5,7 @@ import sys
 import json
 import re
 import subprocess
+import threading
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
@@ -27,46 +28,83 @@ class KTPRunner:
         self.config = config or Config()
         self.workspace_path = os.getcwd()
         self.tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
-        self.routing = self.config.get_ktp_routing()
+        self.processing_agent = self.config.get_ktp_routing()  # Maps task type to agent for Phase 1 & 2
         self.timeout_minutes = self.config.get_ktp_timeout()
         self.max_retries = self.config.get_ktp_max_retries()
         
+    def evaluate_task(self, task_file: str):
+        """Evaluate a single PROCESSED task (Phase 3 only).
+
+        Args:
+            task_file: Task filename to evaluate
+        """
+        self.logger.info(f"🔍 Evaluating task: {task_file}")
+
+        # Read task data
+        task_path = os.path.join(self.tasks_dir, task_file)
+        if not os.path.exists(task_path):
+            self.logger.error(f"Task file not found: {task_file}")
+            return
+
+        task_data = self._read_task_file(task_path)
+
+        # Can evaluate either PROCESSED (not yet evaluated) or UNDER_REVIEW (retry)
+        status = task_data.get('status', '')
+        if status not in ['PROCESSED', 'UNDER_REVIEW']:
+            self.logger.warning(f"Task status is {status}, expected PROCESSED or UNDER_REVIEW")
+
+        # Run Phase 3 evaluation
+        self._phase3_evaluate_task(task_file, task_data)
+    
     def run_tasks(self, task_file: str = None, priority: str = None, status: str = None):
         """Run tasks based on filters.
-        
+
         Args:
             task_file: Specific task filename to process (optional)
             priority: Filter by priority (P0, P1, P2, P3)
             status: Filter by status (TBD, IN_PROGRESS, UNDER_REVIEW)
         """
         self.logger.info("🚀 Starting KTP (Knowledge Task Processor)")
-        
+
         # If specific task file provided, process only that
         if task_file:
             self._process_single_task(task_file)
             return
-            
+
         # Otherwise, get task queue from Task Status Manager
         tasks = self._get_task_queue(priority, status)
-        
+
         if not tasks:
             self.logger.info("No tasks found matching criteria")
             return
-            
+
         self.logger.info(f"Found {len(tasks)} task(s) to process")
-        
-        # Process each task
+
+        # Process each task based on requested status
+        threads = []
         for idx, task in enumerate(tasks, 1):
             self.logger.info(f"\n{'='*60}")
             self.logger.info(f"Processing task {idx}/{len(tasks)}: {task['file']}")
             self.logger.info(f"{'='*60}")
-            
+
             try:
-                self._process_task(task['file'])
+                # If status filter is PROCESSED or UNDER_REVIEW, spawn thread for evaluation
+                if status in ['PROCESSED', 'UNDER_REVIEW']:
+                    thread = self._spawn_evaluation_thread(task['file'])
+                    threads.append(thread)
+                else:
+                    # Normal processing (handles TBD and IN_PROGRESS)
+                    # Spawn thread for processing
+                    thread = self._spawn_processing_thread(task['file'])
+                    threads.append(thread)
             except Exception as e:
                 self.logger.error(f"Error processing task {task['file']}: {e}")
                 continue
-                
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+
         self.logger.info("\n✅ KTP processing complete")
     
     def _get_task_queue(self, priority: str = None, status: str = None) -> List[Dict[str, Any]]:
@@ -79,17 +117,13 @@ class KTPRunner:
         Returns:
             List of task dictionaries
         """
-        # Run task status manager script
-        script_path = os.path.join(
-            self.workspace_path, 
-            "ai4pkm_cli", 
-            "scripts", 
-            "task_status.py"
-        )
+        # Run task status manager script (relative to this module's location)
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_path = os.path.join(module_dir, "scripts", "task_status.py")
         
         if not os.path.exists(script_path):
             self.logger.error(f"Task Status Manager script not found: {script_path}")
-            self.logger.error(f"Workspace path: {self.workspace_path}")
+            self.logger.error(f"Module directory: {module_dir}")
             self.logger.error(f"Current working directory: {os.getcwd()}")
             return []
             
@@ -98,10 +132,10 @@ class KTPRunner:
         
         if priority:
             cmd.extend(['--priority', priority])
-            
+
         if status:
             cmd.extend(['--status', status])
-        elif not status:
+        else:
             # Default to TBD if no status specified
             cmd.extend(['--status', 'TBD'])
             
@@ -144,7 +178,58 @@ class KTPRunner:
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             return []
-    
+
+    def _spawn_evaluation_thread(self, task_file: str) -> threading.Thread:
+        """Spawn a thread for task evaluation.
+
+        Args:
+            task_file: Task filename to evaluate
+
+        Returns:
+            Thread object
+        """
+        # Get evaluation agent name from config
+        agent_name = self.config.get_evaluation_agent()
+        agent_short = agent_name.replace('_cli', '').replace('_code', '')  # claude, gemini, codex
+
+        thread = threading.Thread(
+            target=self.evaluate_task,
+            args=(task_file,),
+            daemon=True,
+            name=f"KTP-eval-{agent_short}-{task_file}"
+        )
+        thread.start()
+        return thread
+
+    def _spawn_processing_thread(self, task_file: str) -> threading.Thread:
+        """Spawn a thread for task processing.
+
+        Args:
+            task_file: Task filename to process
+
+        Returns:
+            Thread object
+        """
+        # Determine agent from task type
+        task_path = os.path.join(self.tasks_dir, task_file)
+        try:
+            task_data = self._read_task_file(task_path)
+            task_type = task_data.get('task_type', 'Unknown')
+            agent_name = self.processing_agent.get(task_type, self.processing_agent.get('default', 'claude_code'))
+            agent_short = agent_name.replace('_cli', '').replace('_code', '')  # claude, gemini, codex
+        except Exception as e:
+            self.logger.warning(f"Could not determine agent for {task_file}, using default: {e}")
+            agent_short = "unknown"
+
+        thread = threading.Thread(
+            target=self._process_task,
+            args=(task_file,),
+            daemon=True,
+            name=f"KTP-exec-{agent_short}-{task_file}"
+        )
+        thread.start()
+        return thread
+
     def _process_single_task(self, task_file: str):
         """Process a single task file.
         
@@ -177,7 +262,10 @@ class KTPRunner:
             self._phase1_route_task(task_file, task_data)
         elif current_status == 'IN_PROGRESS':
             self._phase2_execute_task(task_file, task_data)
+        elif current_status == 'PROCESSED':
+            self._phase3_evaluate_task(task_file, task_data)
         elif current_status == 'UNDER_REVIEW':
+            # Retry evaluation if it was interrupted
             self._phase3_evaluate_task(task_file, task_data)
         elif current_status == 'COMPLETED':
             self.logger.info("Task already completed, skipping")
@@ -195,7 +283,7 @@ class KTPRunner:
         
         # Determine agent based on task type
         task_type = task_data.get('task_type', 'Unknown')
-        agent_name = self.routing.get(task_type, self.routing.get('default', 'claude_code'))
+        agent_name = self.processing_agent.get(task_type, self.processing_agent.get('default', 'claude_code'))
         
         self.logger.info(f"Task type: {task_type}")
         self.logger.info(f"Routing to agent: {agent_name}")
@@ -210,54 +298,54 @@ class KTPRunner:
     
     def _phase2_execute_task(self, task_file: str, task_data: Dict[str, Any]):
         """Phase 2: Execute task with selected agent.
-        
+
         Args:
             task_file: Task filename
             task_data: Task metadata dictionary
         """
-        self.logger.info("\n⚙️  Phase 2: Execution & Monitoring (IN_PROGRESS → UNDER_REVIEW)")
-        
+        self.logger.info("\n⚙️  Phase 2: Execution & Monitoring (IN_PROGRESS → PROCESSED)")
+
         # Get agent
-        worker = task_data.get('worker', self.routing.get('default', 'claude_code'))
-        
+        worker = task_data.get('worker', self.processing_agent.get('default', 'claude_code'))
+
         try:
             agent = AgentFactory.create_agent_by_name(worker, self.logger, self.config)
         except ValueError as e:
             self.logger.error(f"Failed to create agent: {e}")
             self._update_task_status(task_file, 'FAILED', worker=worker)
             return
-            
+
         # Build prompt for agent
         task_path = os.path.join(self.tasks_dir, task_file)
         prompt = f"Process the knowledge task defined in the file: {task_path}\n\n"
         prompt += "Follow the instructions in the task file and update the task file with:\n"
         prompt += "- Process Log entries documenting your work\n"
         prompt += "- Output property with wiki links to created files\n"
-        prompt += "- Status updated to UNDER_REVIEW when complete\n"
-        
+        prompt += "- Status updated to PROCESSED when complete\n"
+
         self.logger.info(f"Executing task with agent: {worker}")
-        
+
         try:
             # Execute the task
             result = agent.run_prompt(inline_prompt=prompt)
-            
+
             if result:
                 response_text, session_id = result
                 self.logger.info("✅ Task execution completed")
-                
-                # Check if status was updated to UNDER_REVIEW
+
+                # Check if status was updated to PROCESSED
                 updated_data = self._read_task_file(task_path)
-                if updated_data.get('status') == 'UNDER_REVIEW':
-                    self.logger.info("Status updated to UNDER_REVIEW by agent")
+                if updated_data.get('status') == 'PROCESSED':
+                    self.logger.info("Status updated to PROCESSED by agent")
                     # Proceed to Phase 3
                     self._phase3_evaluate_task(task_file, updated_data)
                 else:
                     # Agent didn't update status, do it manually
                     self.logger.warning("Agent didn't update status, updating manually")
-                    self._update_task_status(task_file, 'UNDER_REVIEW', worker=worker)
+                    self._update_task_status(task_file, 'PROCESSED', worker=worker)
             else:
                 self.logger.warning("Task execution completed with no response")
-                self._update_task_status(task_file, 'UNDER_REVIEW', worker=worker)
+                self._update_task_status(task_file, 'PROCESSED', worker=worker)
                 
         except Exception as e:
             self.logger.error(f"Error executing task: {e}")
@@ -273,44 +361,190 @@ class KTPRunner:
     
     def _phase3_evaluate_task(self, task_file: str, task_data: Dict[str, Any]):
         """Phase 3: Evaluate task results and complete or request refinements.
-        
+
         Args:
             task_file: Task filename
             task_data: Task metadata dictionary
         """
-        self.logger.info("\n✓ Phase 3: Results Evaluation (UNDER_REVIEW → COMPLETE)")
-        
-        # Read current task state
+        self.logger.info("\n✓ Phase 3: Results Evaluation (PROCESSED → UNDER_REVIEW → COMPLETED or FAILED)")
+
+        # Mark as actively under review
         task_path = os.path.join(self.tasks_dir, task_file)
         current_data = self._read_task_file(task_path)
+
+        # Only update to UNDER_REVIEW if currently PROCESSED (not already UNDER_REVIEW from retry)
+        if current_data.get('status') == 'PROCESSED':
+            self._update_task_status(task_file, 'UNDER_REVIEW', worker=current_data.get('worker', ''))
+            # Re-read after status update
+            current_data = self._read_task_file(task_path)
+
+        # Read task content
+        task_content = self._read_file_content(task_path)
+
+        # AI-powered evaluation (includes output validation)
+        self.logger.info("🤖 Running AI evaluation of task output...")
+        evaluation_result = self._evaluate_with_ai(task_file, task_data, current_data, task_content)
         
-        # Validate outputs
-        output_links = current_data.get('output', '')
-        
-        if not output_links:
-            self.logger.warning("⚠️  No output property found in task")
-            self.logger.info("Task may need manual review")
-            # Keep status as UNDER_REVIEW for manual review
-            return
-            
-        # Parse and validate wiki links
-        valid_outputs = self._validate_output_links(output_links)
-        
-        if valid_outputs:
-            self.logger.info(f"✅ Validated {len(valid_outputs)} output file(s)")
-            
-            # Check for process log
-            task_content = self._read_file_content(task_path)
-            if '## Process Log' not in task_content:
-                self.logger.warning("⚠️  No Process Log section found")
-            
-            # Mark as complete
+        if evaluation_result['approved']:
+            # Mark as completed
             self._update_task_status(task_file, 'COMPLETED', worker=current_data.get('worker', ''))
-            self.logger.info("🎉 Task completed successfully")
+            self.logger.info(f"🎉 Task completed successfully: {evaluation_result['reason']}")
         else:
-            self.logger.warning("⚠️  Output validation failed")
-            self.logger.info("Task may need refinement or manual review")
-            # Keep status as UNDER_REVIEW for manual intervention
+            # Mark as failed with feedback
+            self.logger.warning(f"❌ Task failed review: {evaluation_result['reason']}")
+            self._fail_task(task_file, evaluation_result['reason'], evaluation_result.get('feedback', ''))
+    
+    def _evaluate_with_ai(self, task_file: str, task_data: Dict[str, Any], current_data: Dict[str, Any], task_content: str) -> Dict[str, Any]:
+        """Use AI to evaluate if task output meets requirements.
+
+        Args:
+            task_file: Task filename
+            task_data: Task metadata
+            current_data: Current task frontmatter data
+            task_content: Full task file content
+
+        Returns:
+            Dictionary with 'approved' (bool), 'reason' (str), 'feedback' (str)
+        """
+        try:
+            # Extract instructions from task
+            instructions_match = re.search(r'## Instructions\s*\n(.*?)(?=\n##|\Z)', task_content, re.DOTALL)
+            instructions = instructions_match.group(1).strip() if instructions_match else "No instructions found"
+
+            # Get output property from task
+            output_links = current_data.get('output', '')
+
+            # Parse wiki links and build file path list
+            output_file_paths = []
+            if output_links:
+                valid_outputs = self._validate_output_links(output_links)
+                output_file_paths = valid_outputs
+
+            # Build output files section with paths only
+            if output_file_paths:
+                output_section = "The following output files were created:\n"
+                for output_file in output_file_paths:
+                    output_section += f"- {output_file}\n"
+                output_section += "\nPlease review these files to evaluate if the task was completed successfully."
+            else:
+                output_section = "No output files specified or found."
+
+            # Get task file path for agent to access
+            task_path = os.path.join(self.tasks_dir, task_file)
+
+            # Build evaluation prompt
+            prompt = f"""Review this task and its output to determine if it should be marked COMPLETED or FAILED.
+
+Task File: {task_path}
+Task Type: {task_data.get('task_type', 'Unknown')}
+Priority: {task_data.get('priority', 'P2')}
+
+## Original Instructions
+{instructions}
+
+## Output Files
+{output_section}
+
+## Evaluation Criteria
+1. Are output files specified in the 'output' property?
+2. Do the output files exist and are they accessible?
+3. Does the output address the task instructions?
+4. Is the output complete and well-structured?
+5. Are there any obvious errors or omissions?
+
+Respond with:
+- APPROVED if the task is complete and meets all requirements
+- NEEDS_REWORK if the task has issues (missing outputs, incorrect content, etc.)
+
+Format your response as:
+DECISION: [APPROVED or NEEDS_REWORK]
+REASON: [brief explanation]
+FEEDBACK: [specific improvements needed if NEEDS_REWORK]"""
+
+            # Get agent for evaluation (use configured evaluation agent)
+            evaluation_agent_name = self.config.get_evaluation_agent()
+            agent = AgentFactory.create_agent_by_name(evaluation_agent_name, self.logger, self.config)
+            
+            # Execute evaluation
+            result = agent.run_prompt(inline_prompt=prompt)
+            
+            if result and result[0]:
+                response = result[0]
+                
+                # Parse response
+                decision_match = re.search(r'DECISION:\s*(APPROVED|NEEDS_REWORK)', response, re.IGNORECASE)
+                reason_match = re.search(r'REASON:\s*(.+?)(?=\n(?:FEEDBACK:|$))', response, re.DOTALL)
+                feedback_match = re.search(r'FEEDBACK:\s*(.+?)$', response, re.DOTALL)
+                
+                decision = decision_match.group(1).upper() if decision_match else "NEEDS_REWORK"
+                reason = reason_match.group(1).strip() if reason_match else "AI evaluation completed"
+                feedback = feedback_match.group(1).strip() if feedback_match else ""
+                
+                return {
+                    'approved': decision == 'APPROVED',
+                    'reason': reason,
+                    'feedback': feedback
+                }
+            else:
+                self.logger.warning("No response from AI evaluator")
+                return {
+                    'approved': False,
+                    'reason': "AI evaluation failed - no response",
+                    'feedback': "Manual review required"
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error in AI evaluation: {e}")
+            return {
+                'approved': False,
+                'reason': f"AI evaluation error: {str(e)}",
+                'feedback': "Manual review required"
+            }
+    
+    def _fail_task(self, task_file: str, reason: str, feedback: str = ""):
+        """Mark task as FAILED with feedback.
+
+        Args:
+            task_file: Task filename
+            reason: Reason for failure
+            feedback: Detailed feedback explaining why it failed
+        """
+        self.logger.info(f"❌ Adding failure feedback to task and marking as FAILED")
+
+        # Read task file
+        task_path = os.path.join(self.tasks_dir, task_file)
+        with open(task_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Add review feedback section
+        feedback_section = f"""
+
+## Review Feedback ({datetime.now().strftime('%Y-%m-%d %H:%M')})
+
+**Status**: Failed Review
+
+**Reason**: {reason}
+
+{f"**Feedback**:{chr(10)}{feedback}" if feedback else ""}
+
+---
+"""
+
+        # Append feedback before any existing review sections or at the end
+        if '## Review Feedback' in content:
+            # Find the first review feedback section and insert before it
+            content = content.replace('## Review Feedback', feedback_section + '## Review Feedback', 1)
+        else:
+            # Append to end of file
+            content += feedback_section
+
+        # Write back
+        with open(task_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        # Mark status as FAILED
+        self._update_task_status(task_file, 'FAILED')
+        self.logger.info("💥 Task marked as FAILED")
     
     def _read_task_file(self, task_path: str) -> Dict[str, Any]:
         """Read and parse task file.
@@ -395,12 +629,9 @@ class KTPRunner:
             new_status: New status value
             worker: Worker/agent name (optional)
         """
-        script_path = os.path.join(
-            self.workspace_path, 
-            "ai4pkm_cli", 
-            "scripts", 
-            "task_status.py"
-        )
+        # Get script path relative to this module's location
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_path = os.path.join(module_dir, "scripts", "task_status.py")
         
         cmd = [
             sys.executable, 
@@ -413,6 +644,7 @@ class KTPRunner:
             cmd.extend(['--worker', worker])
             
         try:
+            self.logger.info(f"Updating task status to: {new_status}")
             result = subprocess.run(
                 cmd,
                 cwd=self.workspace_path,
@@ -422,12 +654,20 @@ class KTPRunner:
             )
             
             if result.returncode == 0:
-                self.logger.info(f"Updated task status: {new_status}")
+                if result.stdout:
+                    self.logger.info(result.stdout.strip())
+                self.logger.info(f"✅ Task status updated to: {new_status}")
             else:
-                self.logger.error(f"Failed to update task status: {result.stderr}")
+                self.logger.error(f"Failed to update task status (exit code {result.returncode})")
+                if result.stderr:
+                    self.logger.error(f"STDERR: {result.stderr}")
+                if result.stdout:
+                    self.logger.error(f"STDOUT: {result.stdout}")
                 
         except Exception as e:
             self.logger.error(f"Error updating task status: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
     
     def _update_task_retry(self, task_file: str, retry_count: int):
         """Update task retry count in frontmatter.

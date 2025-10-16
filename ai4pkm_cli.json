@@ -42,14 +42,16 @@
   "web_api": {
       "port": 8000
   },
-  "ktp": {
-    "routing": {
+  "task_management": {
+    "max_concurrent": 1,
+    "processing_agent": {
       "EIC": "claude_code",
       "Research": "gemini_cli",
       "Analysis": "gemini_cli",
       "Writing": "claude_code",
       "default": "claude_code"
     },
+    "evaluation_agent": "claude_code",
     "timeout_minutes": 30,
     "max_retries": 2
   },

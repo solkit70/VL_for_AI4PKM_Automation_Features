@@ -1,6 +1,6 @@
 # FAQ
 
-[← Back to Home](index.md)
+[← Back to Home](AI4PKM/index.md)
 
 ## Frequently Asked Questions
 
@@ -29,7 +29,7 @@ You can switch between them freely with `ai4pkm -a [agent]`.
 ### Setup & Configuration
 
 **Q: How do I get started?**  
-A: Follow the [Getting Started](index.md#getting-started) guide on the homepage. Key steps:
+A: Follow the [Getting Started](AI4PKM/index.md#getting-started) guide on the homepage. Key steps:
 1. Clone the repo
 2. Open in Obsidian
 3. Install CLI (optional)
@@ -53,7 +53,7 @@ A:
 - **WRP**: Weekly review and planning
 - **CKU**: Continuous hourly maintenance
 
-See [Workflows](workflows.md) for detailed explanations.
+See [Workflows](AI4PKM/workflows.md) for detailed explanations.
 
 **Q: Can I run workflows manually?**  
 A: Yes! Use commands like:
@@ -98,7 +98,7 @@ A:
 - Life logs: `Ingest/Limitless/`
 
 **Q: Can I customize prompts?**  
-A: Yes! All prompts are in `_Settings_/Prompts/` as markdown files. Edit them to suit your needs. Follow the standard [Prompt Template](prompts.md#standardized-template-structure) structure.
+A: Yes! All prompts are in `_Settings_/Prompts/` as markdown files. Edit them to suit your needs. Follow the standard [Prompt Template](AI4PKM/prompts.md#standardized-template-structure) structure.
 
 ### Advanced Usage
 
@@ -116,9 +116,9 @@ A: The vault is a git repository. Regular commits and pushes to a remote (GitHub
 
 ## Still Have Questions?
 
-- Check the [Guidelines](guidelines.md) for system architecture
-- Review [Prompts](prompts.md) for detailed prompt documentation
-- See [Workflows](workflows.md) for workflow specifics
+- Check the [Guidelines](AI4PKM/guidelines.md) for system architecture
+- Review [Prompts](AI4PKM/prompts.md) for detailed prompt documentation
+- See [Workflows](AI4PKM/workflows.md) for workflow specifics
 - Read the [CLI Documentation](../README_CLI.md) for command reference
 - Open an issue on GitHub for technical problems
 

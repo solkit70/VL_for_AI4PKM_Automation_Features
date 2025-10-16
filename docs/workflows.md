@@ -1,6 +1,6 @@
 # Workflows
 
-[← Back to Home](index.md)
+[← Back to Home](AI4PKM/index.md)
 
 AI4PKM provides three main workflows that work together to maintain your knowledge base. These workflows ensure your KB is kept up-to-date with automated processing and organization.
 
@@ -186,8 +186,8 @@ ai4pkm --cron
 
 ## See Also
 
-- [Guidelines](guidelines.md) - PKM overview and architecture
-- [Prompts](prompts.md) - Individual prompt details
-- [FAQ](faq.md) - Frequently asked questions and troubleshooting
+- [Guidelines](AI4PKM/guidelines.md) - PKM overview and architecture
+- [Prompts](AI4PKM/prompts.md) - Individual prompt details
+- [FAQ](AI4PKM/faq.md) - Frequently asked questions and troubleshooting
 - [CLI Documentation](../README_CLI.md) - Full CLI reference
 

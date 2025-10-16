@@ -1,6 +1,6 @@
 # Prompts
 
-[← Back to Home](index.md)
+[← Back to Home](AI4PKM/index.md)
 
 ## Overview
 
@@ -123,7 +123,7 @@ ai4pkm -a gemini -p "EIC on new articles"
 
 ## See Also
 
-- [Guidelines](guidelines.md) - PKM overview and principles
-- [Workflows](workflows.md) - How prompts work together in workflows
-- [FAQ](faq.md) - Frequently asked questions
+- [Guidelines](AI4PKM/guidelines.md) - PKM overview and principles
+- [Workflows](AI4PKM/workflows.md) - How prompts work together in workflows
+- [FAQ](AI4PKM/faq.md) - Frequently asked questions
 

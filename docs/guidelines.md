@@ -1,6 +1,6 @@
 # Guidelines
 
-[← Back to Home](index.md)
+[← Back to Home](AI4PKM/index.md)
 
 ## PKM Overview
 
@@ -94,7 +94,7 @@ Common tags include:
 
 ## See Also
 
-- [Prompts](prompts.md) - Standardized prompt system
-- [Workflows](workflows.md) - Daily, weekly, and continuous workflows
-- [FAQ](faq.md) - Frequently asked questions
+- [Prompts](AI4PKM/prompts.md) - Standardized prompt system
+- [Workflows](AI4PKM/workflows.md) - Daily, weekly, and continuous workflows
+- [FAQ](AI4PKM/faq.md) - Frequently asked questions
 

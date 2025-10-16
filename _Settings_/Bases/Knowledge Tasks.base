@@ -3,7 +3,7 @@ views:
     name: Table
     filters:
       and:
-        - file.folder == "AI/Tasks"
+        - file.path.startsWith("AI/Tasks/")
         - file.ext == "md"
     order:
       - file.name
@@ -11,6 +11,7 @@ views:
       - status
       - priority
       - worker
+      - task_type
     sort:
       - property: created
         direction: DESC

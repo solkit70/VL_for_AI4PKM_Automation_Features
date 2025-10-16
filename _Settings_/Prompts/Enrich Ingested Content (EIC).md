@@ -43,6 +43,11 @@ Improve captured content through transcript correction, summarization, and knowl
 ```
 
 ## Caveats
+### Rename Filenames
+* Convert “ ” (curly/typographic quotes) to " (straight quote)
+* Remove incomplete words -- 40살 전에 알았다면 `얼마ᄂ`
+* Remove `Readwise` at the end
+
 ### Content Processing
 ⚠️ **CRITICAL**: For long articles, chunk contents first to avoid partial processing
 

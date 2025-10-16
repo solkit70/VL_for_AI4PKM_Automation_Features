@@ -1,6 +1,6 @@
 title: AI4PKM
 description: Personal Knowledge Management for the AI Era
-theme: minimal
+theme: hacker
 markdown: kramdown
 baseurl: "/AI4PKM"
 url: ""

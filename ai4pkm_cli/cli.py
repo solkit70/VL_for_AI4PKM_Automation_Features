@@ -301,7 +301,17 @@ class PKMApp:
         # Display welcome message
         self._display_welcome()
 
+        # Process all existing TBD tasks at startup
+        self.console.print("\n[cyan]🔍 Processing existing TBD tasks...[/cyan]")
+        try:
+            self.execute_command("ktp", {})
+            self.console.print("[green]✅ Initial task processing complete[/green]\n")
+        except Exception as e:
+            self.logger.error(f"Error processing initial tasks: {e}")
+            self.console.print(f"[yellow]⚠️  Initial task processing failed: {e}[/yellow]\n")
+
         from .watchdog.handlers.task_request_file_handler import TaskRequestFileHandler
+        from .watchdog.handlers.tbd_task_handler import TBDTaskHandler
         from .watchdog.handlers.gobi_file_handler import GobiFileHandler
         from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
         from .watchdog.handlers.clipping_file_handler import ClippingFileHandler
@@ -310,6 +320,7 @@ class PKMApp:
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
                 ('AI/Tasks/Requests/*/*.json', TaskRequestFileHandler),
+                ('AI/Tasks/*.md', TBDTaskHandler),
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('Ingest/Clippings/*.md', ClippingFileHandler),
@@ -318,7 +329,7 @@ class PKMApp:
             excluded_patterns=[
                 '.git',
                 'ai4pkm_cli',
-                'AI/Tasks',
+                'AI/Tasks/Requests',
             ],
             logger=self.logger,
             workspace_path=os.getcwd()
@@ -526,6 +537,9 @@ class PKMApp:
         self.console.print(f'  [cyan]ai4pkm -p "GDR"[/cyan]              Run a prompt')
         self.console.print(
             f'  [cyan]ai4pkm -a g -p "TKI"[/cyan]          Run prompt with specific agent'
+        )
+        self.console.print(
+            f"  [cyan]ai4pkm --ktp[/cyan]                  Process knowledge tasks (KTP)"
         )
         self.console.print(
             f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler"

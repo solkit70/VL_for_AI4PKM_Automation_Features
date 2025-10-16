@@ -24,6 +24,25 @@ def signal_handler(sig, frame):
 @click.option("-cmd", "--command", help="Execute a one-time command")
 @click.option("-args", "--arguments", help="Arguments for the command", default="{}")
 @click.option(
+    "--ktp",
+    is_flag=True,
+    help="Run Knowledge Task Processor (process tasks from AI/Tasks/)",
+)
+@click.option(
+    "--ktp-task",
+    help="Process specific task file with KTP (e.g., 2025-10-16-task.md)",
+)
+@click.option(
+    "--ktp-priority",
+    type=click.Choice(["P0", "P1", "P2", "P3"], case_sensitive=False),
+    help="Filter KTP tasks by priority",
+)
+@click.option(
+    "--ktp-status",
+    type=click.Choice(["TBD", "IN_PROGRESS", "UNDER_REVIEW"], case_sensitive=False),
+    help="Filter KTP tasks by status (default: TBD)",
+)
+@click.option(
     "-t",
     "--test",
     "test_cron",
@@ -47,6 +66,10 @@ def main(
     prompt,
     command,
     arguments,
+    ktp,
+    ktp_task,
+    ktp_priority,
+    ktp_status,
     test_cron,
     run_cron,
     agent,
@@ -74,6 +97,17 @@ def main(
     elif show_config:
         # Show current configuration
         app.show_config()
+    elif ktp or ktp_task:
+        # Run Knowledge Task Processor
+        ktp_args = {}
+        if ktp_task:
+            ktp_args["task"] = ktp_task
+        if ktp_priority:
+            ktp_args["priority"] = ktp_priority.upper()
+        if ktp_status:
+            ktp_args["status"] = ktp_status.upper()
+        
+        app.execute_command("ktp", ktp_args)
     elif agent and not prompt:
         # Error: agent option can only be used with prompts
         click.echo(

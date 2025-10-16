@@ -42,6 +42,17 @@
   "web_api": {
       "port": 8000
   },
+  "ktp": {
+    "routing": {
+      "EIC": "claude_code",
+      "Research": "gemini_cli",
+      "Analysis": "gemini_cli",
+      "Writing": "claude_code",
+      "default": "claude_code"
+    },
+    "timeout_minutes": 30,
+    "max_retries": 2
+  },
   "cron_jobs": [
     {
       "inline_prompt": "CKU for hourly run",

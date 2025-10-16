@@ -159,3 +159,35 @@ class Config:
     def get_web_api_port(self) -> int:
         """Get web API port."""
         return self.get('web_api.port', 8000)
+    
+    def get_ktp_config(self) -> Dict[str, Any]:
+        """Get KTP (Knowledge Task Processor) configuration."""
+        return self.get('ktp', {
+            'routing': {
+                'EIC': 'claude_code',
+                'Research': 'gemini_cli',
+                'Analysis': 'gemini_cli',
+                'Writing': 'claude_code',
+                'default': 'claude_code'
+            },
+            'timeout_minutes': 30,
+            'max_retries': 2
+        })
+    
+    def get_ktp_routing(self) -> Dict[str, str]:
+        """Get KTP task routing configuration."""
+        return self.get('ktp.routing', {
+            'EIC': 'claude_code',
+            'Research': 'gemini_cli',
+            'Analysis': 'gemini_cli',
+            'Writing': 'claude_code',
+            'default': 'claude_code'
+        })
+    
+    def get_ktp_timeout(self) -> int:
+        """Get KTP timeout in minutes."""
+        return self.get('ktp.timeout_minutes', 30)
+    
+    def get_ktp_max_retries(self) -> int:
+        """Get KTP maximum retry count."""
+        return self.get('ktp.max_retries', 2)

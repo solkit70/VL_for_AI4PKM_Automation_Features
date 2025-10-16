@@ -358,8 +358,10 @@ created: YYYY-MM-DD
 The file watchdog runs as part of the CLI system:
 
 ```bash
-# Start the full PKM CLI (includes watchdog)
-ai4pkm start
+# Start the continuous monitoring system (includes watchdog)
+ai4pkm --cron
+# or
+ai4pkm -c
 
 # The watchdog will automatically monitor and create task requests
 ```
@@ -460,7 +462,7 @@ python ai4pkm_cli/tests/test_watchdog.py
 
 1. **Start the system**:
    ```bash
-   ai4pkm start
+   ai4pkm --cron
    ```
 
 2. **Trigger an event** (e.g., create file with `#AI`)

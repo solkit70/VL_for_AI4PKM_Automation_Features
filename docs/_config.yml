@@ -1,6 +1,6 @@
 title: AI4PKM
 description: Personal Knowledge Management for the AI Era
-theme: jekyll-theme-hacker
+theme: jekyll-theme-minimal
 markdown: kramdown
 baseurl: "/AI4PKM"
 url: ""

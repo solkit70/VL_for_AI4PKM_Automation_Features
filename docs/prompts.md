@@ -1,4 +1,4 @@
-## Overview
+# Prompts
 
 All prompts in this system follow a standardized structure defined by the Prompt Template. This template ensures consistency across all workflow prompts with a clear and predictable format.
 

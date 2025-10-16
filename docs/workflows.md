@@ -1,3 +1,5 @@
+# Workflows
+
 AI4PKM provides three main workflows that work together to maintain your knowledge base. These workflows ensure your KB is kept up-to-date with automated processing and organization.
 
 ## Daily Ingestion and Roundup (DIR)

@@ -1,4 +1,4 @@
-## PKM Overview
+## Guidelines
 
 The AI4PKM system follows a three-stage process:
 

@@ -33,7 +33,7 @@ While most workflows can be run with single command, we provide a CLI tool for f
   
 Each agent can be used interchangeably depending on the task requirements.
 
-See [CLI Tool](AI4PKM/cli_tool.md) for installation and usage details.
+See [CLI Tool](AI4PKM/cli_tool.html) for installation and usage details.
 
 ## PKM Applications
 
@@ -90,7 +90,7 @@ Common tags include:
 
 ## See Also
 
-- [Prompts](AI4PKM/prompts.md) - Standardized prompt system
-- [Workflows](AI4PKM/workflows.md) - Daily, weekly, and continuous workflows
-- [FAQ](AI4PKM/faq.md) - Frequently asked questions
+- [Prompts](AI4PKM/prompts.html) - Standardized prompt system
+- [Workflows](AI4PKM/workflows.html) - Daily, weekly, and continuous workflows
+- [FAQ](AI4PKM/faq.html) - Frequently asked questions
 

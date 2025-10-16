@@ -25,7 +25,7 @@ You can switch between them freely with `ai4pkm -a [agent]`.
 ### Setup & Configuration
 
 **Q: How do I get started?**  
-A: Follow the [Getting Started](AI4PKM/index.md#getting-started) guide on the homepage. Key steps:
+A: Follow the [Getting Started](AI4PKM/index.html#getting-started) guide on the homepage. Key steps:
 1. Clone the repo
 2. Open in Obsidian
 3. Install CLI (optional)
@@ -39,7 +39,7 @@ A:
 - Templates: `_Settings_/Templates/`
 
 **Q: How do I configure cron jobs?**  
-A: Edit `cron.json` in the root directory. See [Workflow Automation](workflows.md#workflow-automation) for examples.
+A: Edit `cron.json` in the root directory. See [Workflow Automation](AI4PKM/workflows.html#workflow-automation) for examples.
 
 ### Using Workflows
 
@@ -49,7 +49,7 @@ A:
 - **WRP**: Weekly review and planning
 - **CKU**: Continuous hourly maintenance
 
-See [Workflows](AI4PKM/workflows.md) for detailed explanations.
+See [Workflows](AI4PKM/workflows.html) for detailed explanations.
 
 **Q: Can I run workflows manually?**  
 A: Yes! Use commands like:
@@ -94,7 +94,7 @@ A:
 - Life logs: `Ingest/Limitless/`
 
 **Q: Can I customize prompts?**  
-A: Yes! All prompts are in `_Settings_/Prompts/` as markdown files. Edit them to suit your needs. Follow the standard [Prompt Template](AI4PKM/prompts.md#standardized-template-structure) structure.
+A: Yes! All prompts are in `_Settings_/Prompts/` as markdown files. Edit them to suit your needs. Follow the standard [Prompt Template](AI4PKM/prompts.html#standardized-template-structure) structure.
 
 ### Advanced Usage
 
@@ -112,10 +112,10 @@ A: The vault is a git repository. Regular commits and pushes to a remote (GitHub
 
 ## Still Have Questions?
 
-- Check the [Guidelines](AI4PKM/guidelines.md) for system architecture
-- Review [Prompts](AI4PKM/prompts.md) for detailed prompt documentation
-- See [Workflows](AI4PKM/workflows.md) for workflow specifics
-- Read the [CLI Tool](AI4PKM/cli_tool.md) for command reference
+- Check the [Guidelines](AI4PKM/guidelines.html) for system architecture
+- Review [Prompts](AI4PKM/prompts.html) for detailed prompt documentation
+- See [Workflows](AI4PKM/workflows.html) for workflow specifics
+- Read the [CLI Tool](AI4PKM/cli_tool.html) for command reference
 - Open an issue on GitHub for technical problems
 
 ## Contributing

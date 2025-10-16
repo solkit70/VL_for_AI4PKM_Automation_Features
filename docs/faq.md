@@ -1,7 +1,3 @@
-# FAQ
-
-[← Back to Home](AI4PKM/index.md)
-
 ## Frequently Asked Questions
 
 ### General Questions

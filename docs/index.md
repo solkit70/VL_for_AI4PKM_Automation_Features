@@ -1,5 +1,3 @@
-# AI4PKM
-
 ## Why AI4PKM?
 
 AI4PKM is a comprehensive Personal Knowledge Management (PKM) system designed for the AI era, where both humans and AI agents work together to build and maintain your knowledge base.

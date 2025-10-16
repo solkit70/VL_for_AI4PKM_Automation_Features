@@ -1,7 +1,3 @@
-# Guidelines
-
-[← Back to Home](AI4PKM/index.md)
-
 ## PKM Overview
 
 The AI4PKM system follows a three-stage process:

@@ -1,2 +1,35 @@
+title: AI4PKM
+description: Personal Knowledge Management for the AI Era
 theme: minima
 markdown: kramdown
+baseurl: ""
+url: ""
+
+# Navigation
+header_pages:
+  - index.md
+  - guidelines.md
+  - prompts.md
+  - workflows.md
+  - faq.md
+
+# Build settings
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
+# Kramdown settings
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: false

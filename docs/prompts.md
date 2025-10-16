@@ -119,7 +119,7 @@ ai4pkm -a gemini -p "EIC on new articles"
 
 ## See Also
 
-- [Guidelines](AI4PKM/guidelines.html) - PKM overview and principles
-- [Workflows](AI4PKM/workflows.html) - How prompts work together in workflows
-- [FAQ](AI4PKM/faq.html) - Frequently asked questions
+- [Guidelines](guidelines.html) - PKM overview and principles
+- [Workflows](workflows.html) - How prompts work together in workflows
+- [FAQ](faq.html) - Frequently asked questions
 

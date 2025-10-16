@@ -367,8 +367,8 @@ ai4pkm -a claude -p "analyze_content"       # Claude for analysis
 
 ## See Also
 
-- [Guidelines](AI4PKM/guidelines.html) - PKM overview and architecture
-- [Prompts](AI4PKM/prompts.html) - Standardized prompt system
-- [Workflows](AI4PKM/workflows.html) - How workflows use the CLI
-- [FAQ](AI4PKM/faq.html) - Frequently asked questions
+- [Guidelines](guidelines.html) - PKM overview and architecture
+- [Prompts](prompts.html) - Standardized prompt system
+- [Workflows](workflows.html) - How workflows use the CLI
+- [FAQ](faq.html) - Frequently asked questions
 

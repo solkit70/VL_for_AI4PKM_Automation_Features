@@ -26,11 +26,11 @@ Need to constantly experiment with multiple AI tools and models:
 
 ## Learn More
 
-- [Guidelines](AI4PKM/guidelines.html) - PKM overview, architecture, and applications
-- [Prompts](AI4PKM/prompts.html) - Standardized prompt system documentation
-- [Workflows](AI4PKM/workflows.html) - Daily, weekly, and continuous maintenance workflows
-- [CLI Tool](AI4PKM/cli_tool.html) - Command-line interface for automation
-- [FAQ](AI4PKM/faq.html) - Frequently asked questions and troubleshooting
+- [Guidelines](guidelines.html) - PKM overview, architecture, and applications
+- [Prompts](prompts.html) - Standardized prompt system documentation
+- [Workflows](workflows.html) - Daily, weekly, and continuous maintenance workflows
+- [CLI Tool](cli_tool.html) - Command-line interface for automation
+- [FAQ](faq.html) - Frequently asked questions and troubleshooting
 
 ## Getting Started
 
@@ -49,12 +49,12 @@ Need to constantly experiment with multiple AI tools and models:
    ```bash
    pip install -e .
    ```
-   See [CLI Tool](AI4PKM/cli_tool.html) for details.
+   See [CLI Tool](cli_tool.html) for details.
 
 4. **Start Using Workflows**
    - Begin with `DIR for today` for daily roundup
    - Use `CKU for hourly run` for maintenance
-   - See [Workflows](AI4PKM/workflows.html) for complete details
+   - See [Workflows](workflows.html) for complete details
 
 ## Resources
 

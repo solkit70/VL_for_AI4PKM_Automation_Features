@@ -33,7 +33,7 @@ While most workflows can be run with single command, we provide a CLI tool for f
   
 Each agent can be used interchangeably depending on the task requirements.
 
-See [CLI Documentation](../README_CLI.md) for installation and usage details.
+See [CLI Tool](AI4PKM/cli_tool.md) for installation and usage details.
 
 ## PKM Applications
 

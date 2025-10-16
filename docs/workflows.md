@@ -186,6 +186,6 @@ ai4pkm --cron
 
 - [Guidelines](AI4PKM/guidelines.md) - PKM overview and architecture
 - [Prompts](AI4PKM/prompts.md) - Individual prompt details
+- [CLI Tool](AI4PKM/cli_tool.md) - Full CLI reference
 - [FAQ](AI4PKM/faq.md) - Frequently asked questions and troubleshooting
-- [CLI Documentation](../README_CLI.md) - Full CLI reference
 

@@ -115,7 +115,7 @@ A: The vault is a git repository. Regular commits and pushes to a remote (GitHub
 - Check the [Guidelines](AI4PKM/guidelines.md) for system architecture
 - Review [Prompts](AI4PKM/prompts.md) for detailed prompt documentation
 - See [Workflows](AI4PKM/workflows.md) for workflow specifics
-- Read the [CLI Documentation](../README_CLI.md) for command reference
+- Read the [CLI Tool](AI4PKM/cli_tool.md) for command reference
 - Open an issue on GitHub for technical problems
 
 ## Contributing

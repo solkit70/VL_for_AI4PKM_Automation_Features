@@ -24,3 +24,4 @@ workspace.json
 # Environment variables
 .env
 .env.local
+.obsidian/plugins/recent-files-obsidian/data.json

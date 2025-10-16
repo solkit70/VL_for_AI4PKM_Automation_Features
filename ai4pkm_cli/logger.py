@@ -3,6 +3,7 @@
 import os
 import time
 import logging
+import threading
 from datetime import datetime
 from threading import Lock
 from rich.console import Console
@@ -65,7 +66,13 @@ class Logger:
             return
             
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {level}: {message}\n"
+        
+        # Get current thread name
+        thread_name = threading.current_thread().name
+        # Always add thread prefix for visibility
+        thread_prefix = f"[{thread_name}] "
+        
+        log_entry = f"[{timestamp}] {thread_prefix}{level}: {message}\n"
         
         with self.lock:
             # Write to file
@@ -99,17 +106,31 @@ class Logger:
             
         text = Text()
         
-        # Parse log line format: [timestamp] LEVEL: message
+        # Parse log line format: [timestamp] [thread] LEVEL: message
         if "] " in line and ": " in line:
             try:
+                # Extract timestamp
                 timestamp_part = line.split("] ")[0] + "]"
                 rest = line.split("] ", 1)[1]
+                
+                # Extract thread name (always present now)
+                thread_part = ""
+                if rest.startswith("[") and "] " in rest:
+                    thread_part = rest.split("] ")[0] + "]"
+                    rest = rest.split("] ", 1)[1]
+                
+                # Extract level and message
                 level_part = rest.split(": ")[0]
                 message_part = rest.split(": ", 1)[1]
                 
                 # Style timestamp
                 text.append(timestamp_part, style="dim")
                 text.append(" ")
+                
+                # Style thread name
+                if thread_part:
+                    text.append(thread_part, style="cyan")
+                    text.append(" ")
                 
                 # Style level with colors
                 if level_part == "ERROR":

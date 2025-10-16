@@ -290,7 +290,7 @@ class PKMApp:
             )
 
     def run_continuous(self):
-        """Run continuously with cron jobs, log display, and web API server."""
+        """Run continuously with cron job scheduler and web API server."""
         self.running = True
         self.cron_manager = CronManager(self.logger, self.agent)
 
@@ -301,26 +301,76 @@ class PKMApp:
         # Display welcome message
         self._display_welcome()
 
-        # Process all existing TBD tasks at startup
-        self.console.print("\n[cyan]🔍 Processing existing TBD tasks...[/cyan]")
+        # Start cron manager and keep running
+        self.cron_manager.start()
+
+    def run_task_management(self):
+        """Run continuous task management (full KTG+KTP pipeline)."""
+        self.running = True
+        
+        # Display welcome message for task management mode
+        welcome_text = Text()
+        welcome_text.append(
+            "PKM CLI - Task Management Mode\n", style="bold blue"
+        )
+        welcome_text.append(
+            f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n", style="dim"
+        )
+        welcome_text.append("Press Ctrl+C to stop\n", style="dim")
+        
+        panel = Panel(welcome_text, title="Task Management (KTG+KTP)", border_style="blue")
+        self.console.print(panel)
+        
+        # Process all existing tasks that need work at startup
+        self.console.print("\n[cyan]🔍 Scanning for tasks that need processing...[/cyan]")
+
+        # 1. Process PROCESSED tasks (evaluation pending)
         try:
+            self.console.print("[dim]  • Checking PROCESSED tasks for evaluation...[/dim]")
+            self.execute_command("ktp", {"status": "PROCESSED"})
+        except Exception as e:
+            self.logger.error(f"Error processing PROCESSED tasks: {e}")
+            self.console.print(f"[yellow]⚠️  PROCESSED task processing failed: {e}[/yellow]")
+
+        # 2. Check UNDER_REVIEW tasks (may be interrupted evaluations)
+        try:
+            self.console.print("[dim]  • Checking UNDER_REVIEW tasks (interrupted evaluations)...[/dim]")
+            self._check_under_review_tasks()
+        except Exception as e:
+            self.logger.error(f"Error checking UNDER_REVIEW tasks: {e}")
+
+        # 3. Check IN_PROGRESS tasks (may need retry or cleanup)
+        try:
+            self.console.print("[dim]  • Checking IN_PROGRESS tasks (potential interruptions)...[/dim]")
+            # Note: IN_PROGRESS tasks will be logged but not auto-processed to avoid conflicts
+            # They should be manually reviewed or will be picked up if status changes
+            self._check_in_progress_tasks()
+        except Exception as e:
+            self.logger.error(f"Error checking IN_PROGRESS tasks: {e}")
+
+        # 4. Process TBD tasks (ready to start)
+        try:
+            self.console.print("[dim]  • Processing TBD tasks...[/dim]")
             self.execute_command("ktp", {})
             self.console.print("[green]✅ Initial task processing complete[/green]\n")
         except Exception as e:
-            self.logger.error(f"Error processing initial tasks: {e}")
-            self.console.print(f"[yellow]⚠️  Initial task processing failed: {e}[/yellow]\n")
-
+            self.logger.error(f"Error processing TBD tasks: {e}")
+            self.console.print(f"[yellow]⚠️  TBD task processing failed: {e}[/yellow]\n")
+        
+        # Set up file watchdog with all task-related handlers
         from .watchdog.handlers.task_request_file_handler import TaskRequestFileHandler
-        from .watchdog.handlers.tbd_task_handler import TBDTaskHandler
+        from .watchdog.handlers.task_processor import TaskProcessor
+        from .watchdog.handlers.task_evaluator import TaskEvaluator
         from .watchdog.handlers.gobi_file_handler import GobiFileHandler
         from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
         from .watchdog.handlers.clipping_file_handler import ClippingFileHandler
         from .watchdog.handlers.hashtag_file_handler import HashtagFileHandler
-        from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
+        
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
                 ('AI/Tasks/Requests/*/*.json', TaskRequestFileHandler),
-                ('AI/Tasks/*.md', TBDTaskHandler),
+                ('AI/Tasks/*.md', TaskProcessor),
+                ('AI/Tasks/*.md', TaskEvaluator),
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('Ingest/Clippings/*.md', ClippingFileHandler),
@@ -329,22 +379,56 @@ class PKMApp:
             excluded_patterns=[
                 '.git',
                 'ai4pkm_cli',
-                'AI/Tasks/Requests',
             ],
             logger=self.logger,
             workspace_path=os.getcwd()
         )
-
-        # Create an Observer instance
+        
+        # Create and start observer
         observer = Observer()
         observer.schedule(event_handler, '.', recursive=True)
         observer.start()
-        self.console.print(f"\n[green]🐶 File Watchdog Monitoring started.[/green]")
+        
+        self.console.print(f"\n[green]🐶 Task Management File Monitoring started[/green]")
+        self.console.print(f"[dim]Watching: Gobi, Limitless, Clippings, Hashtags, Task Requests, TBD Tasks[/dim]")
+        self.console.print("\n" + "=" * 60)
+        self.console.print("[bold]Live Logs:[/bold]")
+        self.console.print("=" * 60)
+        
+        try:
+            # Keep running until interrupted
+            while self.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            self.logger.info("Task management stopped by user")
+        finally:
+            observer.stop()
+            observer.join()
 
-        self.cron_manager.start()
+    def _check_under_review_tasks(self):
+        """Check for UNDER_REVIEW tasks that may be stuck in evaluation."""
+        from .commands.ktp_runner import KTPRunner
 
-        observer.stop()
-        observer.join()
+        runner = KTPRunner(self.logger, self.config)
+        tasks = runner._get_task_queue(status='UNDER_REVIEW')
+
+        if tasks:
+            self.console.print(f"[yellow]⚠️  Found {len(tasks)} UNDER_REVIEW task(s) (evaluation may have been interrupted)[/yellow]")
+            for task in tasks:
+                self.console.print(f"[dim]    - {task['file']} (will retry evaluation)[/dim]")
+
+    def _check_in_progress_tasks(self):
+        """Check for IN_PROGRESS tasks that may be stuck."""
+        from .commands.ktp_runner import KTPRunner
+
+        runner = KTPRunner(self.logger, self.config)
+        tasks = runner._get_task_queue(status='IN_PROGRESS')
+
+        if tasks:
+            self.console.print(f"[yellow]⚠️  Found {len(tasks)} IN_PROGRESS task(s)[/yellow]")
+            for task in tasks:
+                self.console.print(f"[dim]    - {task['file']} (may need manual review)[/dim]")
+            self.console.print("[dim]    These tasks will auto-retry if files are modified or on timeout[/dim]")
 
     def _display_welcome(self):
         """Display welcome message and status."""
@@ -539,13 +623,13 @@ class PKMApp:
             f'  [cyan]ai4pkm -a g -p "TKI"[/cyan]          Run prompt with specific agent'
         )
         self.console.print(
-            f"  [cyan]ai4pkm --ktp[/cyan]                  Process knowledge tasks (KTP)"
+            f"  [cyan]ai4pkm -t[/cyan]                     Start task management (KTG+KTP pipeline)"
         )
         self.console.print(
-            f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler"
+            f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler + web server"
         )
         self.console.print(
-            f"  [cyan]ai4pkm -t[/cyan]                     Test cron jobs"
+            f"  [cyan]ai4pkm -r[/cyan]                     Run a cron job once"
         )
         self.console.print(
             f"  [cyan]ai4pkm --list-agents[/cyan]          List available agents"

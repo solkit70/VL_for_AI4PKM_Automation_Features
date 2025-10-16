@@ -243,19 +243,16 @@ class TaskStatusManager:
     
     def generate_execution_queue(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Generate prioritized execution queue.
-        
+
         Args:
-            tasks: List of task dictionaries
-            
+            tasks: List of task dictionaries (should already be filtered)
+
         Returns:
             Ordered list of tasks ready for execution
         """
-        # Filter to actionable tasks (TBD status, not archived)
-        actionable = self.filter_tasks(tasks, status='TBD', archived=False)
-        
-        # Sort by priority
-        sorted_tasks = self.sort_tasks(actionable)
-        
+        # Sort by priority (tasks should already be filtered by caller)
+        sorted_tasks = self.sort_tasks(tasks)
+
         # Add order numbers
         queue = []
         for idx, task in enumerate(sorted_tasks, 1):
@@ -268,7 +265,7 @@ class TaskStatusManager:
                 'instructions': task['instructions']
             }
             queue.append(queue_item)
-            
+
         return queue
     
     def group_by_priority(self, tasks: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -402,7 +399,7 @@ def main():
                        help='Display statistics only (no queue generation)')
     parser.add_argument('--output', type=str,
                        help='Output JSON file for task queue')
-    parser.add_argument('--status', type=str, choices=['TBD', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED'],
+    parser.add_argument('--status', type=str, choices=['TBD', 'IN_PROGRESS', 'PROCESSED', 'UNDER_REVIEW', 'COMPLETED'],
                        help='Filter by status')
     parser.add_argument('--priority', type=str, choices=['P0', 'P1', 'P2', 'P3'],
                        help='Filter by priority')

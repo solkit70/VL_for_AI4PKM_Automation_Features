@@ -167,16 +167,15 @@ class FileWatchdogHandler(FileSystemEventHandler):
                     return True
         return False
 
-    def _find_matching_handler(self, path: str) -> Optional[BaseFileHandler]:
+    def _find_matching_handlers(self, path: str) -> list:
         """
-        Find the first handler that matches the given file path.
-        Patterns are checked in order, and the first match is used.
+        Find all handlers that match the given file path.
         
         Args:
             path: File path to match against patterns
             
         Returns:
-            Handler instance if a pattern matches, None otherwise
+            List of handler instances that match the patterns
         """
         # Convert absolute path to relative path for pattern matching
         if os.path.isabs(path):
@@ -188,14 +187,13 @@ class FileWatchdogHandler(FileSystemEventHandler):
         else:
             rel_path = path
         
+        handlers = []
         for pattern, handler in self.pattern_handlers:
             # Try matching both with and without wildcard expansion
-            if fnmatch.fnmatch(rel_path, pattern):
-                return handler
-            # Also try matching the full path for absolute patterns
-            if fnmatch.fnmatch(path, pattern):
-                return handler
-        return None
+            if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(path, pattern):
+                handlers.append(handler)
+        
+        return handlers
     
     def _process_with_handler(self, event, event_type: str):
         """
@@ -214,14 +212,15 @@ class FileWatchdogHandler(FileSystemEventHandler):
         if self._is_excluded(file_path):
             return
         
-        # Find matching handler
-        handler = self._find_matching_handler(file_path)
+        # Find all matching handlers
+        handlers = self._find_matching_handlers(file_path)
         
-        if handler:
+        # Process with all matching handlers
+        for handler in handlers:
             try:
                 handler.process(file_path, event_type)
             except Exception as e:
-                self.logger.error(f"Error processing {file_path} with handler: {e}")
+                self.logger.error(f"Error processing {file_path} with {handler.__class__.__name__}: {e}")
 
     def on_modified(self, event):
         """

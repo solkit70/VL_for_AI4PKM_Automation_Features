@@ -1,6 +1,7 @@
 """Handler for Clipping markdown files that triggers EIC (Enrich Ingested Content)."""
 
 import os
+import json
 from datetime import datetime
 from ..file_watchdog import BaseFileHandler
 
@@ -47,17 +48,17 @@ class ClippingFileHandler(BaseFileHandler):
         """
         Create an EIC task request file for the clipping.
         
-        Saves to: AI/Tasks/Requests/Clippings/YYYY-MM-DD-{milliseconds}.md
+        Saves to: AI/Tasks/Requests/Clippings/YYYY-MM-DD-{milliseconds}.json
         
         Args:
             file_path: Path to the clipping file
         """
         try:
-            # Generate filename: YYYY-MM-DD-{milliseconds}.md
+            # Generate filename: YYYY-MM-DD-{milliseconds}.json
             now = datetime.now()
             date_str = now.strftime('%Y-%m-%d')
             milliseconds = int(now.timestamp() * 1000)
-            filename = f"{date_str}-{milliseconds}.md"
+            filename = f"{date_str}-{milliseconds}.json"
             
             # Get output directory (AI/Tasks/Requests/Clippings/)
             output_dir = self._get_requests_dir()
@@ -65,28 +66,28 @@ class ClippingFileHandler(BaseFileHandler):
             
             output_path = os.path.join(output_dir, filename)
             
-            # Generate markdown content
+            # Generate JSON content
             content = self._generate_request_content(file_path, now)
             
             # Write to file
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+                json.dump(content, f, indent=2, ensure_ascii=False)
             
             self.logger.info(f"Created EIC task request: {output_path}")
             
         except Exception as e:
             self.logger.error(f"Error creating EIC request file: {e}")
     
-    def _generate_request_content(self, file_path: str, generated_time: datetime) -> str:
+    def _generate_request_content(self, file_path: str, generated_time: datetime) -> dict:
         """
-        Generate markdown content for EIC task request.
+        Generate JSON content for EIC task request.
         
         Args:
             file_path: Path to the clipping file
             generated_time: Time when the request was generated
             
         Returns:
-            Markdown formatted string
+            Dictionary to be serialized as JSON
         """
         # Convert to relative path if absolute
         if os.path.isabs(file_path):
@@ -97,30 +98,11 @@ class ClippingFileHandler(BaseFileHandler):
         else:
             rel_path = file_path
         
-        lines = []
-        
-        # Frontmatter
-        lines.append("---")
-        lines.append(f"generated: {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"handler: {self.__class__.__name__}")
-        lines.append("task_type: EIC")
-        lines.append(f"target_file: {rel_path}")
-        lines.append("---")
-        lines.append("")
-        
-        # Title
-        lines.append(f"# EIC Task Request - {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append("")
-        
-        # Description
-        lines.append("New clipping file detected. Requesting EIC (Enrich Ingested Content) processing.")
-        lines.append("")
-        
-        # Target file
-        lines.append("## Target File")
-        lines.append("")
-        lines.append(f"`{rel_path}`")
-        lines.append("")
-        
-        return '\n'.join(lines)
+        return {
+            "generated": generated_time.strftime('%Y-%m-%d %H:%M:%S'),
+            "handler": self.__class__.__name__,
+            "task_type": "EIC",
+            "target_file": rel_path,
+            "description": "New clipping file detected. Requesting EIC (Enrich Ingested Content) processing."
+        }
 

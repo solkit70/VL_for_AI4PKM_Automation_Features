@@ -43,14 +43,21 @@ def signal_handler(sig, frame):
     help="Filter KTP tasks by status (default: TBD)",
 )
 @click.option(
-    "-t",
-    "--test",
-    "test_cron",
+    "-r",
+    "--run-job-once",
+    "run_job_once",
     is_flag=True,
-    help="Test a specific cron job interactively",
+    help="Test/run a specific cron job interactively once",
 )
 @click.option(
-    "-c", "--cron", "run_cron", is_flag=True, help="Run continuous cron job scheduler"
+    "-t",
+    "--task-management",
+    "task_management",
+    is_flag=True,
+    help="Run continuous task management (KTG+KTP pipeline with file monitoring)",
+)
+@click.option(
+    "-c", "--cron", "run_cron", is_flag=True, help="Run continuous cron job scheduler and web server"
 )
 @click.option(
     "-a",
@@ -70,7 +77,8 @@ def main(
     ktp_task,
     ktp_priority,
     ktp_status,
-    test_cron,
+    run_job_once,
+    task_management,
     run_cron,
     agent,
     debug,
@@ -83,6 +91,9 @@ def main(
 
     if debug:
         logging.basicConfig(level=logging.DEBUG)
+        # Suppress noisy debug logs from watchdog/fsevents
+        logging.getLogger('fsevents').setLevel(logging.WARNING)
+        logging.getLogger('watchdog').setLevel(logging.WARNING)
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -123,11 +134,14 @@ def main(
     elif command:
         # Execute the command
         app.execute_command(command, json.loads(arguments))
-    elif test_cron:
-        # Test a specific cron job
+    elif run_job_once:
+        # Test/run a specific cron job once
         app.test_cron_job()
+    elif task_management:
+        # Run continuous task management (KTG+KTP pipeline)
+        app.run_task_management()
     elif run_cron:
-        # Run continuously with cron jobs and log display
+        # Run continuously with cron jobs and web server
         app.run_continuous()
     else:
         # Show default information (config and instructions)

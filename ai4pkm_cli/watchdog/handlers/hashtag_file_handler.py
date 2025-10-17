@@ -28,38 +28,50 @@ class HashtagFileHandler(BaseFileHandler):
     def process(self, file_path: str, event_type: str) -> None:
         """
         Process markdown files by checking for #AI hashtag.
-        
+
         Reacts to both file creation and modification.
-        
+        Skips files in AI/Tasks/ directory to prevent self-referential triggers.
+
         Args:
             file_path: Path to the markdown file
             event_type: Type of event ('created' or 'modified')
         """
-        # Create a unique key for this file and its modification time
+        # Skip files in AI/Tasks/ directory to prevent self-referential triggers
+        # Task files legitimately contain #AI in instructions and process logs
         try:
-            mtime = os.path.getmtime(file_path)
-            file_key = f"{file_path}:{mtime}"
-            
-            # Skip if we've already processed this version of the file
+            normalized_path = os.path.abspath(file_path)
+            tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
+
+            if normalized_path.startswith(tasks_dir):
+                return
+        except Exception as e:
+            self.logger.error(f"Error checking file path {file_path}: {e}")
+            return
+
+        # Track by file path only (not mtime) to process each file once per session
+        file_key = file_path
+
+        try:
+            # Skip if we've already processed this file in this session
             if file_key in self._processed_files:
                 return
-            
+
             # Check if file contains #AI hashtag
             if not self._contains_ai_hashtag(file_path):
                 return
-            
+
             self.logger.info(f"✅ Detected #AI hashtag in: {os.path.basename(file_path)}")
-            
+
             # Create task request
             self._create_task_request(file_path)
-            
+
             # Mark as processed
             self._processed_files.add(file_key)
-            
+
             # Cleanup old entries (keep only last 100)
             if len(self._processed_files) > 100:
                 self._processed_files = set(list(self._processed_files)[-100:])
-            
+
         except Exception as e:
             self.logger.error(f"Error processing file {file_path}: {e}")
     

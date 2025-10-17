@@ -54,5 +54,12 @@ Generate knowledge tasks from task generation request file and process them effi
 - Exception: Simple Limitless insights can be added directly to Journal Thoughts
 
 ### Task File Structure Requirements
-- **Properties**: Priority (P1 content/P2 workflow), Status, Archived: false, Source link
+- **Properties**:
+  - `title`: Task title/description
+  - `priority`: P1 (content creation) or P2 (workflow/maintenance)
+  - `status`: TBD
+  - `archived`: false
+  - `created`: Full datetime in ISO format (YYYY-MM-DDTHH:MM:SS)
+  - `source`: Wiki link to original document
+  - `generation_log`: "[[Tasks/Logs/...]]" (if provided in prompt context)
 - **Sections**: Input (full context with blockquotes), Context (time/speaker/type), Requirements (structured preferences), Inferred (input/output/instructions/budget)

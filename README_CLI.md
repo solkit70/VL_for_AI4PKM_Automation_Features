@@ -15,6 +15,7 @@ A powerful command-line interface for automating knowledge management workflows 
 - **📝 Prompt Management**: Support for both named prompts and inline prompts
 - **🔍 Template System**: Parameterized templates for content generation
 - **📋 Comprehensive Logging**: File and console logging with multiple levels
+- **🔄 Task Management (KTP)**: Automated task generation, processing, and evaluation with concurrent execution
 
 ## 📦 Installation
 
@@ -123,7 +124,44 @@ ai4pkm -a c -p "Analyze the pros and cons of remote work"
 ai4pkm --show-config
 ```
 
-### 4. One-time Command Execution
+### 4. Task Management Mode (KTP)
+
+Run continuous task management with automated task generation, processing, and evaluation:
+
+```bash
+ai4pkm -t
+# or
+ai4pkm --task-management
+```
+
+This will:
+- Start file monitoring for task sources (Limitless, Gobi, Clippings, hashtags)
+- Automatically detect and generate tasks from "hey pkm" requests
+- Process tasks through 3-phase KTP pipeline (routing → execution → evaluation)
+- Run continuously with live logging
+- Handle concurrent task execution with semaphore control
+
+**Manual Task Processing:**
+```bash
+# Process all TBD tasks
+ai4pkm --ktp
+
+# Evaluate PROCESSED tasks
+ai4pkm --ktp --status PROCESSED
+
+# Retry UNDER_REVIEW evaluations
+ai4pkm --ktp --status UNDER_REVIEW
+
+# Process specific task
+ai4pkm --ktp --task "2025-10-16 Task Name.md"
+
+# Filter by priority
+ai4pkm --ktp --priority P1
+```
+
+See [README_KTM.md](README_KTM.md) for complete KTP documentation.
+
+### 5. One-time Command Execution
 
 Execute pre-defined command
 
@@ -142,7 +180,7 @@ Generate one time report using Adhoc/generate_report.md prompt with user inputs.
 ai4pkm -cmd generate_report
 ```
 
-### 5. Cron Job Testing
+### 6. Cron Job Testing
 
 Test a specific cron job interactively:
 
@@ -156,7 +194,7 @@ This will:
 - Show execution time and results
 - Useful for debugging scheduled tasks
 
-### 6. AI Agent Management
+### 7. AI Agent Management
 
 The CLI supports multiple AI agents. Manage them using these commands:
 

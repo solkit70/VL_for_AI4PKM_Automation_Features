@@ -39,7 +39,7 @@ def signal_handler(sig, frame):
 )
 @click.option(
     "--ktp-status",
-    type=click.Choice(["TBD", "IN_PROGRESS", "UNDER_REVIEW"], case_sensitive=False),
+    type=click.Choice(["TBD", "IN_PROGRESS", "PROCESSED", "UNDER_REVIEW"], case_sensitive=False),
     help="Filter KTP tasks by status (default: TBD)",
 )
 @click.option(

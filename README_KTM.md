@@ -2,6 +2,19 @@
 
 This document provides detailed implementation flow documentation for the AI4PKM Knowledge Task Management (KTM) system, showing how KTG (Knowledge Task Generator) and KTP (Knowledge Task Processor) work together.
 
+## Recent Updates
+
+### 2025-10-16: Major Enhancements
+- **Agent-Driven Status Updates**: Replaced fragile text parsing with direct status updates for robust evaluation
+- **Event Deduplication**: Fixed triple-logging from iCloud Drive duplicate file events
+- **Separate Evaluation Logging**: Added dedicated "Evaluation Log" section distinct from "Process Log"
+- **Status Filter Bug Fix**: Enabled `--status PROCESSED` and `--status UNDER_REVIEW` commands
+- **Documentation Improvements**: Fixed inconsistencies and added comprehensive task structure documentation
+
+See [PR_MESSAGE.md](PR_MESSAGE.md) for detailed change notes.
+
+---
+
 ## Table of Contents
 - [System Architecture](#system-architecture)
 - [Entry Points](#entry-points)
@@ -53,6 +66,11 @@ This document provides detailed implementation flow documentation for the AI4PKM
    - Controls concurrent task operations
    - Shared across all handlers
 
+5. **Thread-Specific Logging** ([ai4pkm_cli/logger.py](ai4pkm_cli/logger.py))
+   - Each task execution/evaluation gets dedicated log file
+   - Log files stored in [AI/Tasks/Logs/](AI/Tasks/Logs/)
+   - Linked from task frontmatter for easy access
+
 ## Entry Points
 
 ### 1. Task Management Mode
@@ -96,9 +114,11 @@ ai4pkm --task-management
 ### 2. Manual KTP Execution
 Can be triggered manually via:
 ```bash
-ai4pkm --ktp                    # Process all TBD tasks
-ai4pkm --ktp --status PROCESSED  # Evaluate PROCESSED tasks
-ai4pkm --ktp --status UNDER_REVIEW  # Retry UNDER_REVIEW tasks
+ai4pkm --ktp                         # Process all TBD tasks (default)
+ai4pkm --ktp --status TBD            # Process TBD tasks
+ai4pkm --ktp --status IN_PROGRESS    # Retry IN_PROGRESS tasks
+ai4pkm --ktp --status PROCESSED      # Evaluate PROCESSED tasks
+ai4pkm --ktp --status UNDER_REVIEW   # Retry UNDER_REVIEW evaluations
 ai4pkm --ktp --task "2025-10-15 Task Name.md"  # Process specific task
 ```
 
@@ -114,7 +134,7 @@ When task management mode starts, it performs a comprehensive scan:
 1. PROCESSED Tasks (Priority: Evaluate completed work first)
    ├─ Scans: AI/Tasks/*.md with status=PROCESSED
    ├─ Action: Runs Phase 3 evaluation (sets UNDER_REVIEW → evaluates)
-   └─ Result: Tasks move to COMPLETED or back to TBD with feedback
+   └─ Result: Tasks move to COMPLETED or FAILED with feedback
 
 2. UNDER_REVIEW Tasks (Priority: Detect interrupted evaluations)
    ├─ Scans: AI/Tasks/*.md with status=UNDER_REVIEW
@@ -162,12 +182,14 @@ After startup detection completes:
 ┌─────────────────────────────────────────────────────────────────────┐
 │         TaskRequestFileHandler (Watchdog)                            │
 │         • Acquires semaphore slot                                    │
+│         • Creates thread-specific log file                           │
 │         • Triggers KTG agent                                         │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    KTG AGENT EXECUTION                               │
+│  • Create thread log (AI/Tasks/Logs/YYYY-MM-DD-{ms}-gen.log)        │
 │  • Reads request file                                                │
 │  • Validates for duplicates                                          │
 │  • Determines if simple (execute) or complex (create task)          │
@@ -197,13 +219,15 @@ After startup detection completes:
 ┌─────────────────────────────────────────────────────────────────────┐
 │         KTP PHASE 2: EXECUTION & MONITORING                          │
 │         IN_PROGRESS → PROCESSED                                      │
+│  • Create thread-specific log file (AI/Tasks/Logs/YYYY-MM-DD Task-exec.log) │
 │  • Create agent instance (from processing_agent config)              │
-│  • Build execution prompt                                            │
+│  • Build execution prompt (from KTP.md prompt template)              │
 │  • Run task with agent                                               │
 │  • Agent updates task file with:                                     │
 │    - Process log entries                                             │
 │    - Output property with wiki links                                 │
 │    - Status: PROCESSED                                               │
+│  • Add execution_log link to task frontmatter                        │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                │ Status changed to PROCESSED
@@ -218,18 +242,21 @@ After startup detection completes:
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│         KTP PHASE 3: RESULTS EVALUATION                              │
+│         KTP PHASE 3: RESULTS EVALUATION & COMPLETION                 │
 │         PROCESSED → UNDER_REVIEW → COMPLETED or FAILED               │
+│  • Create thread-specific log file (AI/Tasks/Logs/YYYY-MM-DD Task-eval.log) │
 │  • Set status to UNDER_REVIEW                                        │
-│  • AI-powered evaluation (uses evaluation_agent):                    │
-│    - Are output files specified?                                     │
-│    - Do output files exist and are accessible?                       │
-│    - Does output address instructions?                               │
-│    - Is output complete and well-structured?                         │
-│    - Any errors or omissions?                                        │
-│  • Decision:                                                         │
-│    ✓ APPROVED → Status: COMPLETED                                    │
-│    ✗ NEEDS_REWORK → Status: FAILED (with feedback)                  │
+│  • AI-powered evaluation with fix-first approach:                    │
+│    - Build prompt from KTE.md template                               │
+│    - Review: outputs exist, address instructions, well-structured?   │
+│    - Fix: missing links, formatting, incomplete content              │
+│    - Update: task file and outputs as needed                         │
+│    - Document: findings and fixes in "Evaluation Log" section        │
+│    - **Agent updates status directly**: COMPLETED or FAILED          │
+│  • Python reads final status after agent completes                   │
+│    ✓ COMPLETED → Task successful                                     │
+│    ✗ FAILED → Task needs substantial rework                          │
+│  • Add evaluation_log link to task frontmatter                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -252,6 +279,36 @@ class HashtagFileHandler(BaseFileHandler):
 - Pattern: `(?:^|\s|-)#AI(?:\s|$|,)`
 - Word boundary matching (avoids #AIR, #AIDING)
 - Tracks processed files to avoid duplicates
+
+**Event Deduplication**:
+
+File system watchers (especially with iCloud Drive on macOS) often generate multiple modification events for a single file change. To prevent redundant processing:
+
+**LimitlessFileHandler** ([ai4pkm_cli/watchdog/handlers/limitless_file_handler.py:34-56](ai4pkm_cli/watchdog/handlers/limitless_file_handler.py#L34-L56)) implements:
+
+```python
+def process(self, file_path: str, event_type: str) -> None:
+    # Check file modification time
+    file_mtime = os.path.getmtime(file_path)
+    now = datetime.now()
+
+    # Skip if same file with same mtime processed within 2 seconds
+    if file_path in self._processed_cache:
+        cached_mtime, last_processed = self._processed_cache[file_path]
+        if cached_mtime == file_mtime and (now - last_processed).total_seconds() < 2:
+            self.logger.debug(f"Skipping duplicate event...")
+            return
+
+    # Update cache and clean old entries (older than 5 minutes)
+    self._processed_cache[file_path] = (file_mtime, now)
+    self._clean_cache()
+```
+
+**Key Features**:
+- **File modification time tracking**: Only processes if file actually changed
+- **Time window**: 2-second deduplication window for same mtime
+- **Memory management**: Auto-cleanup of cache entries older than 5 minutes
+- **Prevents**: Triple-logging from iCloud Drive sync events
 
 ### Step 2: Task Request Creation
 
@@ -362,19 +419,25 @@ def _phase2_execute_task(self, task_file: str, task_data: Dict[str, Any]):
     worker = task_data.get('worker', self.processing_agent.get('default', 'claude_code'))
     agent = AgentFactory.create_agent_by_name(worker, self.logger, self.config)
 
-    # Build prompt for agent
-    prompt = f"Process the knowledge task defined in the file: {task_path}\n\n"
-    prompt += "Follow the instructions in the task file and update the task file with:\n"
-    prompt += "- Process Log entries documenting your work\n"
-    prompt += "- Output property with wiki links to created files\n"
-    prompt += "- Status updated to PROCESSED when complete\n"
+    # Build prompt for agent (reads from KTP.md prompt template)
+    prompt = self._read_execution_prompt(task_path)
 
     # Execute the task
     result = agent.run_prompt(inline_prompt=prompt)
 
-    # Check if agent updated status to UNDER_REVIEW
+    # Check if agent updated status to PROCESSED
     # If not, update manually
 ```
+
+**Prompt Template**: [ai4pkm_cli/prompts/task_execution.md](ai4pkm_cli/prompts/task_execution.md)
+- System prompt defining execution instructions for agents
+- Specifies expected outputs and status updates
+- Can be modified to customize agent behavior
+
+**Thread-Specific Logging**:
+- Log file: `AI/Tasks/Logs/YYYY-MM-DD TaskName-exec.log`
+- Linked in task frontmatter as `execution_log: "[[Tasks/Logs/YYYY-MM-DD TaskName-exec]]"`
+- Contains all execution details for debugging and audit
 
 **Expected Task Updates by Agent**:
 1. Add process log entries in task file
@@ -399,7 +462,10 @@ def _phase3_evaluate_task(self, task_file: str, task_data: Dict[str, Any]):
     # 1. Read task content
     task_content = self._read_file_content(task_path)
 
-    # 2. AI-powered evaluation (includes output validation)
+    # 2. AI-powered evaluation (reads prompt from KTE.md template)
+    prompt = self._read_evaluation_prompt(
+        task_path, task_type, priority, instructions, output_section
+    )
     evaluation_result = self._evaluate_with_ai(task_file, task_data,
                                                 current_data, task_content)
 
@@ -411,47 +477,26 @@ def _phase3_evaluate_task(self, task_file: str, task_data: Dict[str, Any]):
                         evaluation_result['feedback'])
 ```
 
-**AI Evaluation Prompt**:
-```
-Review this task and its output to determine if it should be marked COMPLETED or FAILED.
+**Prompt Template**: [ai4pkm_cli/prompts/task_evaluation.md](ai4pkm_cli/prompts/task_evaluation.md)
+- System prompt defining evaluation criteria
+- Specifies decision format (APPROVED/NEEDS_REWORK)
+- Can be modified to adjust quality standards
 
-Task File: /path/to/AI/Tasks/2025-10-16 Task.md
-Task Type: EIC
-Priority: P2
-
-## Original Instructions
-[Task instructions extracted from task file]
-
-## Output Files
-The following output files were created:
-- /path/to/output1.md
-- /path/to/output2.md
-
-Please review these files to evaluate if the task was completed successfully.
-
-## Evaluation Criteria
-1. Are output files specified in the 'output' property?
-2. Do the output files exist and are they accessible?
-3. Does the output address the task instructions?
-4. Is the output complete and well-structured?
-5. Are there any obvious errors or omissions?
-
-Respond with:
-- APPROVED if the task is complete and meets all requirements
-- NEEDS_REWORK if the task has issues (missing outputs, incorrect content, etc.)
-
-Format your response as:
-DECISION: [APPROVED or NEEDS_REWORK]
-REASON: [brief explanation]
-FEEDBACK: [specific improvements needed if NEEDS_REWORK]
-```
+**Thread-Specific Logging**:
+- Log file: `AI/Tasks/Logs/YYYY-MM-DD TaskName-eval.log`
+- Linked in task frontmatter as `evaluation_log: "[[Tasks/Logs/YYYY-MM-DD TaskName-eval]]"`
+- Contains evaluation reasoning and decision details
 
 **Key Features**:
+- **Fix-First Approach**: Agent attempts to fix minor issues (missing links, formatting, incomplete content) before failing
 - **File-based evaluation**: Agent receives file paths and reads them directly (no content truncation)
 - **AI-driven validation**: Agent validates output existence and accessibility by accessing files
 - **Comprehensive review**: Checks both technical requirements (files exist) and quality (content meets instructions)
-- **Failure handling**: Failed reviews result in FAILED status with detailed feedback
-- **Thread-safe logging**: Runs in dedicated thread named `KTP-eval-{filename}` with automatic thread name in logs
+- **Proactive completion**: Agent can update task files and outputs to meet standards
+- **Selective failure**: Only fails tasks requiring substantial rework (wrong source, flawed approach, missing critical input)
+- **Agent-driven status updates**: Agent directly updates status to COMPLETED or FAILED (more robust than parsing text responses)
+- **Separate logging**: Agent writes to "Evaluation Log" section (distinct from "Process Log" used by execution agents)
+- **Thread-safe logging**: Runs in dedicated thread named `KTP-eval-{agent}-{title}` with automatic thread name in logs
 
 ## File Watchdog System
 
@@ -632,16 +677,16 @@ def _spawn_evaluation_thread(self, task_file: str) -> threading.Thread:
 
 **Thread Comparison**:
 
-| Aspect | Processing Agent | Evaluation Agent |
-|--------|------------------|------------------|
-| **Thread Name** | `KTP-exec-{agent}-{filename}` | `KTP-eval-{agent}-{filename}` |
-| **Handler** | TaskProcessor | TaskEvaluator |
-| **Trigger Status** | TBD | PROCESSED |
-| **KTP Phases** | Phase 1 & 2 | Phase 3 |
-| **Agent Config** | `processing_agent` mapping | `evaluation_agent` setting |
-| **Agent in Thread Name** | Determined from task type | From `evaluation_agent` config |
-| **Log Example** | `[KTP-exec-claude-...] INFO: Executing task...` | `[KTP-eval-claude-...] INFO: Running AI evaluation...` |
-| **Location** | [task_processor.py](ai4pkm_cli/watchdog/handlers/task_processor.py) | [task_evaluator.py](ai4pkm_cli/watchdog/handlers/task_evaluator.py) |
+| Aspect | Task Generation | Task Processing | Task Evaluation |
+|--------|----------------|-----------------|-----------------|
+| **Thread Name** | `KTG-{task_type}` | `KTP-exec-{agent}-{title}` | `KTP-eval-{agent}-{title}` |
+| **Handler** | TaskRequestFileHandler | TaskProcessor | TaskEvaluator |
+| **Trigger** | Request file created | Status: TBD | Status: PROCESSED |
+| **Phase** | KTG execution | KTP Phase 1 & 2 | KTP Phase 3 |
+| **Agent Config** | Default agent | `processing_agent` mapping | `evaluation_agent` setting |
+| **Log File** | `YYYY-MM-DD-{ms}-gen.log` | `YYYY-MM-DD TaskName-exec.log` | `YYYY-MM-DD TaskName-eval.log` |
+| **Log Example** | `[KTG-Hashtag] INFO: Creating task...` | `[KTP-exec-claude-Test Task] INFO: Executing...` | `[KTP-eval-claude-Test Task] INFO: Evaluating...` |
+| **Location** | [task_request_file_handler.py](ai4pkm_cli/watchdog/handlers/task_request_file_handler.py) | [task_processor.py](ai4pkm_cli/watchdog/handlers/task_processor.py) | [task_evaluator.py](ai4pkm_cli/watchdog/handlers/task_evaluator.py) |
 
 ## Status State Machine
 
@@ -744,6 +789,105 @@ def _spawn_evaluation_thread(self, task_file: str) -> threading.Thread:
 - Can be set manually
 - Does not trigger automatic processing
 
+## Thread-Specific Logging
+
+### Overview
+
+Each task execution (Phase 2) and evaluation (Phase 3) creates a dedicated log file under `AI/Tasks/Logs/`. This provides:
+- Isolated debugging per task
+- Complete audit trail
+- Easy troubleshooting without searching through main logs
+
+### Log File Structure
+
+**Generation Logs (KTG)**:
+- Path: `AI/Tasks/Logs/YYYY-MM-DD-{ms}-gen.log`
+- Created when: Task request file is processed
+- Contains: KTG execution details, task creation decisions, validation checks
+- Thread name format: `KTG-{task_type}` (e.g., `KTG-Hashtag`, `KTG-Clipping`)
+
+**Execution Logs (KTP Phase 2)**:
+- Path: `AI/Tasks/Logs/YYYY-MM-DD TaskName-exec.log`
+- Created when: Task status changes to IN_PROGRESS
+- Contains: All execution details, agent actions, errors
+- Linked in task: `execution_log: "[[Tasks/Logs/YYYY-MM-DD TaskName-exec]]"`
+- Thread name format: `KTP-exec-{agent}-{title}` (e.g., `KTP-exec-claude-Test Task`)
+
+**Evaluation Logs (KTP Phase 3)**:
+- Path: `AI/Tasks/Logs/YYYY-MM-DD TaskName-eval.log`
+- Created when: Task status changes to UNDER_REVIEW
+- Contains: Evaluation reasoning, decision details, file validations
+- Linked in task: `evaluation_log: "[[Tasks/Logs/YYYY-MM-DD TaskName-eval]]"`
+- Thread name format: `KTP-eval-{agent}-{title}` (e.g., `KTP-eval-claude-Test Task`)
+
+### Implementation
+
+**Logger Enhancement** ([ai4pkm_cli/logger.py:49-85](ai4pkm_cli/logger.py#L49-L85)):
+```python
+def create_thread_log(self, task_filename: str, phase: str) -> str:
+    """Create a thread-specific log file for a task."""
+    log_filename = f"{task_name}-{phase}.log"
+    log_path = os.path.join(project_root, "AI", "Tasks", "Logs", log_filename)
+    # Initialize and track thread-specific log
+    self.thread_log_files[thread_name] = log_path
+    return log_path
+```
+
+**Dual Logging**:
+- All log messages written to both main log and thread-specific log
+- Main log: Includes thread name prefix for correlation
+- Thread log: Simplified format (thread name omitted)
+
+### Task Frontmatter Properties
+
+Tasks automatically get log links added to frontmatter during each phase:
+
+```yaml
+---
+title: "Task Name"
+status: COMPLETED
+generation_log: "[[Tasks/Logs/2025-10-16-123-gen]]"      # Added by KTG when task is created
+execution_log: "[[Tasks/Logs/2025-10-16 TaskName-exec]]" # Added by KTP Phase 2
+evaluation_log: "[[Tasks/Logs/2025-10-16 TaskName-eval]]" # Added by KTP Phase 3
+---
+```
+
+**Log Link Timeline:**
+1. **KTG creates task** → Adds `generation_log` with link to KTG execution log
+2. **KTP Phase 2 executes** → Adds `execution_log` with link to task execution log
+3. **KTP Phase 3 evaluates** → Adds `evaluation_log` with link to evaluation log
+
+These wiki links make it easy to navigate to logs from the task file and provide complete audit trail.
+
+### Task File Sections
+
+Task files follow a structured template ([_Settings_/Templates/Task Template.md](_Settings_/Templates/Task Template.md)) with clear separation of concerns:
+
+```markdown
+---
+# Frontmatter with status, priority, worker, etc.
+---
+## Input
+[Source materials, context, data]
+
+## Output
+[Expected deliverables, format specifications]
+
+## Instructions
+[Step-by-step guidance, pre-defined prompts]
+
+## Process Log
+[Execution notes written by KTP Phase 2 agents]
+
+## Evaluation Log
+[Evaluation notes written by KTP Phase 3 agents]
+```
+
+**Log Section Guidelines:**
+- **Process Log**: Written by execution agents (Phase 2) documenting implementation steps
+- **Evaluation Log**: Written by evaluation agents (Phase 3) documenting review findings and fixes
+- **Separation**: Keeps execution and evaluation concerns distinct for audit clarity
+
 ## Configuration
 
 ### Main Configuration File: `ai4pkm_cli.json`
@@ -798,6 +942,33 @@ config.get_max_concurrent_tasks()  # Semaphore limit
   - This agent reviews task outputs and decides COMPLETED or FAILED
   - Can be different from processing agents to provide independent review
 
+### System Prompt Customization
+
+System prompts are located in `ai4pkm_cli/prompts/` and define how automated agents behave:
+
+**Execution Prompt**: [ai4pkm_cli/prompts/task_execution.md](ai4pkm_cli/prompts/task_execution.md)
+- Defines how agents execute tasks (KTP Phase 2)
+- Modify to customize task execution behavior
+- Changes apply immediately to new executions
+
+**Evaluation Prompt**: [ai4pkm_cli/prompts/task_evaluation.md](ai4pkm_cli/prompts/task_evaluation.md)
+- Defines evaluation criteria and decision logic (KTP Phase 3)
+- Modify to customize quality standards
+- Changes apply immediately to new evaluations
+
+**Task Generation Instructions**: [ai4pkm_cli/prompts/task_generation.md](ai4pkm_cli/prompts/task_generation.md)
+- Provides system context for KTG execution
+- Ensures generation logs are properly linked to created tasks
+
+**Customization Examples**:
+- Add task type-specific instructions
+- Require additional outputs or documentation
+- Change evaluation criteria weights
+- Add quality checks or validation steps
+- Customize response format requirements
+
+**Note**: User-facing workflow prompts remain in `_Settings_/Prompts/` (like KTG.md, KTP.md, KTE.md). These system prompts are only for automated agent behavior.
+
 ## Code References
 
 ### Core Components
@@ -841,6 +1012,8 @@ The AI4PKM Knowledge Task Management (KTM) system implements a fully automated w
 4. **Processing (KTP)**: Tasks are routed, executed, and evaluated through a 3-phase pipeline
 5. **Concurrency**: Semaphore controls parallel operations
 6. **Automation**: File watchdog triggers appropriate handlers based on file patterns and task status
+7. **Logging**: Thread-specific logs for each execution and evaluation
+8. **Customization**: User-modifiable prompts for execution and evaluation
 
 The system is designed to be:
 - **Resilient**: Comprehensive startup detection prevents task loss on restarts
@@ -848,6 +1021,8 @@ The system is designed to be:
 - **Robust**: Retry logic, error handling, and duplicate prevention
 - **Concurrent**: Multiple tasks can be processed in parallel
 - **Automated**: Minimal manual intervention required
+- **Debuggable**: Dedicated log files per task for easy troubleshooting
+- **Customizable**: User-editable prompts allow fine-tuning agent behavior
 
 ---
 

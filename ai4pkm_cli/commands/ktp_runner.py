@@ -19,7 +19,7 @@ class KTPRunner:
     
     def __init__(self, logger, config: Config = None):
         """Initialize KTP Runner.
-        
+
         Args:
             logger: Logger instance
             config: Configuration instance (will create default if None)
@@ -31,6 +31,109 @@ class KTPRunner:
         self.processing_agent = self.config.get_ktp_routing()  # Maps task type to agent for Phase 1 & 2
         self.timeout_minutes = self.config.get_ktp_timeout()
         self.max_retries = self.config.get_ktp_max_retries()
+
+    def _read_execution_prompt(self, task_path: str) -> str:
+        """Read execution prompt from system prompt file.
+
+        Args:
+            task_path: Path to the task file
+
+        Returns:
+            Formatted execution prompt
+        """
+        # Try to read from system prompt file in ai4pkm_cli/prompts
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        prompt_file = os.path.join(module_dir, "prompts", "task_execution.md")
+
+        try:
+            if os.path.exists(prompt_file):
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Extract the prompt template between ``` markers
+                match = re.search(r'```\s*\n(.*?)\n```', content, re.DOTALL)
+                if match:
+                    template = match.group(1).strip()
+                    # Replace placeholder
+                    return template.replace('{task_path}', task_path)
+        except Exception as e:
+            self.logger.warning(f"Could not read execution prompt from file: {e}")
+
+        # Fallback to hardcoded prompt
+        prompt = f"Process the knowledge task defined in the file: {task_path}\n\n"
+        prompt += "Follow the instructions in the task file and update the task file with:\n"
+        prompt += "- Process Log entries documenting your work\n"
+        prompt += "- Output property with wiki links to created files\n"
+        prompt += "- Status updated to PROCESSED when complete\n"
+        return prompt
+
+    def _read_evaluation_prompt(self, task_path: str, task_type: str, priority: str,
+                                instructions: str, output_section: str) -> str:
+        """Read evaluation prompt from system prompt file.
+
+        Args:
+            task_path: Path to the task file
+            task_type: Task type
+            priority: Task priority
+            instructions: Task instructions
+            output_section: Output files section
+
+        Returns:
+            Formatted evaluation prompt
+        """
+        # Try to read from system prompt file in ai4pkm_cli/prompts
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        prompt_file = os.path.join(module_dir, "prompts", "task_evaluation.md")
+
+        try:
+            if os.path.exists(prompt_file):
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Extract the prompt template between ``` markers
+                match = re.search(r'```\s*\n(.*?)\n```', content, re.DOTALL)
+                if match:
+                    template = match.group(1).strip()
+                    # Replace placeholders
+                    return (template
+                           .replace('{task_path}', task_path)
+                           .replace('{task_type}', task_type)
+                           .replace('{priority}', priority)
+                           .replace('{instructions}', instructions)
+                           .replace('{output_section}', output_section))
+        except Exception as e:
+            self.logger.warning(f"Could not read evaluation prompt from file: {e}")
+
+        # Fallback to hardcoded prompt
+        prompt = f"""Review this task and its output to determine if it should be marked COMPLETED or FAILED.
+
+Task File: {task_path}
+Task Type: {task_type}
+Priority: {priority}
+
+## Original Instructions
+{instructions}
+
+## Output Files
+{output_section}
+
+## Evaluation Criteria
+1. Are output files specified in the 'output' property?
+2. Do the output files exist and are they accessible?
+3. Does the output address the task instructions?
+4. Is the output complete and well-structured?
+5. Are there any obvious errors or omissions?
+
+Respond with:
+- APPROVED if the task is complete and meets all requirements
+- NEEDS_REWORK if the task has issues (missing outputs, incorrect content, etc.)
+
+Format your response as:
+DECISION: [APPROVED or NEEDS_REWORK]
+REASON: [brief explanation]
+FEEDBACK: [specific improvements needed if NEEDS_REWORK]
+"""
+        return prompt
         
     def evaluate_task(self, task_file: str):
         """Evaluate a single PROCESSED task (Phase 3 only).
@@ -62,7 +165,7 @@ class KTPRunner:
         Args:
             task_file: Specific task filename to process (optional)
             priority: Filter by priority (P0, P1, P2, P3)
-            status: Filter by status (TBD, IN_PROGRESS, UNDER_REVIEW)
+            status: Filter by status (TBD, IN_PROGRESS, PROCESSED, UNDER_REVIEW)
         """
         self.logger.info("🚀 Starting KTP (Knowledge Task Processor)")
 
@@ -315,13 +418,13 @@ class KTPRunner:
             self._update_task_status(task_file, 'FAILED', worker=worker)
             return
 
-        # Build prompt for agent
+        # Build prompt for agent using template from file
         task_path = os.path.join(self.tasks_dir, task_file)
-        prompt = f"Process the knowledge task defined in the file: {task_path}\n\n"
-        prompt += "Follow the instructions in the task file and update the task file with:\n"
-        prompt += "- Process Log entries documenting your work\n"
-        prompt += "- Output property with wiki links to created files\n"
-        prompt += "- Status updated to PROCESSED when complete\n"
+        prompt = self._read_execution_prompt(task_path)
+
+        # Log agent command for reproduction
+        agent_cmd = agent.get_cli_command(prompt)
+        self.logger.log_agent_command(agent_cmd)
 
         self.logger.info(f"Executing task with agent: {worker}")
 
@@ -381,30 +484,33 @@ class KTPRunner:
         # Read task content
         task_content = self._read_file_content(task_path)
 
-        # AI-powered evaluation (includes output validation)
+        # AI-powered evaluation (agent updates status directly)
         self.logger.info("🤖 Running AI evaluation of task output...")
-        evaluation_result = self._evaluate_with_ai(task_file, task_data, current_data, task_content)
-        
-        if evaluation_result['approved']:
-            # Mark as completed
-            self._update_task_status(task_file, 'COMPLETED', worker=current_data.get('worker', ''))
-            self.logger.info(f"🎉 Task completed successfully: {evaluation_result['reason']}")
+        self._evaluate_with_ai(task_file, task_data, current_data, task_content)
+
+        # Read final status after agent completes evaluation
+        final_data = self._read_task_file(task_path)
+        final_status = final_data.get('status', 'UNDER_REVIEW')
+
+        if final_status == 'COMPLETED':
+            self.logger.info(f"🎉 Task completed successfully")
+        elif final_status == 'FAILED':
+            self.logger.warning(f"❌ Task failed review")
         else:
-            # Mark as failed with feedback
-            self.logger.warning(f"❌ Task failed review: {evaluation_result['reason']}")
-            self._fail_task(task_file, evaluation_result['reason'], evaluation_result.get('feedback', ''))
+            # Agent didn't update status - something went wrong
+            self.logger.warning(f"⚠️  Agent didn't update status (still {final_status}), assuming evaluation incomplete")
+            self.logger.warning("Check evaluation log for details")
     
-    def _evaluate_with_ai(self, task_file: str, task_data: Dict[str, Any], current_data: Dict[str, Any], task_content: str) -> Dict[str, Any]:
+    def _evaluate_with_ai(self, task_file: str, task_data: Dict[str, Any], current_data: Dict[str, Any], task_content: str) -> None:
         """Use AI to evaluate if task output meets requirements.
+
+        Agent updates task status directly to COMPLETED or FAILED.
 
         Args:
             task_file: Task filename
             task_data: Task metadata
             current_data: Current task frontmatter data
             task_content: Full task file content
-
-        Returns:
-            Dictionary with 'approved' (bool), 'reason' (str), 'feedback' (str)
         """
         try:
             # Extract instructions from task
@@ -432,74 +538,33 @@ class KTPRunner:
             # Get task file path for agent to access
             task_path = os.path.join(self.tasks_dir, task_file)
 
-            # Build evaluation prompt
-            prompt = f"""Review this task and its output to determine if it should be marked COMPLETED or FAILED.
-
-Task File: {task_path}
-Task Type: {task_data.get('task_type', 'Unknown')}
-Priority: {task_data.get('priority', 'P2')}
-
-## Original Instructions
-{instructions}
-
-## Output Files
-{output_section}
-
-## Evaluation Criteria
-1. Are output files specified in the 'output' property?
-2. Do the output files exist and are they accessible?
-3. Does the output address the task instructions?
-4. Is the output complete and well-structured?
-5. Are there any obvious errors or omissions?
-
-Respond with:
-- APPROVED if the task is complete and meets all requirements
-- NEEDS_REWORK if the task has issues (missing outputs, incorrect content, etc.)
-
-Format your response as:
-DECISION: [APPROVED or NEEDS_REWORK]
-REASON: [brief explanation]
-FEEDBACK: [specific improvements needed if NEEDS_REWORK]"""
+            # Build evaluation prompt using template from file
+            prompt = self._read_evaluation_prompt(
+                task_path=task_path,
+                task_type=task_data.get('task_type', 'Unknown'),
+                priority=task_data.get('priority', 'P2'),
+                instructions=instructions,
+                output_section=output_section
+            )
 
             # Get agent for evaluation (use configured evaluation agent)
             evaluation_agent_name = self.config.get_evaluation_agent()
             agent = AgentFactory.create_agent_by_name(evaluation_agent_name, self.logger, self.config)
-            
-            # Execute evaluation
+
+            # Log agent command for reproduction
+            agent_cmd = agent.get_cli_command(prompt)
+            self.logger.log_agent_command(agent_cmd)
+
+            # Execute evaluation - agent will update task status directly
             result = agent.run_prompt(inline_prompt=prompt)
-            
+
             if result and result[0]:
-                response = result[0]
-                
-                # Parse response
-                decision_match = re.search(r'DECISION:\s*(APPROVED|NEEDS_REWORK)', response, re.IGNORECASE)
-                reason_match = re.search(r'REASON:\s*(.+?)(?=\n(?:FEEDBACK:|$))', response, re.DOTALL)
-                feedback_match = re.search(r'FEEDBACK:\s*(.+?)$', response, re.DOTALL)
-                
-                decision = decision_match.group(1).upper() if decision_match else "NEEDS_REWORK"
-                reason = reason_match.group(1).strip() if reason_match else "AI evaluation completed"
-                feedback = feedback_match.group(1).strip() if feedback_match else ""
-                
-                return {
-                    'approved': decision == 'APPROVED',
-                    'reason': reason,
-                    'feedback': feedback
-                }
+                self.logger.info("✅ Agent evaluation completed")
             else:
-                self.logger.warning("No response from AI evaluator")
-                return {
-                    'approved': False,
-                    'reason': "AI evaluation failed - no response",
-                    'feedback': "Manual review required"
-                }
-                
+                self.logger.warning("⚠️  No response from AI evaluator")
+
         except Exception as e:
             self.logger.error(f"Error in AI evaluation: {e}")
-            return {
-                'approved': False,
-                'reason': f"AI evaluation error: {str(e)}",
-                'feedback': "Manual review required"
-            }
     
     def _fail_task(self, task_file: str, reason: str, feedback: str = ""):
         """Mark task as FAILED with feedback.
@@ -782,7 +847,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='KTP Runner')
     parser.add_argument('--task', type=str, help='Specific task file to process')
     parser.add_argument('--priority', type=str, choices=['P0', 'P1', 'P2', 'P3'], help='Filter by priority')
-    parser.add_argument('--status', type=str, choices=['TBD', 'IN_PROGRESS', 'UNDER_REVIEW'], help='Filter by status')
+    parser.add_argument('--status', type=str, choices=['TBD', 'IN_PROGRESS', 'PROCESSED', 'UNDER_REVIEW'], help='Filter by status')
     
     args = parser.parse_args()
     

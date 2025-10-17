@@ -2,7 +2,7 @@
 
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Tuple, Dict
 from .transcription_file_handler import TranscriptionFileHandler
 
@@ -10,29 +10,62 @@ from .transcription_file_handler import TranscriptionFileHandler
 class LimitlessFileHandler(TranscriptionFileHandler):
     """
     Handler for Limitless markdown files.
-    
+
     Tracks lastSyncTimestamp and filters content to process only new entries.
+    Implements deduplication to handle multiple file system events.
     """
-    
+
+    def __init__(self, logger=None, workspace_path=None):
+        """Initialize handler with deduplication cache."""
+        super().__init__(logger, workspace_path)
+        self._processed_cache = {}  # file_path -> (mtime, last_processed_time)
+
     def process(self, file_path: str, event_type: str) -> None:
         """
         Process Limitless markdown files, filtering by timestamp.
-        
+
+        Implements deduplication to prevent processing the same file multiple times
+        when file system generates duplicate events (common with iCloud Drive).
+
         Args:
             file_path: Path to the Limitless markdown file
             event_type: Type of event ('created' or 'modified')
         """
+        # Check if this is a duplicate event
+        try:
+            file_mtime = os.path.getmtime(file_path)
+            now = datetime.now()
+
+            # Check cache for recent processing
+            if file_path in self._processed_cache:
+                cached_mtime, last_processed = self._processed_cache[file_path]
+
+                # If same mtime and processed within last 2 seconds, skip (duplicate event)
+                if cached_mtime == file_mtime and (now - last_processed).total_seconds() < 2:
+                    self.logger.debug(f"Skipping duplicate event for {file_path} (processed {(now - last_processed).total_seconds():.2f}s ago)")
+                    return
+
+            # Update cache
+            self._processed_cache[file_path] = (file_mtime, now)
+
+            # Clean old cache entries (older than 5 minutes)
+            self._clean_cache()
+
+        except OSError as e:
+            self.logger.warning(f"Could not check file modification time for {file_path}: {e}")
+            # Continue processing anyway
+
         self.logger.info(f"Processing Limitless file {event_type}: {file_path}")
-        
+
         try:
             # Get last sync timestamp
             last_sync = self.get_last_sync_timestamp()
-            
+
             if last_sync:
                 self.logger.info(f"Last sync was at {last_sync.isoformat()}")
             else:
                 self.logger.info("No previous sync timestamp - processing all content")
-            
+
             # Read and filter the file content
             new_entries = self._read_and_filter_entries(file_path, last_sync)
             
@@ -119,5 +152,22 @@ class LimitlessFileHandler(TranscriptionFileHandler):
                 except ValueError as e:
                     self.logger.debug(f"Could not parse timestamp: {datetime_str} - {e}")
                     continue
-        
+
         return sorted(entries, key=lambda x: x[0])
+
+    def _clean_cache(self):
+        """Clean old entries from processed cache to prevent memory leaks."""
+        now = datetime.now()
+        cutoff = now - timedelta(minutes=5)
+
+        # Remove entries older than 5 minutes
+        to_remove = [
+            path for path, (mtime, last_processed) in self._processed_cache.items()
+            if last_processed < cutoff
+        ]
+
+        for path in to_remove:
+            del self._processed_cache[path]
+
+        if to_remove:
+            self.logger.debug(f"Cleaned {len(to_remove)} old entries from deduplication cache")

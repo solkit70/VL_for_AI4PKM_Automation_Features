@@ -92,8 +92,11 @@ class TaskProcessor(BaseFileHandler):
             agent_name = processing_agent.get(task_type, processing_agent.get('default', 'claude_code'))
             agent_short = agent_name.replace('_cli', '').replace('_code', '')  # claude, gemini, codex
 
-            # Update thread name with agent type
-            threading.current_thread().name = f"KTP-exec-{agent_short}-{os.path.basename(file_path)}"
+            # Get task title for better thread naming
+            task_title = task_data.get('title', os.path.basename(file_path).replace('.md', ''))
+
+            # Update thread name with agent type and title
+            threading.current_thread().name = f"KTP-exec-{agent_short}-{task_title}"
 
             # Log detection and trigger KTP execution
             self.logger.info(f"📋 TBD task detected: {os.path.basename(file_path)}")
@@ -194,21 +197,28 @@ class TaskProcessor(BaseFileHandler):
     
     def _execute_task(self, task_filename: str):
         """Execute the task (runs within semaphore context).
-        
+
         Args:
             task_filename: Task filename
         """
         try:
+            # Create thread-specific log file
+            log_path = self.logger.create_thread_log(task_filename, phase="exec")
+            self.logger.info(f"📝 Thread log created: {log_path}")
+
             # Import and run KTP
             from ...commands.ktp_runner import KTPRunner
             from ...config import Config
-            
+
             config = Config()
             runner = KTPRunner(self.logger, config)
             runner.run_tasks(task_file=task_filename)
-            
+
             self.logger.info(f"✅ KTP execution completed: {task_filename}")
-            
+
+            # Update task file with execution log link
+            self._add_log_link_to_task(task_filename, log_path, "execution_log")
+
         except Exception as e:
             self.logger.error(f"Error running KTP: {e}")
             self.logger.error(f"Error type: {type(e).__name__}")
@@ -249,18 +259,87 @@ class TaskProcessor(BaseFileHandler):
     def _clean_cache(self):
         """Clean old entries from processed cache."""
         from datetime import timedelta
-        
+
         now = datetime.now()
         cutoff = now - timedelta(hours=1)
-        
+
         # Remove old entries
         to_remove = [
             key for key, timestamp in self.processed_cache.items()
             if timestamp < cutoff
         ]
-        
+
         for key in to_remove:
             del self.processed_cache[key]
+
+    def _add_log_link_to_task(self, task_filename: str, log_path: str, property_name: str):
+        """Add log file link to task frontmatter.
+
+        Args:
+            task_filename: Task filename
+            log_path: Absolute path to log file
+            property_name: Property name (execution_log or evaluation_log)
+        """
+        try:
+            import yaml
+
+            task_path = os.path.join(self.workspace_path, "AI", "Tasks", task_filename)
+
+            # Read task file
+            with open(task_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Parse frontmatter
+            if not content.startswith('---'):
+                self.logger.warning(f"Task file {task_filename} has no frontmatter")
+                return
+
+            parts = content.split('---', 2)
+            if len(parts) < 3:
+                self.logger.warning(f"Task file {task_filename} has invalid frontmatter")
+                return
+
+            frontmatter = parts[1]
+            body = parts[2]
+
+            # Convert absolute log path to relative wiki link
+            # From: /Users/.../AI/Tasks/Logs/2025-10-16 Task-exec.log
+            # To: [[Tasks/Logs/2025-10-16 Task-exec]]
+            log_relative = os.path.relpath(log_path, os.path.join(self.workspace_path, "AI"))
+            log_link = log_relative.replace('.log', '').replace(os.sep, '/')
+            wiki_link = f"[[{log_link}]]"
+
+            # Add or update property in frontmatter
+            lines = frontmatter.split('\n')
+            updated = False
+            new_lines = []
+
+            for line in lines:
+                if line.strip().startswith(f'{property_name}:'):
+                    new_lines.append(f'{property_name}: "{wiki_link}"')
+                    updated = True
+                else:
+                    new_lines.append(line)
+
+            if not updated:
+                # Add new property before the last line
+                if new_lines and new_lines[-1].strip() == '':
+                    new_lines.insert(-1, f'{property_name}: "{wiki_link}"')
+                else:
+                    new_lines.append(f'{property_name}: "{wiki_link}"')
+
+            # Rebuild content
+            new_frontmatter = '\n'.join(new_lines)
+            new_content = f"---{new_frontmatter}---{body}"
+
+            # Write back
+            with open(task_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+
+            self.logger.info(f"Added {property_name} link to task: {wiki_link}")
+
+        except Exception as e:
+            self.logger.error(f"Error adding log link to task: {e}")
 
 
 # Export the handler class

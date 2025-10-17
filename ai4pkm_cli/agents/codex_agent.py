@@ -26,6 +26,15 @@ class CodexAgent(BaseAgent):
     def get_agent_name(self) -> str:
         """Get the display name of this agent."""
         return "Codex CLI"
+
+    def get_cli_command(self, inline_prompt: Optional[str] = None) -> str:
+        """Get the CLI command for Codex CLI."""
+        if inline_prompt:
+            escaped_prompt = inline_prompt.replace('"', '\\"').replace('\n', '\\n')
+            if len(escaped_prompt) > 100:
+                escaped_prompt = escaped_prompt[:100] + "..."
+            return f'codex --full_auto --search "{escaped_prompt}"'
+        return "codex --full_auto --search"
         
     def run_prompt(self, inline_prompt: Optional[str] = None, prompt_name: Optional[str] = None, 
                    params: Optional[Dict[str, Any]] = None, context: Optional[str] = None, 

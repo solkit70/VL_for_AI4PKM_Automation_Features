@@ -6,7 +6,6 @@ import sys
 import threading
 from datetime import datetime
 from ..file_watchdog import BaseFileHandler
-from ..task_semaphore import get_task_semaphore
 
 
 class TaskEvaluator(BaseFileHandler):
@@ -20,18 +19,19 @@ class TaskEvaluator(BaseFileHandler):
     def __init__(self, logger=None, workspace_path=None):
         """
         Initialize the handler.
-        
+
         Args:
             logger: Logger instance
             workspace_path: Path to the workspace root
         """
         super().__init__(logger, workspace_path)
         self.processed_cache = {}  # Track processed files to avoid duplicates
-        
-        # Get shared task semaphore
+
+        # Get execution semaphore (separate from generation)
         from ...config import Config
+        from ..task_semaphore import get_execution_semaphore
         config = Config()
-        self.semaphore = get_task_semaphore(config, self.logger)
+        self.semaphore = get_execution_semaphore(config, self.logger)
         
     def process(self, file_path: str, event_type: str) -> None:
         """

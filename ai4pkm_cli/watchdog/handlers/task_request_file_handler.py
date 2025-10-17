@@ -19,16 +19,17 @@ class TaskRequestFileHandler(BaseFileHandler):
     def __init__(self, logger=None, workspace_path=None):
         """
         Initialize the handler.
-        
+
         Args:
             logger: Logger instance
             workspace_path: Path to the workspace root
         """
         super().__init__(logger, workspace_path)
         self.config = Config()
-        
-        # Get shared task semaphore
-        self.semaphore = get_task_semaphore(self.config, self.logger)
+
+        # Get generation semaphore (separate from execution)
+        from ..task_semaphore import get_generation_semaphore
+        self.semaphore = get_generation_semaphore(self.config, self.logger)
     
     def process(self, file_path: str, event_type: str) -> None:
         """

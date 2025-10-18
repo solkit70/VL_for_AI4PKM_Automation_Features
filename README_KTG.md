@@ -115,6 +115,14 @@ excluded_patterns=[
 I'm stuck on this problem. #AI please help analyze this.
 ```
 
+**Special Handling for Task Files**:
+When `#AI` appears in existing task files (`AI/Tasks/*.md`):
+- **Does NOT create a new task file**
+- Instead, KTG resolves the request within the same task file
+- Adds response to the **Process Log** section
+- Removes the `#AI` tag after addressing the request
+- This keeps related work consolidated in one place
+
 **Task Request Format**:
 ```markdown
 ---

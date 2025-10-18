@@ -52,13 +52,14 @@ IMPORTANT: When creating a task file, include these properties in frontmatter:
 Ensure the 'created' property uses full datetime format, not just date.
 
 NOTE: Do NOT create separate log or report files in AI/Tasks/Logs/. System logging is handled automatically. Only create the task file in AI/Tasks/ as specified in the KTG workflow.
+
+CRITICAL: Special handling for #AI tags in task files (AI/Tasks/):
+- When the target file is in AI/Tasks/ (existing task file), DO NOT create a new task
+- Instead, resolve the #AI request within the same task file:
+  1. Read the task file to understand the context
+  2. Address the request or question marked with #AI
+  3. Add your response to the "Process Log" section
+  4. Remove the #AI tag after addressing it
+- This keeps related work consolidated in one task file instead of fragmenting into multiple tasks
+- Only create NEW task files when the #AI tag appears in regular notes (outside AI/Tasks/)
 ```
-
-## Customization
-
-The main KTG workflow logic is defined in `_Settings_/Prompts/Knowledge Task Generator (KTG).md`.
-
-This system prompt ensures:
-- Generation logs are properly linked to created tasks
-- Created datetime uses full ISO format with time component
-- All required properties are included in task frontmatter

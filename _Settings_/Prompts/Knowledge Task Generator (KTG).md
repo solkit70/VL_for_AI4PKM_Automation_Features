@@ -40,11 +40,13 @@ Generate knowledge tasks from task generation request file and process them effi
 - Limitless insights → Add to Journal Thoughts section
 - File operations, lookups
 - Quick reference tasks
+- **#AI requests within existing task files (AI/Tasks/)** → Resolve in-place, update Process Log section
 
 **³ Complex tasks** (create task file):
 - **ALL unprocessed docs requiring EIC** (always create task, never execute directly)
 - Research, analysis, writing
 - Multi-step workflows
+- **#AI requests in regular notes** (outside AI/Tasks/) → Create new task file
 
 ### EIC Processing Policy
 

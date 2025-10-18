@@ -43,13 +43,38 @@ Improve captured content through transcript correction, summarization, and knowl
 ```
 
 ## Caveats
+
+### Content Completeness - CRITICAL
+
+⚠️ **CRITICAL**: ICT section must be COMPLETE - not truncated
+
+**Common failure pattern:**
+- Agent starts ICT section
+- Hits token/context limit mid-processing
+- ICT cuts off mid-sentence: "Since I last wrote at the beginning of the summer, my methodol..."
+- Agent marks status as PROCESSED anyway ❌ WRONG
+
+**Prevention measures:**
+1. **Check article length FIRST** before starting
+2. **If source >3000 words**, process in chunks OR request context extension
+3. **VERIFY ICT ends at natural stopping point** (end of paragraph/section, not mid-sentence)
+4. **Self-check before marking PROCESSED**: "Does the last paragraph in ICT feel complete?"
+5. **If truncated**, FINISH it before updating status to PROCESSED
+
+**Quality verification:**
+- ICT section should have multiple ### subsections (not just one incomplete section)
+- Last sentence should end with proper punctuation, not "..." or cut-off text
+- Length should be comparable to original source (not 30-50% shorter due to truncation)
+
+**If you cannot complete full ICT:**
+- Mark task as NEEDS_INPUT explaining length/complexity issue
+- DO NOT mark PROCESSED with incomplete work
+
 ### Rename Filenames
-* Convert “ ” (curly/typographic quotes) to " (straight quote)
+* Convert " " (curly/typographic quotes) to " (straight quote)
+   * Same for single quotes
 * Remove incomplete words -- 40살 전에 알았다면 `얼마ᄂ`
 * Remove `Readwise` at the end
-
-### Content Processing
-⚠️ **CRITICAL**: For long articles, chunk contents first to avoid partial processing
 
 ### Formatting Standards
 - Use heading3 (###) for chapters

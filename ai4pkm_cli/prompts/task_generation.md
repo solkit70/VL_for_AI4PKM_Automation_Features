@@ -18,7 +18,7 @@ When creating a task file, the agent should:
 2. **Required frontmatter properties**:
    - `title`: Task title/description
    - `priority`: P1 (content creation) or P2 (workflow/maintenance)
-   - `status`: TBD
+   - `status`: "TBD" (MUST be exactly "TBD" in quotes)
    - `archived`: false
    - `created`: Full datetime in ISO format (YYYY-MM-DDTHH:MM:SS)
    - `source`: Wiki link to original document
@@ -46,10 +46,12 @@ This prompt is automatically added to KTG execution context:
 {ktg_request_prompt}
 
 IMPORTANT: When creating a task file, include these properties in frontmatter:
+- status: "TBD" (CRITICAL: Must be exactly "TBD" in quotes - this is required for task processing)
 - created: {current_datetime} (full ISO format: YYYY-MM-DDTHH:MM:SS)
 - generation_log: "{generation_log_link}" (link to this KTG execution log)
 
 Ensure the 'created' property uses full datetime format, not just date.
+NEVER use "pending" or other status values - only "TBD", "COMPLETED", or "NEEDS_INPUT".
 
 NOTE: Do NOT create separate log or report files in AI/Tasks/Logs/. System logging is handled automatically. Only create the task file in AI/Tasks/ as specified in the KTG workflow.
 

@@ -268,9 +268,10 @@ File: AI/Tasks/YYYY-MM-DD [Description].md
 Structure:
 ├─ Properties (YAML frontmatter)
 │  ├─ Priority: P1 (content) or P2 (workflow)
-│  ├─ Status: TBD, COMPLETED, NEEDS_INPUT
+│  ├─ Status: TBD, IN_PROGRESS, PROCESSED, UNDER_REVIEW, COMPLETED, NEEDS_INPUT
 │  ├─ Archived: false
-│  └─ Source: Link to original request
+│  ├─ Source: Link to original request
+│  └─ evaluated: false (set to true after evaluation)
 │
 ├─ ## Input
 │  └─ Full context with blockquotes
@@ -297,6 +298,39 @@ Structure:
 ### Time Scope Restrictions
 
 ⚠️ **CRITICAL**: KTG only processes sources from the **last 3 days** to prevent generating outdated tasks. This applies to all source types.
+
+### One-Time Evaluation Model
+
+⚠️ **CRITICAL**: Evaluation happens ONCE and the evaluator MUST complete the work.
+
+**Design Philosophy:**
+- Evaluation is not a "review and retry" process
+- Evaluator is responsible for **completing** unfinished work, not just flagging issues
+- No retry loops - the evaluator resolves the task in one pass
+
+**Evaluation Flow:**
+1. Task execution completes → Status: PROCESSED
+2. Evaluator reviews the work → Status: UNDER_REVIEW
+3. Evaluator has TWO options:
+   - **COMPLETED**: Work is done (evaluator may have completed remaining parts)
+   - **NEEDS_INPUT**: Fundamentally blocked, requires human intervention
+4. **No FAILED status** - there are no retries
+
+**Why This Design:**
+- Prevents infinite FAILED → retry → FAILED loops (common failure mode)
+- Evaluator agents are capable enough to complete most incomplete work
+- Forces evaluator to take ownership of completion
+- Saves compute resources (no redundant re-execution)
+- Clear ownership: Executor creates draft, Evaluator finalizes
+
+**Evaluator Responsibilities:**
+- Complete truncated ICT sections by continuing from where they cut off
+- Add missing subsections or formatting
+- Fix wiki links and minor errors
+- Only escalate to NEEDS_INPUT when truly blocked (missing source files, unclear requirements)
+
+**Preventing Double Evaluation:**
+Tasks are marked with `evaluated: true` after first evaluation to prevent re-evaluation.
 
 ## Task File Structure
 

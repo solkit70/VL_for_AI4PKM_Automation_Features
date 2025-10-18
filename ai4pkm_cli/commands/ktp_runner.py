@@ -463,19 +463,32 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
                 self._update_task_status(task_file, 'FAILED', worker=worker)
     
     def _phase3_evaluate_task(self, task_file: str, task_data: Dict[str, Any]):
-        """Phase 3: Evaluate task results and complete or request refinements.
+        """Phase 3: Evaluate task results and complete the work.
+
+        This is a ONE-TIME evaluation where the evaluator MUST either:
+        - Complete any unfinished work and mark COMPLETED
+        - Mark NEEDS_INPUT if human intervention required
 
         Args:
             task_file: Task filename
             task_data: Task metadata dictionary
         """
-        self.logger.info("\n✓ Phase 3: Results Evaluation (PROCESSED → UNDER_REVIEW → COMPLETED or FAILED)")
+        self.logger.info("\n✓ Phase 3: Results Evaluation (PROCESSED → COMPLETED or NEEDS_INPUT)")
 
         # Mark as actively under review
         task_path = os.path.join(self.tasks_dir, task_file)
         current_data = self._read_task_file(task_path)
 
-        # Only update to UNDER_REVIEW if currently PROCESSED (not already UNDER_REVIEW from retry)
+        # Check if already evaluated (prevent double evaluation)
+        if current_data.get('evaluated', False):
+            self.logger.warning(f"⚠️  Task already evaluated, skipping")
+            return
+
+        # Mark as evaluated to prevent re-evaluation
+        self._update_frontmatter_counter(task_file, 'evaluated', 1)
+        current_data['evaluated'] = True
+
+        # Update to UNDER_REVIEW status
         if current_data.get('status') == 'PROCESSED':
             self._update_task_status(task_file, 'UNDER_REVIEW', worker=current_data.get('worker', ''))
             # Re-read after status update
@@ -546,6 +559,14 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
                 instructions=instructions,
                 output_section=output_section
             )
+
+            # Add critical one-time evaluation note
+            prompt += f"\n\n## CRITICAL: One-Time Evaluation\n"
+            prompt += f"⚠️  This is a ONE-TIME evaluation. You MUST complete the task now.\n"
+            prompt += f"- If work is incomplete: COMPLETE it yourself (finish truncated sections, add missing parts)\n"
+            prompt += f"- If you cannot complete: Mark NEEDS_INPUT with specific requirements\n"
+            prompt += f"- DO NOT mark FAILED - that would restart execution and waste resources\n"
+            prompt += f"- Your job is to COMPLETE the work, not just review it\n"
 
             # Get agent for evaluation (use configured evaluation agent)
             evaluation_agent_name = self.config.get_evaluation_agent()
@@ -736,27 +757,52 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
     
     def _update_task_retry(self, task_file: str, retry_count: int):
         """Update task retry count in frontmatter.
-        
+
         Args:
             task_file: Task filename
             retry_count: New retry count
         """
         task_path = os.path.join(self.tasks_dir, task_file)
-        
+
         try:
             with open(task_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
+
             # Update retry_count in frontmatter
             content = self._update_frontmatter_field(content, 'retry_count', str(retry_count))
-            
+
             with open(task_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-                
+
             self.logger.info(f"Updated retry count: {retry_count}")
-            
+
         except Exception as e:
             self.logger.error(f"Error updating retry count: {e}")
+
+    def _update_frontmatter_counter(self, task_file: str, field: str, value: int):
+        """Update a counter field in frontmatter (for evaluation_attempts, etc).
+
+        Args:
+            task_file: Task filename
+            field: Field name to update
+            value: New counter value
+        """
+        task_path = os.path.join(self.tasks_dir, task_file)
+
+        try:
+            with open(task_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Update field in frontmatter
+            content = self._update_frontmatter_field(content, field, str(value))
+
+            with open(task_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            self.logger.info(f"Updated {field}: {value}")
+
+        except Exception as e:
+            self.logger.error(f"Error updating {field}: {e}")
     
     def _update_frontmatter_field(self, content: str, field: str, value: str) -> str:
         """Update a field in YAML frontmatter.

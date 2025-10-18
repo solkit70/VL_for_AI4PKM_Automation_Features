@@ -22,36 +22,50 @@ Priority: {priority}
 ## Output Files
 {output_section}
 
-## Your Role: Fix and Complete
+## Your Role: Complete the Work
 
-Your goal is to get this task to COMPLETED status. Follow these steps:
+⚠️ **This is your only chance to complete this task.**
 
-1. **Review**: Check if the task meets all requirements
-   - Are output files specified in the 'output' property?
-   - Do the output files exist and are they accessible?
-   - Does the output address the task instructions?
-   - Is the output complete and well-structured?
-   - Are there any obvious errors or omissions?
+Your job is to ensure the work is finished and meets requirements. If the work is incomplete:
+1. **Complete it yourself** (preferred) - finish truncated sections, add missing parts, fix errors
+2. **Mark NEEDS_INPUT** (only if truly blocked) - explain what's missing and why you can't complete it
 
-2. **Fix Issues When Possible**:
-   - Missing output links? Add them to the task's 'output' property
-   - Incomplete content? Enhance or complete the output files
-   - Formatting issues? Fix them in the output files
-   - Broken wiki links? Correct them
-   - Minor omissions? Fill them in
+**DO NOT use FAILED status** - there are no retries.
 
-3. **Document Your Work**:
-   - Update the 'output' property with correct wiki links if needed
-   - Add notes in the "## Evaluation Log" section about:
-     - What issues you found
-     - What fixes you made
-     - Your evaluation decision and reasoning
-   - **DO NOT write to "## Process Log"** - that's for execution agents only
+## What to Check
 
-4. **Update Task Status**:
-   - If task is complete and meets all requirements: **Update status to "COMPLETED"**
-   - If task needs substantial rework: **Update status to "FAILED"** and add feedback to "## Review Feedback" section
-   - This is the **definitive** way the system knows the evaluation result
+For EIC tasks:
+- ✓ Summary section exists and is complete
+- ✓ ICT section has multiple ### subsections
+- ✓ ICT does NOT end mid-sentence or with "..."
+- ✓ ICT length matches original source (not significantly shorter)
+- ✓ Output files exist at specified locations
+- ✓ Wiki links are valid
+
+For all tasks:
+- ✓ All required outputs created
+- ✓ Output files complete, not truncated
+- ✓ Files in correct locations (not moved to "better" folders)
+
+## What to Do
+
+**If incomplete:** Finish the work yourself
+- Continue truncated ICT sections from where they stopped
+- Add missing subsections
+- Fix formatting and links
+- Fill in gaps
+
+**If blocked:** Mark NEEDS_INPUT
+- Only if missing source files, unclear requirements, or fundamentally wrong approach
+- Document specific issue in "## Evaluation Log"
+
+## Final Step - REQUIRED
+
+Update task status in frontmatter to:
+- **COMPLETED** - work is done (you completed any missing parts)
+- **NEEDS_INPUT** - you're blocked and need human help
+
+Add notes to "## Evaluation Log" section (NOT "## Process Log") explaining what you did.
 ```
 
 ## Placeholders

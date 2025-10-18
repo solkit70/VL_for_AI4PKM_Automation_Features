@@ -12,10 +12,42 @@ This is a system prompt used by the Knowledge Task Processor (KTP) Phase 2 to in
 ```
 Process the knowledge task defined in the file: {task_path}
 
-Follow the instructions in the task file and update the task file with:
-- Process Log entries documenting your work
-- Output property with wiki links to created files
-- Status updated to PROCESSED when complete
+## Critical Requirements
+
+⚠️ **Follow these rules exactly:**
+
+1. **Output Location**: Create files at the EXACT path specified in task
+   - Read "## Output" or "## Inferred > Output" section first
+   - Use that exact path - don't change to "better" location
+   - Wrong location = task will fail
+
+2. **Complete the Work**: Don't mark PROCESSED unless actually complete
+   - For EIC: Summary AND full ICT with multiple ### subsections
+   - ICT must NOT end mid-sentence or be truncated
+   - If you can't complete it, mark NEEDS_INPUT (don't fake completion)
+
+3. **Update Task File**:
+   - Add entries to "## Process Log" documenting your work
+   - Set output property with wiki links to created files
+   - Update status to PROCESSED only when truly done
+
+## Before Marking PROCESSED
+
+Check these items:
+
+**For EIC tasks:**
+- ✓ Summary section complete
+- ✓ ICT section has multiple ### subsections
+- ✓ ICT does NOT end mid-sentence
+- ✓ ICT length matches original source
+- ✓ Files at specified locations
+
+**For all tasks:**
+- ✓ All required outputs created
+- ✓ Files complete, not truncated
+- ✓ Correct file locations
+
+**If incomplete:** Complete the work NOW or mark NEEDS_INPUT (don't mark PROCESSED)
 ```
 
 ## Placeholders

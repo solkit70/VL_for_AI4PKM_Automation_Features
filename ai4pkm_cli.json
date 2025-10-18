@@ -46,8 +46,6 @@
     "max_concurrent": 1,
     "processing_agent": {
       "EIC": "claude_code",
-      "Research": "gemini_cli",
-      "Analysis": "gemini_cli",
       "Writing": "claude_code",
       "default": "claude_code"
     },

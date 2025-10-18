@@ -154,7 +154,8 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
         # Can evaluate either PROCESSED (not yet evaluated) or UNDER_REVIEW (retry)
         status = task_data.get('status', '')
         if status not in ['PROCESSED', 'UNDER_REVIEW']:
-            self.logger.warning(f"Task status is {status}, expected PROCESSED or UNDER_REVIEW")
+            self.logger.warning(f"Task status is {status}, not eligible for evaluation (expected PROCESSED or UNDER_REVIEW)")
+            return
 
         # Run Phase 3 evaluation
         self._phase3_evaluate_task(task_file, task_data)
@@ -479,20 +480,22 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
         task_path = os.path.join(self.tasks_dir, task_file)
         current_data = self._read_task_file(task_path)
 
-        # Check if already evaluated (prevent double evaluation)
-        if current_data.get('evaluated', False):
-            self.logger.warning(f"⚠️  Task already evaluated, skipping")
+        # Check status to determine if evaluation already done or in progress
+        # Use status as the single source of truth (not 'evaluated' flag)
+        status = current_data.get('status', '')
+        if status in ['UNDER_REVIEW', 'COMPLETED', 'NEEDS_INPUT', 'FAILED']:
+            self.logger.info(f"Task already evaluated (status: {status}), skipping")
             return
 
-        # Mark as evaluated to prevent re-evaluation
-        self._update_frontmatter_counter(task_file, 'evaluated', 1)
-        current_data['evaluated'] = True
+        # Only PROCESSED tasks should reach here
+        if status != 'PROCESSED':
+            self.logger.warning(f"Unexpected status for evaluation: {status} (expected PROCESSED)")
+            return
 
-        # Update to UNDER_REVIEW status
-        if current_data.get('status') == 'PROCESSED':
-            self._update_task_status(task_file, 'UNDER_REVIEW', worker=current_data.get('worker', ''))
-            # Re-read after status update
-            current_data = self._read_task_file(task_path)
+        # Update to UNDER_REVIEW status (marks evaluation in progress)
+        self._update_task_status(task_file, 'UNDER_REVIEW', worker=current_data.get('worker', ''))
+        # Re-read after status update
+        current_data = self._read_task_file(task_path)
 
         # Read task content
         task_content = self._read_file_content(task_path)

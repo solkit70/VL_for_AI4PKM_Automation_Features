@@ -51,7 +51,8 @@
     },
     "evaluation_agent": "claude_code",
     "timeout_minutes": 30,
-    "max_retries": 2
+    "max_retries": 2,
+    "polling_interval": 30
   },
   "cron_jobs": [
     {

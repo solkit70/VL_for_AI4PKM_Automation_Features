@@ -388,13 +388,42 @@ class PKMApp:
         observer = Observer()
         observer.schedule(event_handler, '.', recursive=True)
         observer.start()
-        
+
+        # Add periodic polling for TBD tasks (fallback for FSEvents issues)
+        # macOS FSEvents doesn't reliably detect files created by subprocesses
+        from .watchdog.tbd_poller import TBDTaskPoller
+
+        # Get TaskProcessor handler instance to trigger manually
+        task_processor_handler = None
+        for pattern, handler_class in [
+            ('AI/Tasks/*.md', TaskProcessor),
+        ]:
+            if handler_class == TaskProcessor:
+                task_processor_handler = TaskProcessor(self.logger)
+                break
+
+        tbd_poller = None
+        if task_processor_handler:
+            # Get polling interval from config (default: 30 seconds)
+            polling_interval = self.config.get('task_management.polling_interval', 30)
+
+            if polling_interval > 0:
+                tbd_poller = TBDTaskPoller(
+                    workspace_path=os.getcwd(),
+                    task_handler=task_processor_handler,
+                    interval=polling_interval,
+                    logger=self.logger
+                )
+                tbd_poller.start()
+
         self.console.print(f"\n[green]🐶 Task Management File Monitoring started[/green]")
         self.console.print(f"[dim]Watching: Gobi, Limitless, Clippings, Hashtags, Task Requests, TBD Tasks[/dim]")
+        if tbd_poller:
+            self.console.print(f"[dim]Polling: TBD tasks ({polling_interval}s interval as FSEvents fallback)[/dim]")
         self.console.print("\n" + "=" * 60)
         self.console.print("[bold]Live Logs:[/bold]")
         self.console.print("=" * 60)
-        
+
         try:
             # Keep running until interrupted
             while self.running:
@@ -403,6 +432,8 @@ class PKMApp:
             self.logger.info("Task management stopped by user")
         finally:
             observer.stop()
+            if tbd_poller:
+                tbd_poller.stop()
             observer.join()
 
     def _check_under_review_tasks(self):

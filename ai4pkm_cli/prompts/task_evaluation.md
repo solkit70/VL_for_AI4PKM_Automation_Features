@@ -39,11 +39,14 @@ For EIC tasks:
 - ✓ ICT section has multiple ### subsections
 - ✓ ICT does NOT end mid-sentence or with "..."
 - ✓ ICT length matches original source (not significantly shorter)
-- ✓ Output files exist at specified locations
+- ✓ **Output files exist at specified locations** (CRITICAL)
+- ✓ **Output property contains wiki links to created files** (CRITICAL)
 - ✓ Wiki links are valid
 
 For all tasks:
 - ✓ All required outputs created
+- ✓ **Output files physically exist on disk** (CRITICAL - check file existence)
+- ✓ **Output property updated with wiki links** (CRITICAL - [[path/to/file]] format)
 - ✓ Output files complete, not truncated
 - ✓ Files in correct locations (not moved to "better" folders)
 
@@ -54,9 +57,20 @@ For all tasks:
 - Add missing subsections
 - Fix formatting and links
 - Fill in gaps
+- **Ensure output files exist and are properly linked in output property**
+
+**If output property missing/incorrect:**
+- Read output files to find what was created
+- Update task frontmatter with: `output: "[[path/to/file]]"`
+- Use wiki link format with proper path from workspace root
+
+**If output files missing:**
+- If work product missing entirely → Mark NEEDS_INPUT
+- If execution completed but files not found → Check file paths, update output property
 
 **If blocked:** Mark NEEDS_INPUT
 - Only if missing source files, unclear requirements, or fundamentally wrong approach
+- Missing output files that should have been created
 - Document specific issue in "## Evaluation Log"
 
 ## Final Step - REQUIRED

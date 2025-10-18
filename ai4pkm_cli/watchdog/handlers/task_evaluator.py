@@ -71,11 +71,19 @@ class TaskEvaluator(BaseFileHandler):
             if status != 'PROCESSED':
                 return
 
+            # Check if already evaluated (prevent infinite loop)
+            evaluated = task_data.get('evaluated', '')
+            if evaluated and str(evaluated).strip() in ['1', 'true', 'True', 'TRUE']:
+                self.logger.debug(f"Task already evaluated (evaluated={evaluated}), skipping: {os.path.basename(file_path)}")
+                return
+
             # Check if already processed recently (avoid duplicates)
+            # Include evaluated status in cache key to handle edge cases
             file_mtime = os.path.getmtime(file_path)
-            cache_key = f"{file_path}:{file_mtime}:PROCESSED"
+            cache_key = f"{file_path}:{file_mtime}:PROCESSED:evaluated={evaluated}"
 
             if cache_key in self.processed_cache:
+                self.logger.debug(f"Cache hit for {os.path.basename(file_path)}, skipping")
                 return
 
             # Mark as processed

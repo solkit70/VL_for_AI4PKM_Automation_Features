@@ -4,6 +4,7 @@ import os
 import time
 import glob
 from datetime import datetime
+from typing import Dict, Any, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -436,17 +437,111 @@ class PKMApp:
                 tbd_poller.stop()
             observer.join()
 
+    def _validate_task_output(self, task_data: Dict[str, Any], tasks_dir: str) -> Tuple[bool, str]:
+        """Validate if task output files exist and look complete.
+
+        Args:
+            task_data: Task frontmatter data
+            tasks_dir: Path to tasks directory
+
+        Returns:
+            (is_valid, reason) tuple where:
+            - is_valid: True if output exists and looks complete
+            - reason: Human-readable explanation
+        """
+        import re
+
+        output = task_data.get('output', '')
+        if not output:
+            return (False, "No output property")
+
+        # Parse wiki links [[path/to/file]]
+        wiki_links = re.findall(r'\[\[([^\]]+)\]\]', output)
+
+        if not wiki_links:
+            return (False, "No wiki links in output")
+
+        # Check each output file
+        for link in wiki_links:
+            # Convert wiki link to file path
+            # Wiki links are relative to workspace root (e.g., AI/Articles/...)
+            file_path = link
+
+            # Construct full path from workspace root
+            full_path = os.path.join(os.getcwd(), file_path)
+            if not full_path.endswith('.md'):
+                full_path += '.md'
+
+            if not os.path.exists(full_path):
+                return (False, f"Output file missing: {link}")
+
+            # Check file has substance (>50 lines, has frontmatter)
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    lines = content.split('\n')
+
+                    if len(lines) < 50:
+                        return (False, f"Output too short: {len(lines)} lines")
+
+                    if not content.startswith('---'):
+                        return (False, "No frontmatter in output")
+
+                # Output looks good
+                return (True, f"Output validated: {len(lines)} lines")
+            except Exception as e:
+                return (False, f"Error reading output: {e}")
+
+        # All outputs valid
+        return (True, "All outputs valid")
+
     def _check_under_review_tasks(self):
-        """Check for UNDER_REVIEW tasks that may be stuck in evaluation."""
+        """Check and recover UNDER_REVIEW tasks stuck from old code bugs.
+
+        Smart cleanup that validates task output:
+        - If output valid → mark COMPLETED
+        - If output invalid/missing → reset to PROCESSED for retry
+
+        Note: Ignores old 'evaluated' flag - uses status as single source of truth.
+        """
         from .commands.ktp_runner import KTPRunner
 
         runner = KTPRunner(self.logger, self.config)
         tasks = runner._get_task_queue(status='UNDER_REVIEW')
 
-        if tasks:
-            self.console.print(f"[yellow]⚠️  Found {len(tasks)} UNDER_REVIEW task(s) (evaluation may have been interrupted)[/yellow]")
-            for task in tasks:
-                self.console.print(f"[dim]    - {task['file']} (will retry evaluation)[/dim]")
+        if not tasks:
+            return
+
+        self.console.print(f"[yellow]⚠️  Found {len(tasks)} UNDER_REVIEW task(s)[/yellow]")
+
+        completed = 0
+        reset = 0
+
+        for task in tasks:
+            task_path = os.path.join(runner.tasks_dir, task['file'])
+            task_data = runner._read_task_file(task_path)
+
+            # Check if output exists and is valid
+            is_valid, reason = self._validate_task_output(task_data, runner.tasks_dir)
+
+            if is_valid:
+                # Output complete → mark as COMPLETED
+                runner._update_task_status(task['file'], 'COMPLETED',
+                                          worker=task_data.get('worker', ''))
+                self.console.print(f"[green]    ✅ Completed: {task['file']} ({reason})[/green]")
+                completed += 1
+            else:
+                # Output invalid → reset to PROCESSED for retry
+                runner._update_task_status(task['file'], 'PROCESSED',
+                                          worker=task_data.get('worker', ''))
+                self.console.print(f"[yellow]    ♻️  Reset: {task['file']} ({reason})[/yellow]")
+                reset += 1
+
+        # Summary
+        if completed > 0:
+            self.console.print(f"[cyan]✅ Marked {completed} task(s) as COMPLETED[/cyan]")
+        if reset > 0:
+            self.console.print(f"[cyan]♻️  Reset {reset} task(s) to PROCESSED for retry[/cyan]")
 
     def _check_in_progress_tasks(self):
         """Check for IN_PROGRESS tasks that may be stuck."""

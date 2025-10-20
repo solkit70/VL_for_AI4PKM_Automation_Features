@@ -80,6 +80,37 @@ class AgentFactory:
         return agent_class(logger, agent_config)
         
     @classmethod
+    def create_agent_by_name(cls, agent_name: str, logger, config: Optional[Config] = None) -> BaseAgent:
+        """Create an agent by name.
+        
+        Args:
+            agent_name: Name of the agent (claude_code, gemini_cli, codex_cli)
+            logger: Logger instance
+            config: Configuration instance (will create default if None)
+            
+        Returns:
+            BaseAgent instance
+            
+        Raises:
+            ValueError: If agent name is unknown
+        """
+        if config is None:
+            config = Config()
+            
+        if agent_name not in cls.AGENT_CLASSES:
+            raise ValueError(f"Unknown agent: {agent_name}. Available: {list(cls.AGENT_CLASSES.keys())}")
+            
+        agent_config = config.get_agent_config(agent_name)
+        agent_class = cls.AGENT_CLASSES[agent_name]
+        agent = agent_class(logger, agent_config)
+        
+        if not agent.is_available():
+            logger.warning(f"Agent {agent.get_agent_name()} is not available")
+            
+        logger.info(f"🤖 Using agent: {agent.get_agent_name()}")
+        return agent
+    
+    @classmethod
     def list_available_agents(cls, logger) -> list:
         """List all available agents with their status."""
         available_agents = []

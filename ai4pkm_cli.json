@@ -42,6 +42,18 @@
   "web_api": {
       "port": 8000
   },
+  "task_management": {
+    "max_concurrent": 1,
+    "processing_agent": {
+      "EIC": "claude_code",
+      "Writing": "claude_code",
+      "default": "claude_code"
+    },
+    "evaluation_agent": "claude_code",
+    "timeout_minutes": 30,
+    "max_retries": 2,
+    "polling_interval": 30
+  },
   "cron_jobs": [
     {
       "inline_prompt": "CKU for hourly run",

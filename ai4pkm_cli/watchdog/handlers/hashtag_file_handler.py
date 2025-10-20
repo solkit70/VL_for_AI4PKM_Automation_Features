@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 from datetime import datetime
 from ..file_watchdog import BaseFileHandler
 
@@ -27,38 +28,50 @@ class HashtagFileHandler(BaseFileHandler):
     def process(self, file_path: str, event_type: str) -> None:
         """
         Process markdown files by checking for #AI hashtag.
-        
+
         Reacts to both file creation and modification.
-        
+        Skips files in AI/Tasks/ directory to prevent self-referential triggers.
+
         Args:
             file_path: Path to the markdown file
             event_type: Type of event ('created' or 'modified')
         """
-        # Create a unique key for this file and its modification time
+        # Skip files in AI/Tasks/ directory to prevent self-referential triggers
+        # Task files legitimately contain #AI in instructions and process logs
         try:
-            mtime = os.path.getmtime(file_path)
-            file_key = f"{file_path}:{mtime}"
-            
-            # Skip if we've already processed this version of the file
+            normalized_path = os.path.abspath(file_path)
+            tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
+
+            if normalized_path.startswith(tasks_dir):
+                return
+        except Exception as e:
+            self.logger.error(f"Error checking file path {file_path}: {e}")
+            return
+
+        # Track by file path only (not mtime) to process each file once per session
+        file_key = file_path
+
+        try:
+            # Skip if we've already processed this file in this session
             if file_key in self._processed_files:
                 return
-            
+
             # Check if file contains #AI hashtag
             if not self._contains_ai_hashtag(file_path):
                 return
-            
-            self.logger.info(f"Detected #AI hashtag in: {file_path}")
-            
+
+            self.logger.info(f"✅ Detected #AI hashtag in: {os.path.basename(file_path)}")
+
             # Create task request
             self._create_task_request(file_path)
-            
+
             # Mark as processed
             self._processed_files.add(file_key)
-            
+
             # Cleanup old entries (keep only last 100)
             if len(self._processed_files) > 100:
                 self._processed_files = set(list(self._processed_files)[-100:])
-            
+
         except Exception as e:
             self.logger.error(f"Error processing file {file_path}: {e}")
     
@@ -89,17 +102,17 @@ class HashtagFileHandler(BaseFileHandler):
         """
         Create a task request file for the file with #AI hashtag.
         
-        Saves to: AI/Tasks/Requests/Hashtag/YYYY-MM-DD-{milliseconds}.md
+        Saves to: AI/Tasks/Requests/Hashtag/YYYY-MM-DD-{milliseconds}.json
         
         Args:
             file_path: Path to the file with #AI hashtag
         """
         try:
-            # Generate filename: YYYY-MM-DD-{milliseconds}.md
+            # Generate filename: YYYY-MM-DD-{milliseconds}.json
             now = datetime.now()
             date_str = now.strftime('%Y-%m-%d')
             milliseconds = int(now.timestamp() * 1000)
-            filename = f"{date_str}-{milliseconds}.md"
+            filename = f"{date_str}-{milliseconds}.json"
             
             # Get output directory (AI/Tasks/Requests/Hashtag/)
             output_dir = self._get_requests_dir()
@@ -107,28 +120,28 @@ class HashtagFileHandler(BaseFileHandler):
             
             output_path = os.path.join(output_dir, filename)
             
-            # Generate markdown content
+            # Generate JSON content
             content = self._generate_request_content(file_path, now)
             
             # Write to file
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+                json.dump(content, f, indent=2, ensure_ascii=False)
             
             self.logger.info(f"Created task request: {output_path}")
             
         except Exception as e:
             self.logger.error(f"Error creating task request file: {e}")
     
-    def _generate_request_content(self, file_path: str, generated_time: datetime) -> str:
+    def _generate_request_content(self, file_path: str, generated_time: datetime) -> dict:
         """
-        Generate markdown content for task request.
+        Generate JSON content for task request.
         
         Args:
             file_path: Path to the file with #AI hashtag
             generated_time: Time when the request was generated
             
         Returns:
-            Markdown formatted string
+            Dictionary to be serialized as JSON
         """
         # Convert to relative path if absolute
         if os.path.isabs(file_path):
@@ -139,38 +152,16 @@ class HashtagFileHandler(BaseFileHandler):
         else:
             rel_path = file_path
         
-        lines = []
-        
-        # Frontmatter
-        lines.append("---")
-        lines.append(f"generated: {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"handler: {self.__class__.__name__}")
-        lines.append("task_type: Hashtag")
-        lines.append(f"target_file: {rel_path}")
-        lines.append("---")
-        lines.append("")
-        
-        # Title
-        lines.append(f"# AI Task Request - {generated_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append("")
-        
-        # Description
-        lines.append("File with #AI hashtag detected. Requesting task creation.")
-        lines.append("")
-        
-        # Target file
-        lines.append("## Target File")
-        lines.append("")
-        lines.append(f"`{rel_path}`")
-        lines.append("")
-        
-        # Instructions
-        lines.append("## Instructions")
-        lines.append("")
-        lines.append("Review the file content and determine the appropriate action:")
-        lines.append("- Create appropriate task(s) based on the context around #AI hashtag")
-        lines.append("- Remove or update the #AI hashtag after processing")
-        lines.append("")
-        
-        return '\n'.join(lines)
+        return {
+            "generated": generated_time.strftime('%Y-%m-%d %H:%M:%S'),
+            "handler": self.__class__.__name__,
+            "task_type": "Hashtag",
+            "target_file": rel_path,
+            "description": "File with #AI hashtag detected. Requesting task creation.",
+            "instructions": [
+                "Review the file content and determine the appropriate action:",
+                "- Create appropriate task(s) based on the context around #AI hashtag",
+                "- Remove or update the #AI hashtag after processing"
+            ]
+        }
 

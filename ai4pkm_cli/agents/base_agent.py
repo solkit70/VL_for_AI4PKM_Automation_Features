@@ -39,6 +39,18 @@ class BaseAgent(ABC):
     def get_agent_name(self) -> str:
         """Get the display name of this agent."""
         pass
+
+    @abstractmethod
+    def get_cli_command(self, inline_prompt: Optional[str] = None) -> str:
+        """Get the CLI command that would be used to invoke this agent.
+
+        Args:
+            inline_prompt: The prompt being executed (optional, for display)
+
+        Returns:
+            String representation of the CLI command for reproduction
+        """
+        pass
         
     def _load_prompt_content(self, prompt_name: str) -> Optional[str]:
         """Load prompt content from file."""

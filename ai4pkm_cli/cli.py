@@ -4,6 +4,7 @@ import os
 import time
 import glob
 from datetime import datetime
+from typing import Dict, Any, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -290,7 +291,7 @@ class PKMApp:
             )
 
     def run_continuous(self):
-        """Run continuously with cron jobs, log display, and web API server."""
+        """Run continuously with cron job scheduler and web API server."""
         self.running = True
         self.cron_manager = CronManager(self.logger, self.agent)
 
@@ -301,15 +302,76 @@ class PKMApp:
         # Display welcome message
         self._display_welcome()
 
+        # Start cron manager and keep running
+        self.cron_manager.start()
+
+    def run_task_management(self):
+        """Run continuous task management (full KTG+KTP pipeline)."""
+        self.running = True
+        
+        # Display welcome message for task management mode
+        welcome_text = Text()
+        welcome_text.append(
+            "PKM CLI - Task Management Mode\n", style="bold blue"
+        )
+        welcome_text.append(
+            f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n", style="dim"
+        )
+        welcome_text.append("Press Ctrl+C to stop\n", style="dim")
+        
+        panel = Panel(welcome_text, title="Task Management (KTG+KTP)", border_style="blue")
+        self.console.print(panel)
+        
+        # Process all existing tasks that need work at startup
+        self.console.print("\n[cyan]🔍 Scanning for tasks that need processing...[/cyan]")
+
+        # 1. Process PROCESSED tasks (evaluation pending)
+        try:
+            self.console.print("[dim]  • Checking PROCESSED tasks for evaluation...[/dim]")
+            self.execute_command("ktp", {"status": "PROCESSED"})
+        except Exception as e:
+            self.logger.error(f"Error processing PROCESSED tasks: {e}")
+            self.console.print(f"[yellow]⚠️  PROCESSED task processing failed: {e}[/yellow]")
+
+        # 2. Check UNDER_REVIEW tasks (may be interrupted evaluations)
+        try:
+            self.console.print("[dim]  • Checking UNDER_REVIEW tasks (interrupted evaluations)...[/dim]")
+            self._check_under_review_tasks()
+        except Exception as e:
+            self.logger.error(f"Error checking UNDER_REVIEW tasks: {e}")
+
+        # 3. Check IN_PROGRESS tasks (may need retry or cleanup)
+        try:
+            self.console.print("[dim]  • Checking IN_PROGRESS tasks (potential interruptions)...[/dim]")
+            # Note: IN_PROGRESS tasks will be logged but not auto-processed to avoid conflicts
+            # They should be manually reviewed or will be picked up if status changes
+            self._check_in_progress_tasks()
+        except Exception as e:
+            self.logger.error(f"Error checking IN_PROGRESS tasks: {e}")
+
+        # 4. Process TBD tasks (ready to start)
+        try:
+            self.console.print("[dim]  • Processing TBD tasks...[/dim]")
+            self.execute_command("ktp", {})
+            self.console.print("[green]✅ Initial task processing complete[/green]\n")
+        except Exception as e:
+            self.logger.error(f"Error processing TBD tasks: {e}")
+            self.console.print(f"[yellow]⚠️  TBD task processing failed: {e}[/yellow]\n")
+        
+        # Set up file watchdog with all task-related handlers
         from .watchdog.handlers.task_request_file_handler import TaskRequestFileHandler
+        from .watchdog.handlers.task_processor import TaskProcessor
+        from .watchdog.handlers.task_evaluator import TaskEvaluator
         from .watchdog.handlers.gobi_file_handler import GobiFileHandler
         from .watchdog.handlers.limitless_file_handler import LimitlessFileHandler
         from .watchdog.handlers.clipping_file_handler import ClippingFileHandler
         from .watchdog.handlers.hashtag_file_handler import HashtagFileHandler
-        from .watchdog.handlers.markdown_file_handler import MarkdownFileHandler
+        
         event_handler = FileWatchdogHandler(
             pattern_handlers=[
                 ('AI/Tasks/Requests/*/*.json', TaskRequestFileHandler),
+                ('AI/Tasks/*.md', TaskProcessor),
+                ('AI/Tasks/*.md', TaskEvaluator),
                 ('Ingest/Gobi/*.md', GobiFileHandler),
                 ('Ingest/Limitless/*.md', LimitlessFileHandler),
                 ('Ingest/Clippings/*.md', ClippingFileHandler),
@@ -318,22 +380,181 @@ class PKMApp:
             excluded_patterns=[
                 '.git',
                 'ai4pkm_cli',
-                'AI/Tasks',
             ],
             logger=self.logger,
             workspace_path=os.getcwd()
         )
-
-        # Create an Observer instance
+        
+        # Create and start observer
         observer = Observer()
         observer.schedule(event_handler, '.', recursive=True)
         observer.start()
-        self.console.print(f"\n[green]🐶 File Watchdog Monitoring started.[/green]")
 
-        self.cron_manager.start()
+        # Add periodic polling for TBD tasks (fallback for FSEvents issues)
+        # macOS FSEvents doesn't reliably detect files created by subprocesses
+        from .watchdog.tbd_poller import TBDTaskPoller
 
-        observer.stop()
-        observer.join()
+        # Get TaskProcessor handler instance to trigger manually
+        task_processor_handler = None
+        for pattern, handler_class in [
+            ('AI/Tasks/*.md', TaskProcessor),
+        ]:
+            if handler_class == TaskProcessor:
+                task_processor_handler = TaskProcessor(self.logger)
+                break
+
+        tbd_poller = None
+        if task_processor_handler:
+            # Get polling interval from config (default: 30 seconds)
+            polling_interval = self.config.get('task_management.polling_interval', 30)
+
+            if polling_interval > 0:
+                tbd_poller = TBDTaskPoller(
+                    workspace_path=os.getcwd(),
+                    task_handler=task_processor_handler,
+                    interval=polling_interval,
+                    logger=self.logger
+                )
+                tbd_poller.start()
+
+        self.console.print(f"\n[green]🐶 Task Management File Monitoring started[/green]")
+        self.console.print(f"[dim]Watching: Gobi, Limitless, Clippings, Hashtags, Task Requests, TBD Tasks[/dim]")
+        if tbd_poller:
+            self.console.print(f"[dim]Polling: TBD tasks ({polling_interval}s interval as FSEvents fallback)[/dim]")
+        self.console.print("\n" + "=" * 60)
+        self.console.print("[bold]Live Logs:[/bold]")
+        self.console.print("=" * 60)
+
+        try:
+            # Keep running until interrupted
+            while self.running:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            self.logger.info("Task management stopped by user")
+        finally:
+            observer.stop()
+            if tbd_poller:
+                tbd_poller.stop()
+            observer.join()
+
+    def _validate_task_output(self, task_data: Dict[str, Any], tasks_dir: str) -> Tuple[bool, str]:
+        """Validate if task output files exist and look complete.
+
+        Args:
+            task_data: Task frontmatter data
+            tasks_dir: Path to tasks directory
+
+        Returns:
+            (is_valid, reason) tuple where:
+            - is_valid: True if output exists and looks complete
+            - reason: Human-readable explanation
+        """
+        import re
+
+        output = task_data.get('output', '')
+        if not output:
+            return (False, "No output property")
+
+        # Parse wiki links [[path/to/file]]
+        wiki_links = re.findall(r'\[\[([^\]]+)\]\]', output)
+
+        if not wiki_links:
+            return (False, "No wiki links in output")
+
+        # Check each output file
+        for link in wiki_links:
+            # Convert wiki link to file path
+            # Wiki links are relative to workspace root (e.g., AI/Articles/...)
+            file_path = link
+
+            # Construct full path from workspace root
+            full_path = os.path.join(os.getcwd(), file_path)
+            if not full_path.endswith('.md'):
+                full_path += '.md'
+
+            if not os.path.exists(full_path):
+                return (False, f"Output file missing: {link}")
+
+            # Check file has substance (>50 lines, has frontmatter)
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    lines = content.split('\n')
+
+                    if len(lines) < 50:
+                        return (False, f"Output too short: {len(lines)} lines")
+
+                    if not content.startswith('---'):
+                        return (False, "No frontmatter in output")
+
+                # Output looks good
+                return (True, f"Output validated: {len(lines)} lines")
+            except Exception as e:
+                return (False, f"Error reading output: {e}")
+
+        # All outputs valid
+        return (True, "All outputs valid")
+
+    def _check_under_review_tasks(self):
+        """Check and recover UNDER_REVIEW tasks stuck from old code bugs.
+
+        Smart cleanup that validates task output:
+        - If output valid → mark COMPLETED
+        - If output invalid/missing → reset to PROCESSED for retry
+
+        Note: Ignores old 'evaluated' flag - uses status as single source of truth.
+        """
+        from .commands.ktp_runner import KTPRunner
+
+        runner = KTPRunner(self.logger, self.config)
+        tasks = runner._get_task_queue(status='UNDER_REVIEW')
+
+        if not tasks:
+            return
+
+        self.console.print(f"[yellow]⚠️  Found {len(tasks)} UNDER_REVIEW task(s)[/yellow]")
+
+        completed = 0
+        reset = 0
+
+        for task in tasks:
+            task_path = os.path.join(runner.tasks_dir, task['file'])
+            task_data = runner._read_task_file(task_path)
+
+            # Check if output exists and is valid
+            is_valid, reason = self._validate_task_output(task_data, runner.tasks_dir)
+
+            if is_valid:
+                # Output complete → mark as COMPLETED
+                runner._update_task_status(task['file'], 'COMPLETED',
+                                          worker=task_data.get('worker', ''))
+                self.console.print(f"[green]    ✅ Completed: {task['file']} ({reason})[/green]")
+                completed += 1
+            else:
+                # Output invalid → reset to PROCESSED for retry
+                runner._update_task_status(task['file'], 'PROCESSED',
+                                          worker=task_data.get('worker', ''))
+                self.console.print(f"[yellow]    ♻️  Reset: {task['file']} ({reason})[/yellow]")
+                reset += 1
+
+        # Summary
+        if completed > 0:
+            self.console.print(f"[cyan]✅ Marked {completed} task(s) as COMPLETED[/cyan]")
+        if reset > 0:
+            self.console.print(f"[cyan]♻️  Reset {reset} task(s) to PROCESSED for retry[/cyan]")
+
+    def _check_in_progress_tasks(self):
+        """Check for IN_PROGRESS tasks that may be stuck."""
+        from .commands.ktp_runner import KTPRunner
+
+        runner = KTPRunner(self.logger, self.config)
+        tasks = runner._get_task_queue(status='IN_PROGRESS')
+
+        if tasks:
+            self.console.print(f"[yellow]⚠️  Found {len(tasks)} IN_PROGRESS task(s)[/yellow]")
+            for task in tasks:
+                self.console.print(f"[dim]    - {task['file']} (may need manual review)[/dim]")
+            self.console.print("[dim]    These tasks will auto-retry if files are modified or on timeout[/dim]")
 
     def _display_welcome(self):
         """Display welcome message and status."""
@@ -528,10 +749,13 @@ class PKMApp:
             f'  [cyan]ai4pkm -a g -p "TKI"[/cyan]          Run prompt with specific agent'
         )
         self.console.print(
-            f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler"
+            f"  [cyan]ai4pkm -t[/cyan]                     Start task management (KTG+KTP pipeline)"
         )
         self.console.print(
-            f"  [cyan]ai4pkm -t[/cyan]                     Test cron jobs"
+            f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler + web server"
+        )
+        self.console.print(
+            f"  [cyan]ai4pkm -r[/cyan]                     Run a cron job once"
         )
         self.console.print(
             f"  [cyan]ai4pkm --list-agents[/cyan]          List available agents"

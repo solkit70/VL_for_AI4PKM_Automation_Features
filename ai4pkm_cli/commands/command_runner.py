@@ -46,6 +46,18 @@ class CommandRunner:
             syncer = SyncGobiByTagsCommand(tags, self.logger)
             syncer.run_sync()
             return True
+        elif command == "ktp":
+            from .ktp_runner import KTPRunner
+
+            ktp = KTPRunner(self.logger, self.config)
+            
+            # Get optional arguments
+            task_file = arguments.get("task")
+            priority = arguments.get("priority")
+            status = arguments.get("status")
+            
+            ktp.run_tasks(task_file=task_file, priority=priority, status=status)
+            return True
         else:
             self.logger.error(f"Unknown command: {command}")
             return False

@@ -24,14 +24,40 @@ def signal_handler(sig, frame):
 @click.option("-cmd", "--command", help="Execute a one-time command")
 @click.option("-args", "--arguments", help="Arguments for the command", default="{}")
 @click.option(
-    "-t",
-    "--test",
-    "test_cron",
+    "--ktp",
     is_flag=True,
-    help="Test a specific cron job interactively",
+    help="Run Knowledge Task Processor (process tasks from AI/Tasks/)",
 )
 @click.option(
-    "-c", "--cron", "run_cron", is_flag=True, help="Run continuous cron job scheduler"
+    "--ktp-task",
+    help="Process specific task file with KTP (e.g., 2025-10-16-task.md)",
+)
+@click.option(
+    "--ktp-priority",
+    type=click.Choice(["P0", "P1", "P2", "P3"], case_sensitive=False),
+    help="Filter KTP tasks by priority",
+)
+@click.option(
+    "--ktp-status",
+    type=click.Choice(["TBD", "IN_PROGRESS", "PROCESSED", "UNDER_REVIEW"], case_sensitive=False),
+    help="Filter KTP tasks by status (default: TBD)",
+)
+@click.option(
+    "-r",
+    "--run-job-once",
+    "run_job_once",
+    is_flag=True,
+    help="Test/run a specific cron job interactively once",
+)
+@click.option(
+    "-t",
+    "--task-management",
+    "task_management",
+    is_flag=True,
+    help="Run continuous task management (KTG+KTP pipeline with file monitoring)",
+)
+@click.option(
+    "-c", "--cron", "run_cron", is_flag=True, help="Run continuous cron job scheduler and web server"
 )
 @click.option(
     "-a",
@@ -47,7 +73,12 @@ def main(
     prompt,
     command,
     arguments,
-    test_cron,
+    ktp,
+    ktp_task,
+    ktp_priority,
+    ktp_status,
+    run_job_once,
+    task_management,
     run_cron,
     agent,
     debug,
@@ -60,6 +91,9 @@ def main(
 
     if debug:
         logging.basicConfig(level=logging.DEBUG)
+        # Suppress noisy debug logs from watchdog/fsevents
+        logging.getLogger('fsevents').setLevel(logging.WARNING)
+        logging.getLogger('watchdog').setLevel(logging.WARNING)
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -74,6 +108,17 @@ def main(
     elif show_config:
         # Show current configuration
         app.show_config()
+    elif ktp or ktp_task:
+        # Run Knowledge Task Processor
+        ktp_args = {}
+        if ktp_task:
+            ktp_args["task"] = ktp_task
+        if ktp_priority:
+            ktp_args["priority"] = ktp_priority.upper()
+        if ktp_status:
+            ktp_args["status"] = ktp_status.upper()
+        
+        app.execute_command("ktp", ktp_args)
     elif agent and not prompt:
         # Error: agent option can only be used with prompts
         click.echo(
@@ -89,11 +134,14 @@ def main(
     elif command:
         # Execute the command
         app.execute_command(command, json.loads(arguments))
-    elif test_cron:
-        # Test a specific cron job
+    elif run_job_once:
+        # Test/run a specific cron job once
         app.test_cron_job()
+    elif task_management:
+        # Run continuous task management (KTG+KTP pipeline)
+        app.run_task_management()
     elif run_cron:
-        # Run continuously with cron jobs and log display
+        # Run continuously with cron jobs and web server
         app.run_continuous()
     else:
         # Show default information (config and instructions)

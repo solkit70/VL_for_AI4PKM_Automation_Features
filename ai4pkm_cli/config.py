@@ -159,3 +159,45 @@ class Config:
     def get_web_api_port(self) -> int:
         """Get web API port."""
         return self.get('web_api.port', 8000)
+    
+    def get_task_management_config(self) -> Dict[str, Any]:
+        """Get task management configuration."""
+        return self.get('task_management', {
+            'max_concurrent': 5,
+            'processing_agent': {
+                'EIC': 'claude_code',
+                'Research': 'gemini_cli',
+                'Analysis': 'gemini_cli',
+                'Writing': 'claude_code',
+                'default': 'claude_code'
+            },
+            'evaluation_agent': 'claude_code',
+            'timeout_minutes': 30,
+            'max_retries': 2
+        })
+    
+    def get_max_concurrent_tasks(self) -> int:
+        """Get maximum concurrent task operations (generation, processing, evaluation)."""
+        return self.get('task_management.max_concurrent', 5)
+    
+    def get_ktp_routing(self) -> Dict[str, str]:
+        """Get KTP task processing agent configuration (Phase 1 & 2)."""
+        return self.get('task_management.processing_agent', {
+            'EIC': 'claude_code',
+            'Research': 'gemini_cli',
+            'Analysis': 'gemini_cli',
+            'Writing': 'claude_code',
+            'default': 'claude_code'
+        })
+    
+    def get_ktp_timeout(self) -> int:
+        """Get KTP timeout in minutes."""
+        return self.get('task_management.timeout_minutes', 30)
+    
+    def get_ktp_max_retries(self) -> int:
+        """Get KTP maximum retry count."""
+        return self.get('task_management.max_retries', 2)
+
+    def get_evaluation_agent(self) -> str:
+        """Get agent used for task evaluation (Phase 3)."""
+        return self.get('task_management.evaluation_agent', 'claude_code')

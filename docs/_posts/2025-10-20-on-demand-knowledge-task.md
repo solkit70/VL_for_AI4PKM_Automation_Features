@@ -32,7 +32,7 @@ Task processing steps:
 - **Execution:** Task is routed to different agents for execution
 - **Evaluation:** Task is routed to different agents for evaluation
 
-![Task Status Diagram]({{ site.baseurl }}/assets/images/blog/ktm_status_diagram.png)
+<img src="{{ site.baseurl }}/assets/images/blog/ktm_status_diagram.png" alt="Task Status Diagram" width="400">
 
 ### Task Management: Setup & Run
 

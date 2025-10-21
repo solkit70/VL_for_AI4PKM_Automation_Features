@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "On-demand Knowledge Task Processing for AI4PKM"
+title: On-demand Knowledge Task Processing
 date: 2025-10-20
 categories: blog
-author: Jin Kim
+author: Jin Kim & Minsuk Kang
 ---
 
 ## Why we built this

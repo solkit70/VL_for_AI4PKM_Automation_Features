@@ -34,7 +34,7 @@ Need to constantly experiment with multiple AI tools and models:
 
 ## Latest Updates
 
-- **[On-demand Knowledge Task Processing](blog/2025-10-20-on-demand-knowledge-task.html)** (Oct 2025) - Real-time task processing system with filesystem monitoring, three-phase execution pipeline (KTG/KTP/KTE), and multi-agent routing
+- **[On-demand Knowledge Task Processing]({% post_url 2025-10-20-on-demand-knowledge-task %})** (Oct 2025) - Real-time task processing system with filesystem monitoring, three-phase execution pipeline (KTG/KTP/KTE), and multi-agent routing
 
 ## Getting Started
 

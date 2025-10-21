@@ -195,7 +195,7 @@ ai4pkm --task-management
 - Writing assistance triggered from any note
 
 **Learn More:**
-- [On-demand Knowledge Task Processing](blog/2025-10-20-on-demand-knowledge-task.html) - Implementation blog post
+- [On-demand Knowledge Task Processing]({% post_url 2025-10-20-on-demand-knowledge-task %}) - Implementation blog post
 - [README_KTM.md](https://github.com/jykim/AI4PKM/blob/main/README_KTM.md) - Technical details
 - [CLI Tool](cli_tool.html#6-task-management-mode) - Usage reference
 

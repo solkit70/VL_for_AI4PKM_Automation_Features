@@ -166,7 +166,7 @@ Task routing is defined in `ai4pkm_cli.json`:
 ```
 
 **See Also:**
-- [On-demand Knowledge Task Processing](blog/2025-10-20-on-demand-knowledge-task.html) - Detailed blog post
+- [On-demand Knowledge Task Processing]({% post_url 2025-10-20-on-demand-knowledge-task %}) - Detailed blog post
 - [README_KTM.md](https://github.com/jykim/AI4PKM/blob/main/README_KTM.md) - Technical implementation
 
 ### 7. AI Agent Management

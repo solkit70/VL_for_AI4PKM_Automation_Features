@@ -123,7 +123,53 @@ This will:
 - Show execution time and results
 - Useful for debugging scheduled tasks
 
-### 6. AI Agent Management
+### 6. Task Management Mode
+
+Start the on-demand task processing system for real-time knowledge task execution:
+
+```bash
+ai4pkm -t
+# or
+ai4pkm --task-management
+```
+
+**What it does:**
+- Monitors filesystem for task triggers (web clippings, #AI hashtags, voice notes)
+- Automatically generates, executes, and evaluates knowledge tasks
+- Routes tasks to appropriate AI agents based on task type
+- Provides real-time processing for immediate results
+
+**Task Triggers:**
+- **Web Clippings**: Drop content from [Obsidian Web Clipper](https://obsidian.md/clipper) into `Ingest/Clippings/` to trigger EIC workflow
+- **#AI Hashtag**: Add `#AI` to any note to generate a knowledge task
+- **Voice Commands**: Use Limitless pendant with wake words `Hey PKM` to create tasks
+
+**Three-Phase Processing:**
+1. **KTG (Knowledge Task Generator)**: Creates structured task from triggers
+2. **KTP (Knowledge Task Processor)**: Routes to agent and monitors execution
+3. **KTE (Knowledge Task Evaluator)**: Validates outputs and marks completion
+
+**Configuration:**
+Task routing is defined in `ai4pkm_cli.json`:
+```json
+{
+  "task_management": {
+    "processing_agent": {
+      "EIC": "claude_code",
+      "Research": "gemini_cli",
+      "Analysis": "gemini_cli",
+      "default": "claude_code"
+    },
+    "evaluation_agent": "claude_code"
+  }
+}
+```
+
+**See Also:**
+- [On-demand Knowledge Task Processing]({% post_url 2025-10-20-on-demand-knowledge-task %}) - Detailed blog post
+- [README_KTM.md](https://github.com/jykim/AI4PKM/blob/main/README_KTM.md) - Technical implementation
+
+### 7. AI Agent Management
 
 The CLI supports multiple AI agents. Manage them using these commands:
 

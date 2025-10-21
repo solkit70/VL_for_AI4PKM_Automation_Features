@@ -32,6 +32,10 @@ Need to constantly experiment with multiple AI tools and models:
 - [CLI Tool](cli_tool.html) - Command-line interface for automation
 - [FAQ](faq.html) - Frequently asked questions and troubleshooting
 
+## Latest Updates
+
+- **[On-demand Knowledge Task Processing](blog/2025-10-20-on-demand-knowledge-task.html)** (Oct 2025) - Real-time task processing system with filesystem monitoring, three-phase execution pipeline (KTG/KTP/KTE), and multi-agent routing
+
 ## Getting Started
 
 1. **Clone the Repository**

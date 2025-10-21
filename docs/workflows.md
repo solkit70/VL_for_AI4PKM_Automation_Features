@@ -153,6 +153,52 @@ For large files (>50KB), EIC may timeout with Gemini:
 
 Alternative: Use Claude or Codex agent which can directly modify files.
 
+## On-demand Task Processing
+
+In addition to the three scheduled workflows above, AI4PKM provides an on-demand task processing system for real-time knowledge work.
+
+**Key Difference from Batch Workflows:**
+- **Batch workflows** (DIR, WRP, CKU) run on schedule and process multiple items
+- **On-demand processing** responds immediately to individual triggers as they occur
+
+**How it works:**
+
+The system monitors the filesystem for trigger events and automatically processes them through a three-phase pipeline:
+
+1. **KTG (Knowledge Task Generator)** - Creates structured task from trigger
+2. **KTP (Knowledge Task Processor)** - Routes to appropriate agent and executes
+3. **KTE (Knowledge Task Evaluator)** - Validates outputs and marks completion
+
+**Task Triggers:**
+- **Web Clippings**: Content from [Obsidian Web Clipper](https://obsidian.md/clipper) triggers EIC workflow
+- **#AI Hashtag**: Add `#AI` to any note to generate a knowledge task
+- **Voice Commands**: Limitless pendant with wake words `Hey PKM` creates tasks
+
+**Agent Routing:**
+Tasks are automatically routed to the best agent for the job:
+- EIC (content enrichment) → Claude Code
+- Research tasks → Gemini
+- Analysis tasks → Gemini
+- Other tasks → Default agent
+
+**Start Task Management:**
+```bash
+ai4pkm -t
+# or
+ai4pkm --task-management
+```
+
+**Use Cases:**
+- Real-time content enrichment as you clip articles
+- Immediate processing of voice-captured ideas
+- On-the-fly research and analysis tasks
+- Writing assistance triggered from any note
+
+**Learn More:**
+- [On-demand Knowledge Task Processing](blog/2025-10-20-on-demand-knowledge-task.html) - Implementation blog post
+- [README_KTM.md](https://github.com/jykim/AI4PKM/blob/main/README_KTM.md) - Technical details
+- [CLI Tool](cli_tool.html#6-task-management-mode) - Usage reference
+
 ## Workflow Automation
 
 All workflows can be automated using the CLI cron scheduler. Configure schedules in `cron.json`:

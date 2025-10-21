@@ -12,6 +12,7 @@ header_pages:
   - prompts.md
   - workflows.md
   - cli_tool.md
+  - blog/index.md
   - faq.md
 
 # Build settings

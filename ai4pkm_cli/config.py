@@ -114,7 +114,10 @@ class Config:
         """Get configuration for specific agent."""
         if agent is None:
             agent = self.get_agent()
-        return self.get(f'agents-config.{agent}', {})
+        agent_config = self.get(f'agents-config.{agent}', {})
+        # Add task management timeout (convert minutes to seconds)
+        agent_config['timeout_seconds'] = self.get_ktp_timeout() * 60
+        return agent_config
         
     def get_photo_processing_config(self) -> Dict[str, Any]:
         """Get photo processing configuration."""

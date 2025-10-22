@@ -360,20 +360,26 @@ The KTG agent (defined in `_Settings_/Prompts/Knowledge Task Generator (KTG).md`
    - Verify status consistency
    - Clean up outdated tasks
 
-2. **PROCESS**
-   - Categorize as simple or complex
-   - Simple tasks: Execute immediately
-   - Complex tasks: Create task file
+2. **CATEGORIZE & ROUTE**
+   - Determine complexity: Simple (execute now) vs Complex (defer)
+   - Determine priority (P1: content, P2: workflow)
+   - ALL tasks create task files for audit trail
 
-3. **CREATE TASK** (if complex)
+3. **CREATE TASK FILE** (ALL tasks)
    - Use template from `_Settings_/Templates/Task Template.md`
    - Set appropriate priority (P1 or P2)
-   - Set status: TBD
+   - Set status: TBD initially
    - Include source link
 
-4. **CLEANUP**
+4. **EXECUTE** (Simple tasks only)
+   - Run simple tasks immediately
+   - Update status to COMPLETED or FAILED
+   - Add execution details to Process Log
+   - Complex tasks remain TBD for TaskProcessor
+
+5. **CLEANUP**
    - Remove trigger tags from source
-   - Update request file status
+   - Update request file status (handled automatically)
 
 ## KTP Implementation Flow
 

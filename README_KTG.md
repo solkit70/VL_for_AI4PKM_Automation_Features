@@ -56,9 +56,10 @@ The system follows a two-stage architecture:
 │                    KTG Agent                                 │
 │                                                               │
 │  1. VALIDATE - Check for duplicates and consistency         │
-│  2. PROCESS  - Categorize as simple or complex              │
-│  3. CREATE   - Generate task file for complex tasks         │
-│  4. CLEANUP  - Remove processed tags                         │
+│  2. CATEGORIZE - Simple (execute now) vs Complex (defer)    │
+│  3. CREATE   - Generate task file for ALL tasks             │
+│  4. EXECUTE  - Run simple tasks immediately (COMPLETED)     │
+│  5. CLEANUP  - Remove processed tags                         │
 │                                                               │
 │  Output: AI/Tasks/YYYY-MM-DD [Description].md               │
 └─────────────────────────────────────────────────────────────┘
@@ -244,23 +245,60 @@ When the KTG agent is triggered, it follows this workflow:
    └─ Clean up outdated pending tasks
 ```
 
-### 2. PROCESS
+### 2. CATEGORIZE & ROUTE
 
 ```
-├─ Simple Tasks (Execute Immediately)
-│  ├─ Daily goals/todos → Update Journal
-│  ├─ File operations, lookups
-│  ├─ Quick reference tasks
-│  └─ Limitless insights → Add to Journal Thoughts
+├─ Determine Complexity
+│  ├─ Simple Tasks (execute immediately)
+│  │  ├─ File operations and lookups
+│  │  ├─ Quick reference tasks
+│  │  ├─ Journal updates
+│  │  └─ Single-step operations
+│  │
+│  └─ Complex Tasks (defer to TaskProcessor)
+│     ├─ EIC (Enrich Ingested Content)
+│     ├─ Research and analysis
+│     ├─ Writing and documentation
+│     └─ Multi-step workflows
 │
-└─ Complex Tasks (Create Task File)
-   ├─ ALL unprocessed docs requiring EIC
-   ├─ Research, analysis, writing
-   ├─ Multi-step workflows
-   └─ Tasks requiring context preservation
+└─ Determine Priority
+   ├─ P1: Content creation
+   └─ P2: Workflow and maintenance
 ```
 
-### 3. CREATE TASK (if complex)
+**Categorization Guide:**
+
+*Simple Tasks* - Execute immediately, set status to COMPLETED/FAILED:
+- ✅ Adding content to existing files (Journal, Topics)
+- ✅ File lookups and searches
+- ✅ Simple file operations (rename, move, copy)
+- ✅ Quick data extraction or formatting
+- ✅ Single-step operations with immediate results
+- ✅ Operations that take <2 minutes
+
+*Complex Tasks* - Create with status TBD for TaskProcessor:
+- ❌ EIC (Enrich Ingested Content) - always complex
+- ❌ Content requiring deep analysis or research
+- ❌ Multi-step workflows or processes
+- ❌ Tasks requiring multiple file modifications
+- ❌ Tasks requiring external context or research
+- ❌ Operations estimated to take >5 minutes
+
+*When in doubt:* If the task might fail or require retries, make it complex.
+
+### 3. CREATE TASK FILE (REQUIRED FOR ALL TASKS)
+
+**CRITICAL:** ALL tasks must create task files, regardless of complexity.
+Task files provide essential audit trails and execution tracking.
+
+**EXCEPTIONS - Update existing task files instead:**
+1. **#AI tags in task files**: Update the existing task file, don't create new task
+2. **Task outcome updates**: When reporting results for existing tasks, update that task file directly
+   - Examples: "update task X with results", "mark task Y as completed", "record outcome for task Z"
+
+**Execution Strategy:**
+- **Simple tasks**: Create file → Execute immediately → Set status to COMPLETED/FAILED
+- **Complex tasks**: Create file with status TBD → Leave for TaskProcessor to handle
 
 ```
 File: AI/Tasks/YYYY-MM-DD [Description].md
@@ -268,10 +306,10 @@ File: AI/Tasks/YYYY-MM-DD [Description].md
 Structure:
 ├─ Properties (YAML frontmatter)
 │  ├─ Priority: P1 (content) or P2 (workflow)
-│  ├─ Status: TBD, IN_PROGRESS, PROCESSED, UNDER_REVIEW, COMPLETED, NEEDS_INPUT
+│  ├─ Status: TBD, IN_PROGRESS, PROCESSED, COMPLETED, FAILED, NEEDS_INPUT
 │  ├─ Archived: false
 │  ├─ Source: Link to original request
-│  └─ evaluated: false (set to true after evaluation)
+│  └─ generation_log: Link to KTG execution log
 │
 ├─ ## Input
 │  └─ Full context with blockquotes
@@ -295,29 +333,92 @@ Structure:
 - Update request file status
 - Log completion
 
+## Special Cases: Update vs Create
+
+⚠️ **CRITICAL**: Not all requests should create new task files. Some should update existing tasks.
+
+### When to UPDATE Existing Task Files
+
+**1. #AI Tags in Task Files**
+```
+Location: AI/Tasks/*.md
+Trigger: #AI tag found in an existing task file
+Action: Update the existing task, don't create new one
+Process:
+  1. Read the task file to understand context
+  2. Address the #AI request or question
+  3. Add response to "Process Log" section
+  4. Remove the #AI tag
+Reason: Keeps related work consolidated, prevents task fragmentation
+```
+
+**2. Task Outcome/Result Updates**
+```
+Trigger: Request explicitly mentions updating existing task
+Keywords: "update task", "mark task as", "record outcome", "add results to"
+Action: Locate and update the existing task file
+Process:
+  1. Find the existing task file in AI/Tasks/
+  2. Add outcome/result to "Process Log" or "Evaluation Log"
+  3. Update status if appropriate (COMPLETED, NEEDS_INPUT, etc.)
+  4. Update "output" property if deliverables provided
+Examples:
+  - "update task 2025-10-22 Research with findings"
+  - "mark task X as completed with notes"
+  - "record outcome for yesterday's analysis task"
+Reason: Task updates should modify the task record, not create new tasks about updates
+```
+
+### When to CREATE New Task Files
+
+**Always create new tasks for:**
+- ✅ New work requests (not about existing tasks)
+- ✅ New #AI tags in regular notes (outside AI/Tasks/)
+- ✅ Any request that doesn't reference an existing task
+- ✅ Follow-up work that's distinct from original task
+
+**Decision Flow:**
+```
+Is this about an EXISTING task? 
+├─ Yes, updating outcome/result → UPDATE existing task file
+├─ Yes, #AI tag in task file → UPDATE existing task file
+└─ No, new work request → CREATE new task file
+```
+
 ### Time Scope Restrictions
 
 ⚠️ **CRITICAL**: KTG only processes sources from the **last 3 days** to prevent generating outdated tasks. This applies to all source types.
 
-### One-Time Evaluation Model
+### Task Status Flow
 
-⚠️ **CRITICAL**: Evaluation happens ONCE and the evaluator MUST complete the work.
+⚠️ **CRITICAL**: Different flows for simple vs complex tasks
+
+**Simple Tasks** (executed immediately by KTG):
+```
+TBD → [Execute] → COMPLETED (success) or FAILED (error)
+```
+- FAILED indicates an error occurred during immediate execution
+- No retry loops - task remains FAILED for user review
+- Examples: file not found, permission error, invalid input
+
+**Complex Tasks** (processed through TaskProcessor/Evaluator):
+```
+TBD → IN_PROGRESS → PROCESSED → COMPLETED or NEEDS_INPUT
+```
+- No FAILED status in this flow
+- Evaluator completes remaining work or marks NEEDS_INPUT
+- One-time evaluation model (no retry loops)
 
 **Design Philosophy:**
+- Simple tasks fail fast with FAILED status (clear error indicator)
+- Complex tasks use one-time evaluation model
 - Evaluation is not a "review and retry" process
 - Evaluator is responsible for **completing** unfinished work, not just flagging issues
-- No retry loops - the evaluator resolves the task in one pass
-
-**Evaluation Flow:**
-1. Task execution completes → Status: PROCESSED
-2. Evaluator reviews the work → Status: UNDER_REVIEW
-3. Evaluator has TWO options:
-   - **COMPLETED**: Work is done (evaluator may have completed remaining parts)
-   - **NEEDS_INPUT**: Fundamentally blocked, requires human intervention
-4. **No FAILED status** - there are no retries
+- No retry loops in either flow
 
 **Why This Design:**
-- Prevents infinite FAILED → retry → FAILED loops (common failure mode)
+- Prevents infinite retry loops (common failure mode)
+- Clear distinction between immediate errors (FAILED) and blocked work (NEEDS_INPUT)
 - Evaluator agents are capable enough to complete most incomplete work
 - Forces evaluator to take ownership of completion
 - Saves compute resources (no redundant re-execution)
@@ -624,13 +725,23 @@ Handlers are checked in order. First match wins:
 ('*.md', MarkdownFileHandler),                         # Catch-all
 ```
 
-### EIC Processing Policy
+### Task Execution Policy
 
-⚠️ **CRITICAL**: KTG never executes EIC directly
+⚠️ **CRITICAL**: All tasks create task files for audit trail
 
-- Unprocessed docs → Create EIC task file in `AI/Tasks/`
-- Reason: Maintain separation between task discovery and execution
-- Exception: Simple Limitless insights can be added directly to Journal
+**Simple Tasks** (executed immediately by KTG):
+- File lookups and operations
+- Journal updates and additions
+- Quick reference tasks
+- Single-step operations
+- Status: TBD → COMPLETED/FAILED (bypasses TaskProcessor)
+
+**Complex Tasks** (deferred to TaskProcessor):
+- EIC (Enrich Ingested Content) - never executed by KTG
+- Research and analysis
+- Multi-step workflows
+- Content creation
+- Status: TBD (picked up by TaskProcessor)
 
 ### Integration with Other Prompts
 

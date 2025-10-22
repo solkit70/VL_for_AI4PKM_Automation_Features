@@ -44,6 +44,7 @@
   },
   "task_management": {
     "max_concurrent": 1,
+    "generation_agent": "claude_code",
     "processing_agent": {
       "EIC": "claude_code",
       "Writing": "claude_code",

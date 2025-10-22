@@ -201,3 +201,7 @@ class Config:
     def get_evaluation_agent(self) -> str:
         """Get agent used for task evaluation (Phase 3)."""
         return self.get('task_management.evaluation_agent', 'claude_code')
+
+    def get_generation_agent(self) -> str:
+        """Get agent used for task generation (KTG)."""
+        return self.get('task_management.generation_agent', 'claude_code')

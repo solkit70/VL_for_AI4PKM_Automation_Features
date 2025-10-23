@@ -205,7 +205,7 @@ class TaskProcessor(BaseFileHandler):
         try:
             # Create thread-specific log file
             log_path = self.logger.create_thread_log(task_filename, phase="exec")
-            self.logger.info(f"📝 Thread log created: {log_path}")
+            self.logger.debug(f"Thread log: {log_path}")
 
             # Import and run KTP
             from ...commands.ktp_runner import KTPRunner

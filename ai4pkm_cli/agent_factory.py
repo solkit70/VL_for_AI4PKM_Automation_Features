@@ -47,7 +47,7 @@ class AgentFactory:
             # Try to fallback to other available agents
             return cls._create_fallback_agent(logger, config, exclude=agent_type)
             
-        logger.info(f"🤖 Using agent: {agent.get_agent_name()}")
+        logger.debug(f"Using agent: {agent.get_agent_name()}")
         return agent
         
     @classmethod
@@ -107,7 +107,7 @@ class AgentFactory:
         if not agent.is_available():
             logger.warning(f"Agent {agent.get_agent_name()} is not available")
             
-        logger.info(f"🤖 Using agent: {agent.get_agent_name()}")
+        logger.debug(f"Using agent: {agent.get_agent_name()}")
         return agent
     
     @classmethod

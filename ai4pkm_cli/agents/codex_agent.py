@@ -49,8 +49,8 @@ class CodexAgent(BaseAgent):
             # Execute the prompt using Codex CLI with full_auto and search by default
             result = self._execute_codex_prompt(prompt_content)
             if result:
-                # Log the result
-                self.logger.info(result)
+                # Log the result length only
+                self.logger.debug(f"Agent response: {len(result)} chars")
                 return result, None  # Codex CLI doesn't support session continuity
             else:
                 self.logger.error("No response received from Codex CLI")

@@ -76,13 +76,11 @@ class TaskRequestFileHandler(BaseFileHandler):
 
         # Acquire semaphore (block if at max concurrent limit)
         with self.semaphore:
-            self.logger.info(f"📝 Processing task request file: {file_path}")
-
             try:
                 # Create thread-specific log file
                 request_filename = os.path.basename(file_path).replace('.json', '')
                 log_path = self.logger.create_thread_log(request_filename, phase="gen")
-                self.logger.info(f"📝 Thread log created: {log_path}")
+                self.logger.debug(f"Thread log: {log_path}")
 
                 # Execute KTG with the agent
                 self._execute_ktg(file_path)
@@ -128,11 +126,10 @@ class TaskRequestFileHandler(BaseFileHandler):
             if system_prompt:
                 prompt += f"\n\n{system_prompt}"
 
-            self.logger.info("🤖 Executing Knowledge Task Generator (KTG)")
-            self.logger.info(f"Generation agent: {generation_agent}")
-            self.logger.info(f"Request file: {file_path}")
+            self.logger.info(f"🚀 KTG → {generation_agent} → {os.path.basename(file_path)}")
+            self.logger.debug(f"Request file: {file_path}")
             if generation_log_link:
-                self.logger.info(f"Generation log: {generation_log_link}")
+                self.logger.debug(f"Generation log: {generation_log_link}")
 
             # Log agent command for reproduction
             agent_cmd = agent.get_cli_command(prompt)

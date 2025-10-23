@@ -116,7 +116,7 @@ class ClaudeAgent(BaseAgent):
                         # Append extracted text to response and log it
                         if extracted_text:
                             response_parts.append(extracted_text)
-                            self.logger.info(f"{extracted_text}")
+                            self.logger.debug(f"Response chunk: {len(extracted_text)} chars")
                     
                     return '\n'.join(response_parts), final_session_id
 

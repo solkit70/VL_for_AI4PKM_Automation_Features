@@ -1,266 +1,273 @@
-# PR Summary: KTP Implementation with Comprehensive Integration Testing
+# PR Summary: Task Management Improvements & Agent Configuration
 
 ## Overview
 
-This PR implements the complete **Knowledge Task Processor (KTP)** system with robust testing infrastructure that validates end-to-end workflows from file detection through task completion.
+This PR improves the task management system with better task file creation, flexible agent configuration, and fixes critical timeout issues.
 
-## 🎯 Key Achievements
+## 🎯 Key Changes
 
-### 1. Complete KTP System ✅
-- **Task Processing Pipeline**: Automated workflow from TBD → IN_PROGRESS → PROCESSED → COMPLETED
-- **Multi-Agent Support**: Routes tasks to Claude Code, Gemini, or other configured agents
-- **Concurrent Processing**: Semaphore-based control with configurable limits
-- **Status Tracking**: Comprehensive task lifecycle management with frontmatter updates
-- **Evaluation System**: One-time completion model with quality validation
+### 1. Task File Creation for All Tasks ✅
 
-### 2. Critical Bug Fixes ✅
+**Problem**: Some tasks were executed immediately without creating task files, losing audit trail and execution history.
 
-#### FSEvents Subprocess Detection Issue
-**Problem**: macOS FSEvents doesn't reliably detect files created by subprocesses (Claude Code agent spawned by KTG)
-- Manual file creation → Detected instantly ✅
-- KTG subprocess file creation → Never detected ❌
+**Solution**: All tasks now create task files for complete record-keeping:
+- **Simple tasks**: Create file → Execute immediately → Set `COMPLETED` or `FAILED`
+- **Complex tasks**: Create file with `TBD` → Defer to TaskProcessor pipeline
 
-**Solution**: Implemented **TBDTaskPoller**
-- Hybrid approach: FSEvents (fast) + Periodic polling (reliable)
-- 30-second polling interval for subprocess-created files
-- Deduplication cache to prevent re-processing
-- Configurable via `task_management.polling_interval`
+**Benefits**:
+- Complete audit trail of all work
+- Proper status tracking (`COMPLETED`/`FAILED` for simple, `TBD`→`PROCESSED`→`COMPLETED` for complex)
+- Historical record of task execution
 
-**Validation**: All 3 integration tests confirm detection within 30-60 seconds
+**Categorization Guide**:
 
-#### Task Status Mismatch
-**Problem**: KTG created tasks with `status: "pending"` but KTP only processes `status: "TBD"`
+*Simple Tasks* (execute immediately, <2 min):
+- ✅ File operations and lookups
+- ✅ Quick reference tasks
+- ✅ Journal updates
+- ✅ Single-step operations
 
-**Solution**: Updated prompts and templates
-- Explicit "TBD" requirement in KTG prompts
-- CRITICAL warnings in task generation templates
-- Validation in integration tests
+*Complex Tasks* (defer to TaskProcessor, >5 min):
+- ❌ EIC (Enrich Ingested Content) - always complex
+- ❌ Research and analysis
+- ❌ Multi-step workflows
+- ❌ Operations requiring multiple file modifications
 
-### 3. Comprehensive Integration Test Suite ✅
+**Exceptions** - Update existing task files instead of creating new:
+1. **#AI tags in task files**: Update the existing task, don't create new
+2. **Task outcome updates**: When reporting results for existing tasks (keywords: "update task", "mark as", "record outcome")
 
-Three complete end-to-end tests covering all major workflows:
+### 2. Informative Task File Naming ✅
 
-#### Test 1: EIC (Enrich Ingested Content)
-**Workflow**: Clipping → Handler → Request → KTG → Task → Poller → KTP → KTE → COMPLETED
-**Status**: ✅ PASSED (163s)
-**Validates**:
-- ClippingFileHandler detection
-- Request JSON generation
-- EIC task creation with proper frontmatter
-- Content enrichment execution
-- Completion evaluation
+**Before**: Generic names like `2025-10-22 Task.md`
 
-#### Test 2: Hashtag (#AI)
-**Workflow**: #AI tag → Handler → Request → KTG → Writing Task → Poller → KTP → KTE → COMPLETED
-**Status**: Created (needs optimization for <240s)
-**Validates**:
-- Hashtag detection across markdown files
-- Hashtag removal after processing
-- Writing task generation
-- Content creation workflow
+**After**: Descriptive names indicating actual work:
+- ✅ Good: `2025-10-22 EIC Process Article on AI Agents.md`
+- ✅ Good: `2025-10-22 Research PKM Best Practices.md`
+- ❌ Bad: `2025-10-22 Task.md` or `2025-10-22 Process File.md`
 
-#### Test 3: Limitless ("Hey PKM")
-**Workflow**: "hey pkm" → Handler → Request → KTG → Task → Poller → KTP → KTE → COMPLETED
-**Status**: Created (needs optimization for <240s)
-**Validates**:
-- Natural language trigger detection (case-insensitive)
-- Context extraction (±5 conversation entries)
-- Preference keyword detection (Korean: 좋겠고, 원해, 필요해)
-- Conversation-to-task translation
+### 3. Remove Hardcoded Agent Configurations ✅
 
-## 📁 Files Added/Modified
+**Problem**: All task types and agents had hardcoded fallbacks to `'claude_code'` or specific agents, ignoring user's `default-agent` setting.
 
-### New Files
-
-**Integration Tests**:
-- `ai4pkm_cli/tests/test_ktg_ktp_hashtag_integration.py` (630 lines)
-- `ai4pkm_cli/tests/test_ktg_ktp_limitless_integration.py` (650 lines)
-- `ai4pkm_cli/tests/run_all_integration_tests.sh` (220 lines)
-- `ai4pkm_cli/tests/README.md` (513 lines - comprehensive documentation)
-- `ai4pkm_cli/tests/.gitignore` (exclude test results)
-
-**Test Fixtures**:
-- `ai4pkm_cli/tests/fixtures/test_hashtag_template.md`
-- `ai4pkm_cli/tests/fixtures/test_limitless_template.md`
-
-**Core Components**:
-- `ai4pkm_cli/watchdog/tbd_poller.py` (173 lines - polling solution)
-- `ai4pkm_cli/watchdog/handlers/task_processor.py` (enhanced)
-- `ai4pkm_cli/watchdog/handlers/task_evaluator.py` (enhanced)
-
-### Modified Files
-
-**KTP Enhancements**:
-- `ai4pkm_cli/cli.py` - TBDTaskPoller integration
-- `ai4pkm_cli.json` - Added `polling_interval` config
-- `ai4pkm_cli/prompts/task_generation.md` - Fixed status: "TBD" requirement
-- `_Settings_/Prompts/Enrich Ingested Content (EIC).md` - Added truncation warnings
-
-## 🧪 Test Infrastructure
-
-### Test Architecture
-
-All tests follow a common pattern:
+**Before**:
 ```python
-class KTGKTPIntegrationTest:
-    def start_watchdog()              # Launch ai4pkm -t subprocess
-    def create_test_file()            # Generate test input from fixture
-    def wait_for_request_generation() # Monitor for JSON request
-    def wait_for_task_creation()      # Monitor for KTG task file
-    def wait_for_task_detection()     # Validate TBDTaskPoller
-    def wait_for_task_processing()    # Track KTP execution
-    def wait_for_task_completion()    # Confirm KTE approval
-    def stop_watchdog()               # Graceful shutdown
-    def generate_report()             # Create markdown report
+# Hardcoded fallbacks
+generation_agent → 'claude_code'
+evaluation_agent → 'claude_code'
+processing_agent['EIC'] → 'claude_code'
+processing_agent['Research'] → 'gemini_cli'
 ```
 
-### Key Design Decisions
-
-1. **Self-Contained**: Each test manages its own watchdog process
-2. **Timestamp Filtering**: Only detects files created after test start
-3. **Incremental Log Reading**: Monitors watchdog logs efficiently
-4. **Editable Fixtures**: Test data in separate markdown files
-5. **Cleanup Policy**: Disabled by default for debugging
-
-### Running Tests
-
-```bash
-# Run all tests
-./ai4pkm_cli/tests/run_all_integration_tests.sh
-
-# Run individual test
-python ai4pkm_cli/tests/test_ktg_ktp_eic_integration.py
-python ai4pkm_cli/tests/test_ktg_ktp_hashtag_integration.py
-python ai4pkm_cli/tests/test_ktg_ktp_limitless_integration.py
+**After**:
+```python
+# Respects default-agent setting
+generation_agent → self.get_agent()
+evaluation_agent → self.get_agent()
+processing_agent['EIC'] → default_agent
+processing_agent['Research'] → default_agent
 ```
 
-### CI/CD Integration
+**Configuration Precedence** (highest to lowest):
+1. **Task-specific in user config** (highest)
+2. **`default-agent` setting**
+3. **Hardcoded fallback** (lowest, only for `default-agent` itself)
 
-**GitHub Actions**:
-```yaml
-- run: ./ai4pkm_cli/tests/run_all_integration_tests.sh
+**Benefits**:
+- Change one setting (`default-agent`) to affect all agents
+- Still allows granular control for specific task types
+- Consistent behavior across the system
+
+### 4. Fix Agent Timeout (CRITICAL) ✅
+
+**Problem**: Codex and Gemini agents had hardcoded 300-second (5 min) timeout, causing premature failures.
+
+**Evidence from logs**:
+```
+[15:07:00] KTG starts task
+[15:12:00] Timeout error (5 min later, not 30 min)
+[15:16:01] Another timeout
+[15:39:03] Codex actually completes (30+ min total)
 ```
 
-**Pre-commit Hook**:
-```bash
-./ai4pkm_cli/tests/run_all_integration_tests.sh || exit 1
+**Root Cause**:
+```python
+# agents/codex_agent.py line 88
+result = subprocess.run(cmd, timeout=300)  # Hardcoded 5 minutes!
 ```
 
-## 📊 Performance Benchmarks
+**Solution**:
+- Pass `timeout_seconds` in agent config (converted from `timeout_minutes`)
+- Agents use configured timeout with 30-minute default
+- Log timeout value for debugging
 
-| Stage | Target | Acceptable | Notes |
-|-------|--------|------------|-------|
-| Request Generation | <1s | <5s | Handler triggers instantly |
-| Task Creation (KTG) | 20-40s | <90s | Claude Code subprocess |
-| Task Detection | 0-30s | <60s | TBDTaskPoller interval |
-| Task Processing (KTP) | 60-120s | <300s | Task complexity dependent |
-| Task Evaluation (KTE) | 10-30s | <60s | Validation logic |
-| **End-to-End** | **2-3 min** | **<5 min** | Total workflow time |
+**Before**:
+```python
+timeout=300  # Always 5 minutes
+```
 
-## 🔧 Configuration
+**After**:
+```python
+self.timeout = config.get('timeout_seconds', 1800)  # 30 min default, respects config
+result = subprocess.run(cmd, timeout=self.timeout)
+```
 
+**Impact**:
+- EIC tasks can complete without premature timeouts
+- Long-running research/analysis tasks work correctly
+- Respects user's 30-minute timeout configuration
+
+## 📁 Files Modified
+
+### Task Management
+- `ai4pkm_cli/prompts/task_generation.md` - Simplified system prompt, added task file creation rules
+- `_Settings_/Templates/Task Template.md` - Added required fields (source, generation_log)
+- `README_KTG.md` - Updated workflow documentation and task execution policy
+- `README_KTM.md` - Updated workflow steps and execution strategy
+
+### Agent Configuration
+- `ai4pkm_cli/config.py` - Remove hardcoded agent fallbacks, add timeout to agent config
+- `ai4pkm_cli/agents/codex_agent.py` - Use configured timeout
+- `ai4pkm_cli/agents/gemini_agent.py` - Use configured timeout
+- `ai4pkm_cli/scripts/task_status.py` - Previous changes
+
+## 🎯 Configuration Examples
+
+### Minimal (uses default-agent for everything):
 ```json
 {
+  "default-agent": "codex_cli"
+}
+```
+→ All agents (generation, processing, evaluation) use Codex CLI
+
+### Granular (override specific agents):
+```json
+{
+  "default-agent": "codex_cli",
   "task_management": {
-    "max_concurrent": 1,
+    "generation_agent": "claude_code",
     "processing_agent": {
       "EIC": "claude_code",
-      "Writing": "claude_code",
-      "default": "claude_code"
+      "default": "codex_cli"
     },
-    "evaluation_agent": "claude_code",
-    "timeout_minutes": 30,
-    "max_retries": 2,
-    "polling_interval": 30  // NEW: TBD task polling (seconds)
+    "evaluation_agent": "codex_cli",
+    "timeout_minutes": 30
   }
 }
 ```
 
-## 🐛 Issues Discovered and Fixed
+## 📊 Task Status Flows
 
-1. **macOS FSEvents Subprocess Bug** ✅
-   - Symptom: KTG-created tasks never detected
-   - Fix: TBDTaskPoller with 30s interval
-   - Validation: All tests confirm detection
+### Simple Tasks
+```
+TBD → [Execute] → COMPLETED (success) or FAILED (error)
+```
+- No TaskProcessor/Evaluator involvement
+- Immediate feedback
+- Clear error indicator if execution fails
 
-2. **Status Mismatch** ✅
-   - Symptom: Tasks created with "pending" instead of "TBD"
-   - Fix: Updated prompts and templates
-   - Validation: Tests verify correct status
+### Complex Tasks
+```
+TBD → IN_PROGRESS → PROCESSED → COMPLETED or NEEDS_INPUT
+```
+- Full TaskProcessor/Evaluator pipeline
+- One-time evaluation model
+- No FAILED status (evaluator completes or marks NEEDS_INPUT)
 
-3. **Request Deletion Timing** ✅
-   - Symptom: Request files deleted before KTG could process
-   - Fix: KTG now deletes after processing
-   - Validation: Request lifecycle monitored in tests
+## 🐛 Issues Fixed
 
-4. **Content Truncation in EIC** ✅
-   - Symptom: Long articles truncated mid-processing
-   - Fix: Added warnings and chunk processing guidance
-   - Validation: EIC test uses realistic content length
+### 1. Premature Agent Timeouts ✅
+**Symptom**: Tasks timing out at 5 minutes when configured for 30 minutes  
+**Fix**: Agents now use configured timeout  
+**Validation**: `python3 -c "from ai4pkm_cli.config import Config; c = Config(); print(c.get_agent_config('codex_cli').get('timeout_seconds'))"` → `1800`
 
-## 📈 Test Coverage
+### 2. Lost Task History ✅
+**Symptom**: Simple tasks executed without creating audit trail  
+**Fix**: All tasks create task files  
+**Benefit**: Complete record of all work in AI/Tasks/
 
-- **3 Workflows**: EIC, Hashtag, Limitless
-- **18+ Stages**: Each test validates 6+ stages
-- **Real Bugs**: Tests caught and validated fixes for 4 real issues
-- **End-to-End**: Complete validation from file → completion
+### 3. Ignored Default Agent ✅
+**Symptom**: Changing `default-agent` didn't affect task processing  
+**Fix**: All agents respect `default-agent` setting  
+**Benefit**: One-line configuration change affects entire system
 
-## 🚀 Next Steps
+### 4. Generic Task Names ✅
+**Symptom**: Unclear task files: `2025-10-22 Task.md`  
+**Fix**: Informative naming guidance in system prompt  
+**Benefit**: Easy to identify tasks in file listings
 
-### Immediate
-1. Optimize Hashtag and Limitless tests to complete within 240s timeout
-2. Add performance regression detection to CI/CD
-3. Create test data variations for edge cases
+## 📝 System Prompt Improvements
 
-### Future
-1. Add concurrent task processing tests
-2. Implement error handling scenarios (malformed requests)
-3. Add retry logic tests (FAILED → retry)
-4. Create Gobi transcription workflow test
-5. Add task deduplication validation
+**Before**: 55+ lines with verbose explanations
 
-## 💡 Why This Matters
+**After**: ~30 lines, clear sections:
+```
+=== TASK FILE CREATION ===
+=== EXECUTION ===
+=== REQUIRED PROPERTIES ===
+```
+
+**Benefits**:
+- Easy to scan
+- Less token-heavy
+- Still complete and actionable
+
+## ✅ Verification
+
+### Agent Config
+```bash
+$ python3 -c "from ai4pkm_cli.config import Config; c = Config(); \
+  print(f'Timeout: {c.get_ktp_timeout()} min = {c.get_agent_config(\"codex_cli\")[\"timeout_seconds\"]}s')"
+Timeout: 30 min = 1800s
+```
+
+### Task File Creation
+All tasks now create files in `AI/Tasks/` with proper frontmatter:
+- `created`: Full ISO datetime
+- `status`: "TBD" → "COMPLETED"/"FAILED" (simple) or pipeline statuses (complex)
+- `generation_log`: Link to KTG execution log
+- `source`: Wiki link to original document
+- `priority`: P1 (content) or P2 (workflow)
+- `task_type`: Descriptive type
+
+## 🚀 Impact
 
 ### Before This PR
-- Manual testing required for each workflow change
-- Bugs discovered in production (file detection failures)
-- No confidence in refactoring
-- Integration issues caught late
+- Simple tasks executed without record
+- 5-minute timeout caused frequent failures
+- Changing agent required updating multiple config keys
+- Generic task names made history browsing difficult
 
 ### After This PR
-- Automated end-to-end validation
-- Bugs caught before merge
-- Safe refactoring with test coverage
-- Integration issues caught immediately
-- CI/CD pipeline ready
+- Complete audit trail for all tasks
+- 30-minute timeout allows complex tasks to complete
+- Single `default-agent` setting controls entire system
+- Informative task names enable easy identification
+- Granular control still available when needed
 
-## 📚 Documentation
+## 📊 Commits
 
-Comprehensive documentation added to `ai4pkm_cli/tests/README.md`:
-- **Why** integration tests (real bugs they caught)
-- **What** they test (workflows and stages)
-- **How** to run and automate
-- **Troubleshooting** guide
-- **CI/CD** integration examples
+1. **701b5ee** - Task Management: Improve task file creation and agent configuration
+   - All tasks create task files
+   - Simple vs complex execution strategy
+   - Informative file naming
+   - Update vs create exception handling
 
-## ✅ Checklist
-
-- [x] KTP system implementation complete
-- [x] TBDTaskPoller implemented and tested
-- [x] Status mismatch bug fixed
-- [x] EIC integration test passing
-- [x] Hashtag integration test created
-- [x] Limitless integration test created
-- [x] Test runner script implemented
-- [x] Comprehensive documentation added
-- [x] CI/CD examples provided
-- [x] .gitignore for test results
-- [x] All changes committed and pushed
+2. **b15af95** - Fix agent timeout: Use configured timeout instead of hardcoded 5 minutes
+   - Pass timeout_seconds in agent config
+   - Agents use configured timeout
+   - Log timeout for debugging
 
 ## 🎉 Summary
 
-This PR delivers a production-ready KTP system with comprehensive integration testing that validates the complete knowledge task workflow. The test suite has already caught and validated fixes for 4 real bugs, demonstrating its value for maintaining system reliability.
+This PR delivers a more robust and flexible task management system with:
+- ✅ Complete audit trail for all work
+- ✅ Proper timeout handling for long-running tasks
+- ✅ Flexible agent configuration respecting user preferences
+- ✅ Informative task naming for better organization
+- ✅ Simplified system prompts while maintaining functionality
 
-**Test Results**: 1/3 passing, 2/3 created and functional (need optimization)
-**Code Quality**: Production-ready with comprehensive documentation
-**CI/CD Ready**: Yes, with examples for GitHub Actions, pre-commit, and cron
+**Test Status**: Manual verification complete  
+**Production Ready**: Yes  
+**Breaking Changes**: No (backward compatible)

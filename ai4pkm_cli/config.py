@@ -114,7 +114,10 @@ class Config:
         """Get configuration for specific agent."""
         if agent is None:
             agent = self.get_agent()
-        return self.get(f'agents-config.{agent}', {})
+        agent_config = self.get(f'agents-config.{agent}', {})
+        # Add task management timeout (convert minutes to seconds)
+        agent_config['timeout_seconds'] = self.get_ktp_timeout() * 60
+        return agent_config
         
     def get_photo_processing_config(self) -> Dict[str, Any]:
         """Get photo processing configuration."""
@@ -162,16 +165,17 @@ class Config:
     
     def get_task_management_config(self) -> Dict[str, Any]:
         """Get task management configuration."""
+        default_agent = self.get_agent()
         return self.get('task_management', {
             'max_concurrent': 5,
             'processing_agent': {
-                'EIC': 'claude_code',
-                'Research': 'gemini_cli',
-                'Analysis': 'gemini_cli',
-                'Writing': 'claude_code',
-                'default': 'claude_code'
+                'EIC': default_agent,
+                'Research': default_agent,
+                'Analysis': default_agent,
+                'Writing': default_agent,
+                'default': default_agent
             },
-            'evaluation_agent': 'claude_code',
+            'evaluation_agent': default_agent,
             'timeout_minutes': 30,
             'max_retries': 2
         })
@@ -182,12 +186,13 @@ class Config:
     
     def get_ktp_routing(self) -> Dict[str, str]:
         """Get KTP task processing agent configuration (Phase 1 & 2)."""
+        default_agent = self.get_agent()
         return self.get('task_management.processing_agent', {
-            'EIC': 'claude_code',
-            'Research': 'gemini_cli',
-            'Analysis': 'gemini_cli',
-            'Writing': 'claude_code',
-            'default': 'claude_code'
+            'EIC': default_agent,
+            'Research': default_agent,
+            'Analysis': default_agent,
+            'Writing': default_agent,
+            'default': default_agent
         })
     
     def get_ktp_timeout(self) -> int:
@@ -200,4 +205,10 @@ class Config:
 
     def get_evaluation_agent(self) -> str:
         """Get agent used for task evaluation (Phase 3)."""
-        return self.get('task_management.evaluation_agent', 'claude_code')
+        # Fall back to default agent if not specified
+        return self.get('task_management.evaluation_agent', self.get_agent())
+
+    def get_generation_agent(self) -> str:
+        """Get agent used for task generation (KTG)."""
+        # Fall back to default agent if not specified
+        return self.get('task_management.generation_agent', self.get_agent())

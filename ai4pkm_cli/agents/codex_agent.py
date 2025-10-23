@@ -12,6 +12,7 @@ class CodexAgent(BaseAgent):
         """Initialize Codex agent."""
         super().__init__(logger, config)
         self.command = config.get('command', 'codex')
+        self.timeout = config.get('timeout_seconds', 1800)  # Default 30 minutes
         # Use CLI default model when no model specified
         
     def is_available(self) -> bool:
@@ -85,7 +86,8 @@ class CodexAgent(BaseAgent):
             
             # Execute the command - show full command
             self.logger.debug(f"Executing Codex command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            self.logger.debug(f"Timeout: {self.timeout} seconds")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout)
             
             if result.returncode == 0:
                 return result.stdout.strip()

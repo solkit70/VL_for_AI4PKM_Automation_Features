@@ -1,13 +1,15 @@
 ---
 created:
 archived: false
-worker:
 status:
 priority:
+task_type:
+source:
+generation_log:
+worker:
 output:
 feedback:
 budget:
-task_type:
 ---
 ## Input
 

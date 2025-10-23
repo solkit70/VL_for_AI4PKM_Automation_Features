@@ -5,9 +5,22 @@ This is a system prompt used by the Knowledge Task Generator (KTG) to create tas
 ## Purpose
 - Instructs agents on how to process task generation requests
 - Defines task creation requirements
-- Specifies when to execute immediately vs create task files
+- Ensures ALL tasks create task files for proper record-keeping
 
 ## Key Instructions
+
+**CRITICAL: ALL tasks MUST create task files, regardless of complexity.**
+This includes simple tasks, quick lookups, and immediate operations.
+Task files provide essential audit trails and execution tracking.
+
+**EXCEPTIONS - Update existing task files instead of creating new ones:**
+- When #AI tag is in an existing task file (AI/Tasks/)
+- When request is to update outcome/result of an existing task
+- See detailed exceptions at end of this document
+
+**Task Execution Strategy:**
+- Simple tasks: Execute immediately, set status to COMPLETED or FAILED
+- Complex tasks: Create task file with status TBD for TaskProcessor to handle
 
 When creating a task file, the agent should:
 
@@ -45,23 +58,41 @@ This prompt is automatically added to KTG execution context:
 ```
 {ktg_request_prompt}
 
-IMPORTANT: When creating a task file, include these properties in frontmatter:
-- status: "TBD" (CRITICAL: Must be exactly "TBD" in quotes - this is required for task processing)
-- created: {current_datetime} (full ISO format: YYYY-MM-DDTHH:MM:SS)
-- generation_log: "{generation_log_link}" (link to this KTG execution log)
+=== TASK FILE CREATION ===
 
-Ensure the 'created' property uses full datetime format, not just date.
-NEVER use "pending" or other status values - only "TBD", "COMPLETED", or "NEEDS_INPUT".
+ALWAYS create task files for ALL requests (audit trail required).
 
-NOTE: Do NOT create separate log or report files in AI/Tasks/Logs/. System logging is handled automatically. Only create the task file in AI/Tasks/ as specified in the KTG workflow.
+File naming: AI/Tasks/YYYY-MM-DD [Informative Description].md
+• Use descriptive names that indicate the actual work, not generic labels
+• Good: "2025-10-22 EIC Process Article on AI Agents.md"
+• Good: "2025-10-22 Research PKM Best Practices.md"
+• Bad: "2025-10-22 Task.md" or "2025-10-22 Process File.md"
+• Include key subject/topic in filename for easy identification
 
-CRITICAL: Special handling for #AI tags in task files (AI/Tasks/):
-- When the target file is in AI/Tasks/ (existing task file), DO NOT create a new task
-- Instead, resolve the #AI request within the same task file:
-  1. Read the task file to understand the context
-  2. Address the request or question marked with #AI
-  3. Add your response to the "Process Log" section
-  4. Remove the #AI tag after addressing it
-- This keeps related work consolidated in one task file instead of fragmenting into multiple tasks
-- Only create NEW task files when the #AI tag appears in regular notes (outside AI/Tasks/)
+EXCEPTIONS - Update existing task instead:
+• Request is to update outcome of EXISTING task → Update that task file
+• #AI tag is in existing task file (AI/Tasks/) → Update that task file
+
+=== EXECUTION ===
+
+Simple tasks (file ops, lookups, journal updates):
+1. Create task file with status "TBD"
+2. Execute immediately
+3. Update status to "COMPLETED" or "FAILED"
+
+Complex tasks (EIC, research, multi-step work):
+1. Create task file with status "TBD"
+2. Do NOT execute - leave for TaskProcessor
+
+=== REQUIRED PROPERTIES ===
+
+Frontmatter:
+- created: {current_datetime}
+- status: "TBD" then "COMPLETED"/"FAILED" (simple) or "TBD" (complex)
+- generation_log: "{generation_log_link}"
+- source: "[[Original/Source/File]]"
+- priority: "P1" or "P2"
+- task_type: descriptive type
+
+Valid statuses: TBD, IN_PROGRESS, PROCESSED, COMPLETED, FAILED, NEEDS_INPUT
 ```

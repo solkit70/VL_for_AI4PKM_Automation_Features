@@ -117,8 +117,11 @@ class TaskRequestFileHandler(BaseFileHandler):
             # Read system prompt template
             system_prompt = self._read_system_prompt(generation_log_link)
 
-            # Create agent
-            agent = AgentFactory.create_agent(self.logger, self.config)
+            # Get generation agent from config
+            generation_agent = self.config.get_generation_agent()
+            
+            # Create agent by name
+            agent = AgentFactory.create_agent_by_name(generation_agent, self.logger, self.config)
 
             # Build full prompt
             prompt = f"Run Knowledge Task Generator given the task generation request file in {file_path}"
@@ -126,6 +129,7 @@ class TaskRequestFileHandler(BaseFileHandler):
                 prompt += f"\n\n{system_prompt}"
 
             self.logger.info("🤖 Executing Knowledge Task Generator (KTG)")
+            self.logger.info(f"Generation agent: {generation_agent}")
             self.logger.info(f"Request file: {file_path}")
             if generation_log_link:
                 self.logger.info(f"Generation log: {generation_log_link}")

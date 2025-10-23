@@ -27,6 +27,7 @@ class TaskProcessor(BaseFileHandler):
         """
         super().__init__(logger, workspace_path)
         self.processed_cache = {}  # Track processed files to avoid duplicates
+        self.cache_lock = threading.Lock()  # Protect cache from race conditions
 
         # Get execution semaphore (separate from generation)
         from ...config import Config
@@ -73,14 +74,18 @@ class TaskProcessor(BaseFileHandler):
                 return
 
             # Check if already processed recently (avoid duplicates)
+            # Use lock to prevent race condition between FSEvents and TBD Poller
             file_mtime = os.path.getmtime(file_path)
             cache_key = f"{file_path}:{file_mtime}:TBD"
 
-            if cache_key in self.processed_cache:
-                return
+            with self.cache_lock:
+                if cache_key in self.processed_cache:
+                    # Already being processed by another thread
+                    self.logger.debug(f"Skipping duplicate processing: {os.path.basename(file_path)}")
+                    return
 
-            # Mark as processed
-            self.processed_cache[cache_key] = datetime.now()
+                # Mark as processed atomically
+                self.processed_cache[cache_key] = datetime.now()
 
             # Clean old cache entries (older than 1 hour)
             self._clean_cache()

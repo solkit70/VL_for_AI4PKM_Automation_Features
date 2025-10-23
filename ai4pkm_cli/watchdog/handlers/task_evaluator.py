@@ -26,6 +26,7 @@ class TaskEvaluator(BaseFileHandler):
         """
         super().__init__(logger, workspace_path)
         self.processed_cache = {}  # Track processed files to avoid duplicates
+        self.cache_lock = threading.Lock()  # Protect cache from race conditions
 
         # Get execution semaphore (separate from generation)
         from ...config import Config
@@ -73,15 +74,18 @@ class TaskEvaluator(BaseFileHandler):
                 return
 
             # Check if already processed recently (avoid duplicates from FSEvents)
+            # Use lock to prevent race condition between multiple event sources
             file_mtime = os.path.getmtime(file_path)
             cache_key = f"{file_path}:{file_mtime}:PROCESSED"
 
-            if cache_key in self.processed_cache:
-                self.logger.debug(f"Cache hit for {os.path.basename(file_path)}, skipping")
-                return
+            with self.cache_lock:
+                if cache_key in self.processed_cache:
+                    # Already being evaluated by another thread
+                    self.logger.debug(f"Skipping duplicate evaluation: {os.path.basename(file_path)}")
+                    return
 
-            # Mark as processed in cache
-            self.processed_cache[cache_key] = datetime.now()
+                # Mark as processed atomically
+                self.processed_cache[cache_key] = datetime.now()
 
             # Clean old cache entries (older than 1 hour)
             self._clean_cache()

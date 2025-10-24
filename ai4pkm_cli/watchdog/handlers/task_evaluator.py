@@ -28,6 +28,10 @@ class TaskEvaluator(BaseFileHandler):
         self.processed_cache = {}  # Track processed files to avoid duplicates
         self.cache_lock = threading.Lock()  # Protect cache from race conditions
 
+        # Ensure AI/Tasks directory exists
+        tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
+        os.makedirs(tasks_dir, exist_ok=True)
+
         # Get execution semaphore (separate from generation)
         from ...config import Config
         from ..task_semaphore import get_execution_semaphore

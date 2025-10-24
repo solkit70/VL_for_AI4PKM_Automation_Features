@@ -389,8 +389,8 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
         task_type = task_data.get('task_type', 'Unknown')
         agent_name = self.processing_agent.get(task_type, self.processing_agent.get('default', 'claude_code'))
         
-        self.logger.info(f"Task type: {task_type}")
-        self.logger.info(f"Routing to agent: {agent_name}")
+        self.logger.debug(f"Task type: {task_type}")
+        self.logger.debug(f"Routing to agent: {agent_name}")
         
         # Update task status to IN_PROGRESS
         self._update_task_status(task_file, 'IN_PROGRESS', worker=agent_name)
@@ -427,7 +427,7 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
         agent_cmd = agent.get_cli_command(prompt)
         self.logger.log_agent_command(agent_cmd)
 
-        self.logger.info(f"Executing task with agent: {worker}")
+        self.logger.debug(f"Executing task with agent: {worker}")
 
         try:
             # Execute the task
@@ -440,7 +440,7 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
                 # Check if status was updated to PROCESSED
                 updated_data = self._read_task_file(task_path)
                 if updated_data.get('status') == 'PROCESSED':
-                    self.logger.info("Status updated to PROCESSED by agent")
+                    self.logger.debug("Status updated to PROCESSED by agent")
                     # Proceed to Phase 3
                     self._phase3_evaluate_task(task_file, updated_data)
                 else:

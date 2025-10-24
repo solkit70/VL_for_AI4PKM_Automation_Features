@@ -202,10 +202,6 @@ class TaskEvaluator(BaseFileHandler):
             task_filename: Task filename
         """
         try:
-            # Create thread-specific log file
-            log_path = self.logger.create_thread_log(task_filename, phase="eval")
-            self.logger.info(f"📝 Thread log created: {log_path}")
-
             # Import and run KTP evaluation
             from ...commands.ktp_runner import KTPRunner
             from ...config import Config
@@ -215,9 +211,6 @@ class TaskEvaluator(BaseFileHandler):
             runner.evaluate_task(task_filename)
 
             self.logger.info(f"✅ KTP evaluation completed: {task_filename}")
-
-            # Update task file with evaluation log link
-            self._add_log_link_to_task(task_filename, log_path, "evaluation_log")
 
         except Exception as e:
             self.logger.error(f"Error running KTP evaluation: {e}")

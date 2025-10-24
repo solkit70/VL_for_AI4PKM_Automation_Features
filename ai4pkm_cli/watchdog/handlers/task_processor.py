@@ -203,10 +203,6 @@ class TaskProcessor(BaseFileHandler):
             task_filename: Task filename
         """
         try:
-            # Create thread-specific log file
-            log_path = self.logger.create_thread_log(task_filename, phase="exec")
-            self.logger.info(f"📝 Thread log created: {log_path}")
-
             # Import and run KTP
             from ...commands.ktp_runner import KTPRunner
             from ...config import Config
@@ -216,9 +212,6 @@ class TaskProcessor(BaseFileHandler):
             runner.run_tasks(task_file=task_filename)
 
             self.logger.info(f"✅ KTP execution completed: {task_filename}")
-
-            # Update task file with execution log link
-            self._add_log_link_to_task(task_filename, log_path, "execution_log")
 
         except Exception as e:
             self.logger.error(f"Error running KTP: {e}")

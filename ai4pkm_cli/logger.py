@@ -79,18 +79,6 @@ class Logger:
             with open(self.log_file, 'a') as f:
                 f.write(log_entry)
 
-            # Also write to thread-specific log file if exists
-            if thread_name in self.thread_log_files:
-                thread_log_path = self.thread_log_files[thread_name]
-                try:
-                    with open(thread_log_path, 'a') as f:
-                        # For thread-specific log, omit thread name prefix (redundant)
-                        simple_entry = f"[{timestamp}] {level}: {message}\n"
-                        f.write(simple_entry)
-                except Exception as e:
-                    # If thread log fails, just continue with main log
-                    pass
-
             # Also print to console if enabled
             if self.console_output and self.console:
                 self._display_log_line(self.console, log_entry.rstrip())

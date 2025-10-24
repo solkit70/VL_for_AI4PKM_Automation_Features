@@ -121,14 +121,9 @@ class TaskRequestFileHandler(BaseFileHandler):
 
         except Exception as e:
             self.logger.error(f"Error executing KTG: {e}")
-        finally:
-            # Cleanup: Delete request file after processing to prevent infinite loops
-            try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    self.logger.info(f"🗑️  Cleaned up request file: {os.path.basename(file_path)}")
-            except Exception as cleanup_error:
-                self.logger.error(f"Failed to delete request file {file_path}: {cleanup_error}")
+        # Note: Request files are NOT deleted after processing
+        # They serve as timestamp markers for handlers (Limitless, Gobi) to track
+        # what content has already been processed (via get_last_sync_timestamp)
 
     def _read_system_prompt(self) -> str:
         """Read system prompt from task_generation.md.

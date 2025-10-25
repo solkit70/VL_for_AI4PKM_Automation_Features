@@ -5,6 +5,8 @@ views:
       and:
         - file.path.startsWith("AI/Tasks/")
         - file.ext == "md"
+        - '!file.path.startsWith("AI/Tasks/Logs")'
+        - '!file.path.startsWith("AI/Tasks/Requests")'
     order:
       - file.name
       - created

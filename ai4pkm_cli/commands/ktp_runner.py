@@ -423,10 +423,6 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
         task_path = os.path.join(self.tasks_dir, task_file)
         prompt = self._read_execution_prompt(task_path)
 
-        # Log agent command for reproduction
-        agent_cmd = agent.get_cli_command(prompt)
-        self.logger.log_agent_command(agent_cmd)
-
         self.logger.debug(f"Executing task with agent: {worker}")
 
         try:
@@ -574,10 +570,6 @@ FEEDBACK: [specific improvements needed if NEEDS_REWORK]
             # Get agent for evaluation (use configured evaluation agent)
             evaluation_agent_name = self.config.get_evaluation_agent()
             agent = AgentFactory.create_agent_by_name(evaluation_agent_name, self.logger, self.config)
-
-            # Log agent command for reproduction
-            agent_cmd = agent.get_cli_command(prompt)
-            self.logger.log_agent_command(agent_cmd)
 
             # Execute evaluation - agent will update task status directly
             result = agent.run_prompt(inline_prompt=prompt)

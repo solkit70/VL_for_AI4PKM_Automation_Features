@@ -28,6 +28,10 @@ class TaskEvaluator(BaseFileHandler):
         self.processed_cache = {}  # Track processed files to avoid duplicates
         self.cache_lock = threading.Lock()  # Protect cache from race conditions
 
+        # Ensure AI/Tasks directory exists
+        tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
+        os.makedirs(tasks_dir, exist_ok=True)
+
         # Get execution semaphore (separate from generation)
         from ...config import Config
         from ..task_semaphore import get_execution_semaphore
@@ -206,10 +210,6 @@ class TaskEvaluator(BaseFileHandler):
             task_filename: Task filename
         """
         try:
-            # Create thread-specific log file
-            log_path = self.logger.create_thread_log(task_filename, phase="eval")
-            self.logger.debug(f"Thread log: {log_path}")
-
             # Import and run KTP evaluation
             from ...commands.ktp_runner import KTPRunner
             from ...config import Config
@@ -219,9 +219,6 @@ class TaskEvaluator(BaseFileHandler):
             runner.evaluate_task(task_filename)
 
             self.logger.info(f"✅ KTP evaluation completed: {task_filename}")
-
-            # Update task file with evaluation log link
-            self._add_log_link_to_task(task_filename, log_path, "evaluation_log")
 
         except Exception as e:
             self.logger.error(f"Error running KTP evaluation: {e}")

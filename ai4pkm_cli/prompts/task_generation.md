@@ -11,14 +11,17 @@ This is a system prompt used by the Knowledge Task Generator (KTG) to create tas
 
 **CRITICAL: Check for duplicates first** (list AI/Tasks/, skip if similar task exists)
 
-**ALL tasks create task files** (audit trail required)
-This includes simple tasks, quick lookups, and immediate operations.
-Task files provide essential audit trails and execution tracking.
+**DUPLICATES: DO NOT create any file**
+- If duplicate found → Log to system and exit immediately
+- No task file, no audit file, just exit
 
-**EXCEPTIONS - Update existing task files instead of creating new ones:**
+**NON-DUPLICATES: Create task files** (audit trail required)
+- This includes simple tasks, quick lookups, and immediate operations
+- Task files provide essential audit trails and execution tracking
+
+**UPDATE instead of create:**
 - When #AI tag is in an existing task file (AI/Tasks/)
 - When request is to update outcome/result of an existing task
-- When duplicate task already exists (DO NOT create new)
 - See detailed exceptions at end of this document
 
 **Task Execution Strategy:**
@@ -64,11 +67,13 @@ This prompt is automatically added to KTG execution context:
 === DUPLICATE CHECK (DO THIS FIRST) ===
 
 List AI/Tasks/ files. If similar task exists (same topic/source, status not COMPLETED, last 2 days):
-• Skip creation, log "Duplicate found: [filename]"
+• **DO NOT create any task file**
+• Log "Duplicate found: [filename]" to system log
+• Exit immediately
 
 === TASK FILE CREATION ===
 
-Create task files for ALL requests (audit trail required).
+Create task files ONLY for non-duplicate requests (audit trail required).
 
 File naming: AI/Tasks/YYYY-MM-DD [Informative Description].md
 • Use descriptive names that indicate the actual work, not generic labels
@@ -97,10 +102,23 @@ Complex tasks (EIC, research, multi-step work):
 Frontmatter:
 - created: {current_datetime}
 - status: "TBD" then "COMPLETED"/"FAILED" (simple) or "TBD" (complex)
-- generation_log: "{generation_log_link}"
 - source: "[[Original/Source/File]]"
 - priority: "P1" or "P2"
 - task_type: descriptive type
 
 Valid statuses: TBD, IN_PROGRESS, PROCESSED, COMPLETED, FAILED, NEEDS_INPUT
+
+=== LOGGING ===
+
+Write generation summary to ## Process Log section:
+- Add entry with timestamp and brief description
+- Format: "- YYYY-MM-DD HH:MM – Agent: Task created from [source]"
+- For simple tasks, add execution result too: "Task completed successfully" or "Task failed: [reason]"
+
+Example:
+```markdown
+## Process Log
+- 2025-10-22 15:30 – codex_cli: Task created from request file
+- 2025-10-22 15:31 – codex_cli: Task completed successfully
+```
 ```

@@ -5,7 +5,6 @@ status:
 priority:
 task_type:
 source:
-generation_log:
 worker:
 output:
 feedback:

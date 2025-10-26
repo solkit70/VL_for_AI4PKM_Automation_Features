@@ -69,6 +69,22 @@ def signal_handler(sig, frame):
     "--list-agents", is_flag=True, help="List available AI agents and their status"
 )
 @click.option("--show-config", is_flag=True, help="Show current configuration")
+@click.option(
+    "--orchestrator",
+    is_flag=True,
+    help="Run orchestrator daemon (new multi-agent system)",
+)
+@click.option(
+    "--orchestrator-status",
+    is_flag=True,
+    help="Show orchestrator status and loaded agents",
+)
+@click.option(
+    "--max-concurrent",
+    type=int,
+    default=3,
+    help="Maximum concurrent executions for orchestrator (default: 3)",
+)
 def main(
     prompt,
     command,
@@ -84,6 +100,9 @@ def main(
     debug,
     list_agents,
     show_config,
+    orchestrator,
+    orchestrator_status,
+    max_concurrent,
 ):
     """PKM CLI - Personal Knowledge Management framework."""
     # Set up signal handler for graceful shutdown
@@ -102,7 +121,16 @@ def main(
     suppress_logging = bool(agent and prompt)
     app = PKMApp(suppress_agent_logging=suppress_logging)
 
-    if list_agents:
+    if orchestrator or orchestrator_status:
+        # Use new orchestrator system
+        from .orchestrator_cli import OrchestratorCLI
+        orch_cli = OrchestratorCLI()
+
+        if orchestrator_status:
+            orch_cli.show_status()
+        else:
+            orch_cli.run_daemon(max_concurrent=max_concurrent)
+    elif list_agents:
         # List available agents
         app.list_agents()
     elif show_config:

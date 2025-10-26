@@ -11,17 +11,14 @@ This is a system prompt used by the Knowledge Task Generator (KTG) to create tas
 
 **CRITICAL: Check for duplicates first** (list AI/Tasks/, skip if similar task exists)
 
-**DUPLICATES: DO NOT create any file**
-- If duplicate found → Log to system and exit immediately
-- No task file, no audit file, just exit
+**ALL tasks create task files** (audit trail required)
+This includes simple tasks, quick lookups, and immediate operations.
+Task files provide essential audit trails and execution tracking.
 
-**NON-DUPLICATES: Create task files** (audit trail required)
-- This includes simple tasks, quick lookups, and immediate operations
-- Task files provide essential audit trails and execution tracking
-
-**UPDATE instead of create:**
+**EXCEPTIONS - Update existing task files instead of creating new ones:**
 - When #AI tag is in an existing task file (AI/Tasks/)
 - When request is to update outcome/result of an existing task
+- When duplicate task already exists (DO NOT create new)
 - See detailed exceptions at end of this document
 
 **Task Execution Strategy:**
@@ -67,13 +64,11 @@ This prompt is automatically added to KTG execution context:
 === DUPLICATE CHECK (DO THIS FIRST) ===
 
 List AI/Tasks/ files. If similar task exists (same topic/source, status not COMPLETED, last 2 days):
-• **DO NOT create any task file**
-• Log "Duplicate found: [filename]" to system log
-• Exit immediately
+• Skip creation, log "Duplicate found: [filename]"
 
 === TASK FILE CREATION ===
 
-Create task files ONLY for non-duplicate requests (audit trail required).
+Create task files for ALL requests (audit trail required).
 
 File naming: AI/Tasks/YYYY-MM-DD [Informative Description].md
 • Use descriptive names that indicate the actual work, not generic labels

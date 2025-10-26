@@ -1,0 +1,452 @@
+"""
+Execution manager for orchestrator.
+
+Manages concurrent execution of agent tasks without global semaphores.
+Uses simple instance-level counter with threading lock.
+"""
+import logging
+import threading
+import subprocess
+import time
+import os
+from pathlib import Path
+from typing import Dict, List, Optional
+from datetime import datetime
+
+from .models import AgentDefinition, ExecutionContext
+
+logger = logging.getLogger(__name__)
+
+# Import Claude Code SDK
+try:
+    from claude_code_sdk import query, ClaudeCodeOptions
+    CLAUDE_SDK_AVAILABLE = True
+except ImportError:
+    CLAUDE_SDK_AVAILABLE = False
+    logger.warning("Claude Code SDK not available. Install with: pip install claude-code-sdk")
+
+
+class ExecutionManager:
+    """
+    Manages concurrent execution of agent tasks.
+
+    Uses simple instance-level counter instead of global semaphores.
+    Each agent can specify max_parallel limit.
+    """
+
+    def __init__(self, vault_path: Path, max_concurrent: int = 3):
+        """
+        Initialize execution manager.
+
+        Args:
+            vault_path: Path to vault root
+            max_concurrent: Maximum concurrent executions across all agents
+        """
+        self.vault_path = Path(vault_path)
+        self.max_concurrent = max_concurrent
+
+        # Instance-level state (no global state)
+        self._running_count = 0
+        self._count_lock = threading.Lock()
+
+        # Track running executions
+        self._running_executions: Dict[str, ExecutionContext] = {}
+        self._executions_lock = threading.Lock()
+
+        # Track per-agent running counts
+        self._agent_counts: Dict[str, int] = {}
+        self._agent_lock = threading.Lock()
+
+        # Task file manager
+        from .task_manager import TaskFileManager
+        self.task_manager = TaskFileManager(vault_path)
+
+    def can_execute(self, agent: AgentDefinition) -> bool:
+        """
+        Check if agent can execute given current load.
+
+        Args:
+            agent: Agent definition
+
+        Returns:
+            True if execution is allowed
+        """
+        with self._count_lock:
+            # Check global limit
+            if self._running_count >= self.max_concurrent:
+                return False
+
+        with self._agent_lock:
+            # Check per-agent limit
+            agent_count = self._agent_counts.get(agent.abbreviation, 0)
+            if agent_count >= agent.max_parallel:
+                return False
+
+        return True
+
+    def execute(self, agent: AgentDefinition, trigger_data: Dict) -> ExecutionContext:
+        """
+        Execute an agent task.
+
+        Args:
+            agent: Agent definition to execute
+            trigger_data: Data about the triggering event
+
+        Returns:
+            ExecutionContext with execution results
+        """
+        ctx = ExecutionContext(
+            agent=agent,
+            trigger_data=trigger_data,
+            start_time=datetime.now()
+        )
+
+        # Increment counters
+        with self._count_lock:
+            self._running_count += 1
+
+        with self._agent_lock:
+            self._agent_counts[agent.abbreviation] = self._agent_counts.get(agent.abbreviation, 0) + 1
+
+        with self._executions_lock:
+            self._running_executions[ctx.execution_id] = ctx
+
+        # Prepare log file path BEFORE execution (needed for task file)
+        log_path = self._prepare_log_path(agent, ctx)
+        ctx.log_file = log_path
+
+        # Create task file BEFORE execution starts
+        task_path = self.task_manager.create_task_file(ctx, agent)
+        ctx.task_file = task_path
+
+        try:
+            logger.info(f"Starting execution: {agent.abbreviation} (ID: {ctx.execution_id})")
+
+            # Execute based on executor type
+            if agent.executor == 'claude_code':
+                self._execute_claude_code(agent, ctx, trigger_data)
+            elif agent.executor == 'gemini_cli':
+                self._execute_gemini_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'custom_script':
+                self._execute_custom_script(agent, ctx, trigger_data)
+            else:
+                raise ValueError(f"Unknown executor: {agent.executor}")
+
+            ctx.status = 'completed'
+            logger.info(f"Completed execution: {agent.abbreviation} (ID: {ctx.execution_id})")
+
+        except subprocess.TimeoutExpired:
+            ctx.status = 'timeout'
+            ctx.error_message = f"Execution timed out after {agent.timeout_minutes} minutes"
+            logger.error(f"Timeout: {agent.abbreviation} (ID: {ctx.execution_id})")
+
+        except Exception as e:
+            ctx.status = 'failed'
+            ctx.error_message = str(e)
+            logger.error(f"Failed execution: {agent.abbreviation} (ID: {ctx.execution_id}): {e}")
+
+        finally:
+            ctx.end_time = datetime.now()
+
+            # Update task file with final status
+            if ctx.task_file:
+                # Determine output file link if applicable
+                output_link = None
+                if ctx.status == 'completed' and 'path' in trigger_data:
+                    output_link = f"[[{trigger_data['path']}]]"
+
+                self.task_manager.update_task_status(
+                    task_path=ctx.task_file,
+                    status="PROCESSED" if ctx.status == 'completed' else "FAILED",
+                    output=output_link,
+                    error_message=ctx.error_message
+                )
+
+            # Post-processing actions (e.g., remove trigger content)
+            if ctx.status == 'completed' and agent.post_process_action:
+                self._apply_post_processing(agent, trigger_data)
+
+            # Decrement counters
+            with self._count_lock:
+                self._running_count -= 1
+
+            with self._agent_lock:
+                self._agent_counts[agent.abbreviation] -= 1
+
+            with self._executions_lock:
+                del self._running_executions[ctx.execution_id]
+
+        return ctx
+
+    def _execute_claude_code(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Claude Code SDK.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        if not CLAUDE_SDK_AVAILABLE:
+            raise RuntimeError("Claude Code SDK not available. Install with: pip install claude-code-sdk")
+
+        # Build prompt from agent definition
+        prompt = self._build_prompt(agent, trigger_data)
+
+        # Prepare log file path
+        log_path = self._prepare_log_path(agent, ctx)
+
+        # Execute using Claude Code SDK
+        try:
+            import asyncio
+
+            async def run_claude_query():
+                """Run Claude Code SDK query."""
+                response_parts = []
+                message_count = 0
+
+                options = ClaudeCodeOptions(
+                    cwd=str(self.vault_path),
+                    permission_mode='bypassPermissions',
+                )
+
+                async for message in query(prompt=prompt, options=options):
+                    message_count += 1
+
+                    # Extract text content from message
+                    if hasattr(message, 'content') and message.content:
+                        if isinstance(message.content, list):
+                            for content_block in message.content:
+                                if hasattr(content_block, 'text'):
+                                    response_parts.append(content_block.text)
+                        elif hasattr(message.content, 'text'):
+                            response_parts.append(message.content.text)
+
+                return '\n'.join(response_parts)
+
+            # Run async function
+            result = asyncio.run(run_claude_query())
+            ctx.output = result
+
+            # Log result to file
+            if log_path:
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(log_path, 'w', encoding='utf-8') as f:
+                    f.write(f"# Execution Log: {agent.abbreviation}\n")
+                    f.write(f"# Start: {ctx.start_time}\n")
+                    f.write(f"# Execution ID: {ctx.execution_id}\n\n")
+                    f.write(f"## Prompt\n\n{prompt}\n\n")
+                    f.write(f"## Response\n\n{result}\n")
+
+        except Exception as e:
+            logger.error(f"Claude Code SDK execution failed: {e}")
+            raise RuntimeError(f"Claude Code SDK execution failed: {e}")
+
+    def _execute_gemini_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Gemini CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        prompt = self._build_prompt(agent, trigger_data)
+
+        # Prepare log file path
+        log_path = self._prepare_log_path(agent, ctx)
+
+        # Execute Gemini CLI
+        cmd = [
+            'gemini',
+            '--prompt', prompt,
+            '--vault', str(self.vault_path),
+        ]
+
+        timeout_seconds = agent.timeout_minutes * 60
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            cwd=self.vault_path
+        )
+
+        ctx.output = result.stdout
+        if result.returncode != 0:
+            raise RuntimeError(f"Gemini CLI execution failed: {result.stderr}")
+
+    def _execute_custom_script(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute custom script.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Custom scripts should be in _Settings_/Scripts/
+        script_path = self.vault_path / "_Settings_" / "Scripts" / f"{agent.abbreviation}.py"
+
+        if not script_path.exists():
+            raise FileNotFoundError(f"Custom script not found: {script_path}")
+
+        # Execute custom script
+        cmd = ['python', str(script_path)]
+
+        # Pass trigger data as JSON via stdin
+        import json
+        trigger_json = json.dumps(trigger_data)
+
+        timeout_seconds = agent.timeout_minutes * 60
+        result = subprocess.run(
+            cmd,
+            input=trigger_json,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            cwd=self.vault_path
+        )
+
+        ctx.output = result.stdout
+        if result.returncode != 0:
+            raise RuntimeError(f"Custom script execution failed: {result.stderr}")
+
+    def _build_prompt(self, agent: AgentDefinition, trigger_data: Dict) -> str:
+        """
+        Build execution prompt from agent definition and trigger data.
+
+        Args:
+            agent: Agent definition
+            trigger_data: Trigger event data
+
+        Returns:
+            Formatted prompt string
+        """
+        # Start with prompt body from agent definition
+        prompt = agent.prompt_body
+
+        # Add trigger context
+        prompt += "\n\n# Trigger Context\n"
+        prompt += f"- Event: {trigger_data.get('event_type', 'unknown')}\n"
+        prompt += f"- Path: {trigger_data.get('path', 'unknown')}\n"
+
+        # Add frontmatter if available
+        if 'frontmatter' in trigger_data:
+            prompt += "\n# File Metadata\n"
+            for key, value in trigger_data['frontmatter'].items():
+                prompt += f"- {key}: {value}\n"
+
+        return prompt
+
+    def _prepare_log_path(self, agent: AgentDefinition, ctx: ExecutionContext) -> Path:
+        """
+        Prepare log file path for execution.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+
+        Returns:
+            Path to log file
+        """
+        # Format log pattern
+        log_name = agent.log_pattern.format(
+            timestamp=ctx.start_time.strftime('%Y-%m-%d-%H%M%S'),
+            agent=agent.abbreviation,
+            execution_id=ctx.execution_id
+        )
+
+        log_path = self.vault_path / "AI" / "Tasks" / "Logs" / log_name
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        return log_path
+
+    def get_running_count(self) -> int:
+        """
+        Get current number of running executions.
+
+        Returns:
+            Number of running executions
+        """
+        with self._count_lock:
+            return self._running_count
+
+    def get_agent_running_count(self, agent_abbr: str) -> int:
+        """
+        Get current number of running executions for specific agent.
+
+        Args:
+            agent_abbr: Agent abbreviation
+
+        Returns:
+            Number of running executions for this agent
+        """
+        with self._agent_lock:
+            return self._agent_counts.get(agent_abbr, 0)
+
+    def get_running_executions(self) -> List[ExecutionContext]:
+        """
+        Get list of currently running executions.
+
+        Returns:
+            List of ExecutionContext instances
+        """
+        with self._executions_lock:
+            return list(self._running_executions.values())
+
+    def _apply_post_processing(self, agent: AgentDefinition, trigger_data: Dict):
+        """
+        Apply post-processing actions after successful execution.
+
+        Args:
+            agent: Agent definition
+            trigger_data: Trigger event data
+        """
+        if agent.post_process_action == "remove_trigger_content":
+            self._remove_trigger_content(agent, trigger_data)
+        else:
+            logger.warning(f"Unknown post-process action: {agent.post_process_action}")
+
+    def _remove_trigger_content(self, agent: AgentDefinition, trigger_data: Dict):
+        """
+        Remove trigger content pattern from source file.
+
+        Args:
+            agent: Agent definition
+            trigger_data: Trigger event data
+        """
+        if not agent.trigger_content_pattern:
+            logger.warning("No trigger_content_pattern defined for remove_trigger_content action")
+            return
+
+        try:
+            # Get source file path
+            event_path = trigger_data.get('path')
+            if not event_path:
+                logger.warning("No path in trigger_data for post-processing")
+                return
+
+            file_path = self.vault_path / event_path
+
+            if not file_path.exists():
+                logger.warning(f"Source file not found for post-processing: {file_path}")
+                return
+
+            # Read file content
+            content = file_path.read_text(encoding='utf-8')
+
+            # Remove trigger pattern
+            from ..markdown_utils import remove_pattern_from_content
+            updated_content = remove_pattern_from_content(content, agent.trigger_content_pattern)
+
+            # Write back if changed
+            if updated_content != content:
+                file_path.write_text(updated_content, encoding='utf-8')
+                logger.info(f"Removed trigger content from: {event_path}")
+            else:
+                logger.debug(f"No trigger content found to remove in: {event_path}")
+
+        except Exception as e:
+            logger.error(f"Error during post-processing: {e}")

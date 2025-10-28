@@ -104,7 +104,11 @@ class AgentRegistry:
         # Convert frontmatter to AgentDefinition
         # Handle list fields
         input_path = frontmatter.get('input_path', [])
-        if isinstance(input_path, str):
+
+        # Handle null input_path (for manual agents)
+        if input_path is None or input_path == 'null':
+            input_path = []
+        elif isinstance(input_path, str):
             input_path = [input_path]
 
         # Derive trigger_pattern and trigger_event if not specified
@@ -184,19 +188,22 @@ class AgentRegistry:
         }
         trigger_event = event_mapping.get(input_type, 'created')
 
-        # Build trigger_pattern from first input_path
-        if not input_paths:
-            trigger_pattern = "**/*.md"  # Default pattern
-        else:
-            first_path = input_paths[0].rstrip('/')  # Remove trailing slash
+        # Handle manual agents - they should never match file events
+        if input_type == 'manual' or not input_paths:
+            trigger_pattern = None  # No file pattern for manual agents
+            logger.debug(f"Manual agent: no file trigger (input_type={input_type})")
+            return trigger_pattern, trigger_event
 
-            # Use custom input_pattern if specified
-            if input_pattern:
-                # Extract file extensions if provided
-                trigger_pattern = f"{first_path}/{input_pattern}"
-            else:
-                # Default to *.md for text files
-                trigger_pattern = f"{first_path}/*.md"
+        # Build trigger_pattern from first input_path
+        first_path = input_paths[0].rstrip('/')  # Remove trailing slash
+
+        # Use custom input_pattern if specified
+        if input_pattern:
+            # Extract file extensions if provided
+            trigger_pattern = f"{first_path}/{input_pattern}"
+        else:
+            # Default to *.md for text files
+            trigger_pattern = f"{first_path}/*.md"
 
         logger.debug(f"Derived trigger: pattern='{trigger_pattern}', event='{trigger_event}' from input_paths={input_paths}, input_type={input_type}")
 
@@ -234,6 +241,10 @@ class AgentRegistry:
         Returns:
             True if event matches agent's trigger
         """
+        # Manual agents never match file events
+        if agent.trigger_pattern is None or agent.trigger_event == 'manual':
+            return False
+
         # Check event type matches
         if agent.trigger_event != event_type:
             return False

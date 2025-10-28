@@ -1,9 +1,9 @@
 ---
 title: Ad-hoc Research within PKM (ARP)
 abbreviation: ARP
-category: ingestion
-input_path:
-input_type:
+category: research
+input_path: null
+input_type: manual
 output_path: AI/Research
 output_type: new_file
 ---

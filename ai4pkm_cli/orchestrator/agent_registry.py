@@ -189,21 +189,27 @@ class AgentRegistry:
         trigger_event = event_mapping.get(input_type, 'created')
 
         # Handle manual agents - they should never match file events
-        if input_type == 'manual' or not input_paths:
+        if input_type == 'manual':
             trigger_pattern = None  # No file pattern for manual agents
             logger.debug(f"Manual agent: no file trigger (input_type={input_type})")
             return trigger_pattern, trigger_event
 
-        # Build trigger_pattern from first input_path
-        first_path = input_paths[0].rstrip('/')  # Remove trailing slash
-
-        # Use custom input_pattern if specified
-        if input_pattern:
-            # Extract file extensions if provided
-            trigger_pattern = f"{first_path}/{input_pattern}"
+        # Build trigger_pattern
+        if not input_paths or (len(input_paths) == 1 and input_paths[0] == ""):
+            # Empty input_path means watch entire vault (e.g., HTC)
+            trigger_pattern = "**/*.md"
+            logger.debug(f"Vault-wide trigger pattern: {trigger_pattern}")
         else:
-            # Default to *.md for text files
-            trigger_pattern = f"{first_path}/*.md"
+            # Directory-specific trigger
+            first_path = input_paths[0].rstrip('/')  # Remove trailing slash
+
+            # Use custom input_pattern if specified
+            if input_pattern:
+                # Extract file extensions if provided
+                trigger_pattern = f"{first_path}/{input_pattern}"
+            else:
+                # Default to *.md for text files
+                trigger_pattern = f"{first_path}/*.md"
 
         logger.debug(f"Derived trigger: pattern='{trigger_pattern}', event='{trigger_event}' from input_paths={input_paths}, input_type={input_type}")
 

@@ -2,12 +2,10 @@
 title: Hashtag Task Creator (HTC)
 abbreviation: HTC
 category: ingestion
-trigger_pattern: "**/*.md"
-trigger_event: modified
-trigger_exclude_pattern: "_Tasks_/*.md"
-trigger_content_pattern: "%%\\s*#ai\\s*%%"
 input_path: ""
 input_type: updated_file
+trigger_exclude_pattern: "_Tasks_/*.md"
+trigger_content_pattern: "%%\\s*#ai\\s*%%"
 output_path: AI/Tasks
 output_type: new_file
 post_process_action: remove_trigger_content

@@ -61,7 +61,8 @@ class AgentRegistry:
             logger.warning(f"Agent directory does not exist: {self.agents_dir}")
             return
 
-        agent_files = list(self.agents_dir.glob("*.md"))
+        # Get all .md files but exclude README files
+        agent_files = [f for f in self.agents_dir.glob("*.md") if not f.stem.upper().startswith("README")]
         logger.info(f"Loading agents from {self.agents_dir}")
 
         for agent_file in agent_files:
@@ -91,7 +92,7 @@ class AgentRegistry:
             return None
 
         # Validate required fields (basic check)
-        required = ['title', 'abbreviation', 'category', 'trigger_pattern', 'trigger_event']
+        required = ['title', 'abbreviation', 'category', 'input_path', 'input_type']
         for field in required:
             if field not in frontmatter:
                 logger.error(f"Missing required field '{field}' in {file_path}")
@@ -105,6 +106,17 @@ class AgentRegistry:
         input_path = frontmatter.get('input_path', [])
         if isinstance(input_path, str):
             input_path = [input_path]
+
+        # Derive trigger_pattern and trigger_event if not specified
+        trigger_pattern = frontmatter.get('trigger_pattern')
+        trigger_event = frontmatter.get('trigger_event')
+
+        if not trigger_pattern or not trigger_event:
+            trigger_pattern, trigger_event = self._derive_trigger_from_input(
+                input_path,
+                frontmatter.get('input_type', 'new_file'),
+                frontmatter.get('input_pattern')
+            )
 
         skills = frontmatter.get('skills', [])
         if isinstance(skills, str):
@@ -122,8 +134,8 @@ class AgentRegistry:
             name=frontmatter['title'],
             abbreviation=frontmatter['abbreviation'],
             category=frontmatter['category'],
-            trigger_pattern=frontmatter['trigger_pattern'],
-            trigger_event=frontmatter['trigger_event'],
+            trigger_pattern=trigger_pattern,
+            trigger_event=trigger_event,
             trigger_exclude_pattern=frontmatter.get('trigger_exclude_pattern'),
             trigger_content_pattern=frontmatter.get('trigger_content_pattern'),
             trigger_schedule=frontmatter.get('trigger_schedule'),
@@ -150,6 +162,45 @@ class AgentRegistry:
         )
 
         return agent
+
+    def _derive_trigger_from_input(self, input_paths: List[str], input_type: str, input_pattern: Optional[str] = None) -> tuple:
+        """
+        Derive trigger_pattern and trigger_event from input_path and input_type.
+
+        Args:
+            input_paths: List of input paths (relative to vault root)
+            input_type: Type of input (new_file, updated_file, daily_file, manual)
+            input_pattern: Optional custom file pattern (e.g., "*.{jpg,png}")
+
+        Returns:
+            Tuple of (trigger_pattern, trigger_event)
+        """
+        # Map input_type to trigger_event
+        event_mapping = {
+            'new_file': 'created',
+            'updated_file': 'modified',
+            'daily_file': 'scheduled',
+            'manual': 'manual'
+        }
+        trigger_event = event_mapping.get(input_type, 'created')
+
+        # Build trigger_pattern from first input_path
+        if not input_paths:
+            trigger_pattern = "**/*.md"  # Default pattern
+        else:
+            first_path = input_paths[0].rstrip('/')  # Remove trailing slash
+
+            # Use custom input_pattern if specified
+            if input_pattern:
+                # Extract file extensions if provided
+                trigger_pattern = f"{first_path}/{input_pattern}"
+            else:
+                # Default to *.md for text files
+                trigger_pattern = f"{first_path}/*.md"
+
+        logger.debug(f"Derived trigger: pattern='{trigger_pattern}', event='{trigger_event}' from input_paths={input_paths}, input_type={input_type}")
+
+        return trigger_pattern, trigger_event
 
     def find_matching_agents(self, event_data: Dict) -> List[AgentDefinition]:
         """

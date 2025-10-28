@@ -1,7 +1,7 @@
 ---
 title: Generate Daily Roundup (GDR)
-abbreviation: EIC
-category: ingestion
+abbreviation: GDR
+category: research
 input_path:
   - AI/Clipping
   - Journal

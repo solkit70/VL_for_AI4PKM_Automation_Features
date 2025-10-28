@@ -35,6 +35,7 @@ trigger_event: "created"
 trigger_exclude_pattern: "*.draft.md"
 input_path:
   - "Ingest/Clippings"
+input_type: "new_file"
 output_path: "AI/Tasks"
 executor: "claude_code"
 max_parallel: 2
@@ -95,6 +96,8 @@ abbreviation: "AG1"
 category: "ingestion"
 trigger_pattern: "*.md"
 trigger_event: "created"
+input_path: "Ingest"
+input_type: "new_file"
 ---
 Prompt 1
 """
@@ -105,6 +108,8 @@ abbreviation: "AG2"
 category: "publish"
 trigger_pattern: "*.txt"
 trigger_event: "modified"
+input_path: "Output"
+input_type: "updated_file"
 ---
 Prompt 2
 """
@@ -237,6 +242,7 @@ category: "ingestion"
 trigger_pattern: "*.md"
 trigger_event: "created"
 input_path: "single/path"
+input_type: "new_file"
 skills: "skill1"
 mcp_servers: "server1"
 ---

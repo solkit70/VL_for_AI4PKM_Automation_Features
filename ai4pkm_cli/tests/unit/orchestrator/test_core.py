@@ -34,6 +34,8 @@ abbreviation: "TST"
 category: "ingestion"
 trigger_pattern: "Ingest/Clippings/*.md"
 trigger_event: "created"
+input_path: "Ingest/Clippings"
+input_type: "new_file"
 ---
 
 Test prompt body

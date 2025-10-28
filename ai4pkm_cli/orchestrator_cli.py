@@ -35,7 +35,7 @@ class OrchestratorCLI:
         ))
 
         # Create orchestrator
-        agents_dir = self.vault_path / "_Settings_" / "Agents"
+        agents_dir = self.vault_path / "_Settings_" / "Prompts"
         self.orchestrator = Orchestrator(
             vault_path=self.vault_path,
             agents_dir=agents_dir,
@@ -67,7 +67,7 @@ class OrchestratorCLI:
 
     def show_status(self):
         """Show orchestrator status."""
-        agents_dir = self.vault_path / "_Settings_" / "Agents"
+        agents_dir = self.vault_path / "_Settings_" / "Prompts"
         orch = Orchestrator(
             vault_path=self.vault_path,
             agents_dir=agents_dir,

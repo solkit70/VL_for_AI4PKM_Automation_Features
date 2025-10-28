@@ -37,12 +37,12 @@ class Orchestrator:
 
         Args:
             vault_path: Path to vault root
-            agents_dir: Directory containing agent definitions (defaults to vault/_Settings_/Agents)
+            agents_dir: Directory containing agent definitions (defaults to vault/_Settings_/Prompts)
             max_concurrent: Maximum concurrent task executions
             poll_interval: Seconds between event queue polls
         """
         self.vault_path = Path(vault_path)
-        self.agents_dir = agents_dir or self.vault_path / "_Settings_" / "Agents"
+        self.agents_dir = agents_dir or self.vault_path / "_Settings_" / "Prompts"
         self.max_concurrent = max_concurrent
         self.poll_interval = poll_interval
 

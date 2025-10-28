@@ -69,10 +69,11 @@ class TestExecutionManager:
 
         assert manager.can_execute(sample_agent) is False
 
-    @patch('asyncio.run')
-    def test_execute_increments_counters(self, mock_asyncio_run, temp_vault, sample_agent):
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
+    @patch('subprocess.run')
+    def test_execute_increments_counters(self, mock_subprocess_run, temp_vault, sample_agent):
         """Test execute properly increments and decrements counters."""
-        mock_asyncio_run.return_value = "Success"
+        mock_subprocess_run.return_value = Mock(returncode=0, stdout="Success", stderr="")
 
         manager = ExecutionManager(temp_vault, max_concurrent=3)
 
@@ -90,25 +91,27 @@ class TestExecutionManager:
         assert manager.get_agent_running_count("TST") == 0
         assert ctx.status == 'completed'
 
-    @patch('asyncio.run')
-    def test_execute_handles_timeout(self, mock_asyncio_run, temp_vault, sample_agent):
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
+    @patch('subprocess.run')
+    def test_execute_handles_timeout(self, mock_subprocess_run, temp_vault, sample_agent):
         """Test execute handles subprocess timeout."""
         import subprocess
-        mock_asyncio_run.side_effect = subprocess.TimeoutExpired('cmd', 300)
+        mock_subprocess_run.side_effect = subprocess.TimeoutExpired(cmd=['claude'], timeout=300)
 
         manager = ExecutionManager(temp_vault, max_concurrent=3)
 
         trigger_data = {'path': 'test.md', 'event_type': 'created'}
         ctx = manager.execute(sample_agent, trigger_data)
 
-        assert ctx.status == 'failed'  # Changed from 'timeout' since asyncio.run exception becomes 'failed'
+        assert ctx.status == 'timeout'
         assert ctx.error_message is not None
         assert manager.get_running_count() == 0
 
-    @patch('asyncio.run')
-    def test_execute_handles_error(self, mock_asyncio_run, temp_vault, sample_agent):
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
+    @patch('subprocess.run')
+    def test_execute_handles_error(self, mock_subprocess_run, temp_vault, sample_agent):
         """Test execute handles execution errors."""
-        mock_asyncio_run.side_effect = RuntimeError("Execution failed")
+        mock_subprocess_run.return_value = Mock(returncode=1, stdout="", stderr="Execution failed")
 
         manager = ExecutionManager(temp_vault, max_concurrent=3)
 
@@ -119,10 +122,11 @@ class TestExecutionManager:
         assert ctx.error_message is not None
         assert manager.get_running_count() == 0
 
-    @patch('asyncio.run')
-    def test_build_prompt_includes_trigger_context(self, mock_asyncio_run, temp_vault, sample_agent):
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
+    @patch('subprocess.run')
+    def test_build_prompt_includes_trigger_context(self, mock_subprocess_run, temp_vault, sample_agent):
         """Test prompt building includes trigger context."""
-        mock_asyncio_run.return_value = "Success"
+        mock_subprocess_run.return_value = Mock(returncode=0, stdout="Success", stderr="")
 
         manager = ExecutionManager(temp_vault, max_concurrent=3)
 
@@ -136,12 +140,13 @@ class TestExecutionManager:
 
         # Check that execution succeeded
         assert ctx.status == 'completed'
-        assert mock_asyncio_run.called
+        assert mock_subprocess_run.called
 
-    @patch('asyncio.run')
-    def test_execute_claude_code(self, mock_asyncio_run, temp_vault):
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
+    @patch('subprocess.run')
+    def test_execute_claude_code(self, mock_subprocess_run, temp_vault):
         """Test Claude Code execution."""
-        mock_asyncio_run.return_value = "Done"
+        mock_subprocess_run.return_value = Mock(returncode=0, stdout="Done", stderr="")
 
         agent = AgentDefinition(
             name="Claude Agent",
@@ -161,7 +166,7 @@ class TestExecutionManager:
         ctx = manager.execute(agent, trigger_data)
 
         assert ctx.status == 'completed'
-        assert mock_asyncio_run.called
+        assert mock_subprocess_run.called
 
     def test_get_running_executions(self, temp_vault, sample_agent):
         """Test getting list of running executions."""

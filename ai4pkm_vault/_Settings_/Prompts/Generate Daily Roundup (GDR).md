@@ -1,8 +1,14 @@
 ---
-title: "Generate Daily Roundup"
-abbreviation: "GDR"
-category: "workflow"
-created: "2024-01-01"
+title: Generate Daily Roundup (GDR)
+abbreviation: EIC
+category: ingestion
+input_path:
+  - AI/Clipping
+  - Journal
+input_type: daily_files
+input_range: daily
+output_path: AI/Roundup
+output_type: daily_file
 ---
 
 Generate comprehensive daily summaries integrating multiple sources with quote mining and topic linking.

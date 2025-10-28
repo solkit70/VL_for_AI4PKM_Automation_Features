@@ -1,8 +1,11 @@
 ---
-title: "Ad-hoc Research within PKM"
-abbreviation: "ARP"
-category: "research"
-created: "2024-01-01"
+title: Ad-hoc Research within PKM (ARP)
+abbreviation: ARP
+category: ingestion
+input_path:
+input_type:
+output_path: AI/Research
+output_type: new_file
 ---
 
 Generate comprehensive research summaries from PKM content for deep dive analysis and content creation.

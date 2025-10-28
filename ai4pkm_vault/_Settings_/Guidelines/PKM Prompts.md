@@ -27,7 +27,7 @@ All regular prompts have been updated to follow this template structure for impr
 | ---- | ----- | ------- |
 | 2025-08-14 | CKU Workflow Execution | Applied UFN process to update existing folder notes with recent knowledge activities |
 | 2025-08-14 | [[Update Folder Notes (UFN)]] | Creates and updates folder notes with recent changes summaries |
-| 2025-08-14 | [[Enrich Ingested Content (EIC)]] | Improves captured content structure, adds summaries, and enriches with topic links |
+| 2025-08-14 | [[_Settings_/Prompts/Enrich Ingested Content (EIC)]] | Improves captured content structure, adds summaries, and enriches with topic links |
 | 2025-08-14 | [[Weekly Journal Roundup (WJR)]] | Reviews weekly journals for goals, highlights, learnings, and next steps |
 | 2025-08-11 | [[Generate Daily Roundup (GDR)]] | Creates daily roundups linking meaningful updates, topics, and enriches journal pages |
 | 2025-08-10 | [[Process Life Logs (PLL)]] | Summarizes voice-based life logs with memorable items, emotions, and lessons |

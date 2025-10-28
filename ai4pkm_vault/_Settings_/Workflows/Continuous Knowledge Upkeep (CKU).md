@@ -46,7 +46,7 @@ When ai4pkm times out:
 5. Ensure wiki links use complete filenames: `[[YYYY-MM-DD Title]]` 
 
 ## Prompts
-![[Enrich Ingested Content (EIC)]]
+![[_Settings_/Prompts/Enrich Ingested Content (EIC)]]
 
 ![[Update Folder Notes (UFN)]]
 

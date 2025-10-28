@@ -17,13 +17,39 @@ from .models import AgentDefinition, ExecutionContext
 
 logger = logging.getLogger(__name__)
 
-# Import Claude Code SDK
-try:
-    from claude_code_sdk import query, ClaudeCodeOptions
-    CLAUDE_SDK_AVAILABLE = True
-except ImportError:
-    CLAUDE_SDK_AVAILABLE = False
-    logger.warning("Claude Code SDK not available. Install with: pip install claude-code-sdk")
+# Claude CLI discovery
+def _find_claude_cli():
+    """Find the Claude CLI executable."""
+    # First try the user's local installation
+    local_path = Path.home() / ".claude" / "local" / "claude"
+    if local_path.exists():
+        return str(local_path)
+
+    # Try to find it in PATH
+    try:
+        result = subprocess.run(
+            ["which", "claude"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception as e:
+        logger.warning(f"Could not find claude in PATH: {e}")
+
+    # Last resort: try common locations
+    common_paths = [
+        "/usr/local/bin/claude",
+        str(Path.home() / "node_modules" / ".bin" / "claude"),
+    ]
+    for path in common_paths:
+        if Path(path).exists():
+            return path
+
+    return None
+
+CLAUDE_CLI_PATH = _find_claude_cli()
 
 
 class ExecutionManager:
@@ -180,15 +206,15 @@ class ExecutionManager:
 
     def _execute_claude_code(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
         """
-        Execute agent using Claude Code SDK.
+        Execute agent using Claude Code CLI.
 
         Args:
             agent: Agent definition
             ctx: Execution context
             trigger_data: Trigger event data
         """
-        if not CLAUDE_SDK_AVAILABLE:
-            raise RuntimeError("Claude Code SDK not available. Install with: pip install claude-code-sdk")
+        if CLAUDE_CLI_PATH is None:
+            raise RuntimeError("Claude CLI not found. Install Claude Code from https://claude.com/claude-code")
 
         # Build prompt from agent definition
         prompt = self._build_prompt(agent, trigger_data)
@@ -196,37 +222,37 @@ class ExecutionManager:
         # Prepare log file path
         log_path = self._prepare_log_path(agent, ctx)
 
-        # Execute using Claude Code SDK
+        # Execute using Claude Code CLI
         try:
-            import asyncio
+            # Build command
+            cmd = [
+                CLAUDE_CLI_PATH,
+                "--permission-mode", "bypassPermissions",
+            ]
 
-            async def run_claude_query():
-                """Run Claude Code SDK query."""
-                response_parts = []
-                message_count = 0
+            logger.info(f"🚀 Executing Claude CLI for {agent.abbreviation}: {' '.join(cmd[:2])}")
 
-                options = ClaudeCodeOptions(
-                    cwd=str(self.vault_path),
-                    permission_mode='bypassPermissions',
-                )
+            # Execute Claude CLI with timeout
+            timeout_seconds = agent.timeout_minutes * 60
+            result = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                cwd=str(self.vault_path)
+            )
 
-                async for message in query(prompt=prompt, options=options):
-                    message_count += 1
+            if result.returncode != 0:
+                logger.error(f"Claude CLI failed with code {result.returncode}")
+                logger.error(f"STDERR: {result.stderr}")
+                raise RuntimeError(f"Claude CLI execution failed: {result.stderr}")
 
-                    # Extract text content from message
-                    if hasattr(message, 'content') and message.content:
-                        if isinstance(message.content, list):
-                            for content_block in message.content:
-                                if hasattr(content_block, 'text'):
-                                    response_parts.append(content_block.text)
-                        elif hasattr(message.content, 'text'):
-                            response_parts.append(message.content.text)
+            # Log output
+            if result.stdout:
+                logger.info(f"✅ Claude response received for {agent.abbreviation}")
 
-                return '\n'.join(response_parts)
-
-            # Run async function
-            result = asyncio.run(run_claude_query())
-            ctx.output = result
+            ctx.output = result.stdout
 
             # Log result to file
             if log_path:
@@ -236,11 +262,14 @@ class ExecutionManager:
                     f.write(f"# Start: {ctx.start_time}\n")
                     f.write(f"# Execution ID: {ctx.execution_id}\n\n")
                     f.write(f"## Prompt\n\n{prompt}\n\n")
-                    f.write(f"## Response\n\n{result}\n")
+                    f.write(f"## Response\n\n{result.stdout}\n")
 
+        except subprocess.TimeoutExpired:
+            logger.error(f"Claude CLI execution timed out after {agent.timeout_minutes} minutes")
+            raise
         except Exception as e:
-            logger.error(f"Claude Code SDK execution failed: {e}")
-            raise RuntimeError(f"Claude Code SDK execution failed: {e}")
+            logger.error(f"Claude CLI execution failed: {e}")
+            raise RuntimeError(f"Claude CLI execution failed: {e}")
 
     def _execute_gemini_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
         """

@@ -517,23 +517,42 @@ STAGE RESULTS
 
         try:
             # Stage 0: Start orchestrator
+            print("\n[Stage 0] Starting orchestrator daemon...")
             if not self.start_orchestrator():
+                print("❌ Failed to start orchestrator")
                 return False
+            print("✅ Orchestrator started\n")
 
             # Stage 1: Create test clipping
+            print("[Stage 1] Creating test clipping file...")
             if not self.create_test_clipping():
+                print("❌ Failed to create test clipping")
                 return False
+            print(f"✅ Test clipping created\n")
 
             # Stage 2: Wait for task file
+            print("[Stage 2] Waiting for task file creation (timeout: 60s)...")
             task_file = self.wait_for_task_file(timeout=60)
             if not task_file:
+                print("❌ Task file was not created")
                 return False
+            print(f"✅ Task file created: {os.path.basename(task_file)}\n")
 
             # Stage 3: Wait for completion
+            print("[Stage 3] Waiting for task completion (timeout: 300s)...")
             success = self.wait_for_task_completion(task_file, timeout=300)
+            if success:
+                print("✅ Task completed successfully\n")
+            else:
+                print("❌ Task did not complete\n")
 
             # Validation: Check for duplicates
+            print("[Validation] Checking for duplicate tasks...")
             no_duplicates = self.check_for_duplicates()
+            if no_duplicates:
+                print("✅ No duplicate tasks found\n")
+            else:
+                print("❌ Duplicate tasks detected\n")
 
             if not no_duplicates:
                 self.test_results['success'] = False
@@ -542,11 +561,15 @@ STAGE RESULTS
 
         finally:
             # Stop daemon
+            print("\n[Cleanup] Stopping orchestrator daemon...")
             self.stop_orchestrator()
+            print("✅ Orchestrator stopped\n")
 
             # Generate report
+            print("[Report] Generating test report...")
             report = self.generate_report()
             self.logger.info(report)
+            print(report)
 
             # Save report
             test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -558,13 +581,18 @@ STAGE RESULTS
                     f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                     f.write(report)
 
-                self.logger.info(f"\n✓ Test report saved to: {report_path}")
+                print(f"✅ Test report saved to: {report_path}\n")
 
             except Exception as e:
-                self.logger.error(f"✗ Failed to save report: {e}")
+                print(f"❌ Failed to save report: {e}\n")
 
             # Cleanup
+            print("[Cleanup] Removing test artifacts...")
             self.cleanup()
+            print()
+
+            # Return final result
+            return self.test_results.get('success', False)
 
 
 if __name__ == '__main__':
@@ -578,7 +606,29 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    test = OrchestratorEICIntegrationTest()
-    test.use_existing_daemon = args.use_existing_daemon
-    success = test.run()
-    sys.exit(0 if success else 1)
+    try:
+        test = OrchestratorEICIntegrationTest()
+        test.use_existing_daemon = args.use_existing_daemon
+        print(f"\n{'='*80}")
+        print(f"Running Orchestrator EIC Integration Test")
+        print(f"Workspace: {test.workspace_path}")
+        print(f"{'='*80}\n")
+
+        success = test.run()
+
+        print(f"\n{'='*80}")
+        if success:
+            print("✅ TEST PASSED")
+        else:
+            print("❌ TEST FAILED")
+        print(f"{'='*80}\n")
+
+        sys.exit(0 if success else 1)
+
+    except Exception as e:
+        print(f"\n{'='*80}")
+        print(f"❌ TEST ERROR: {e}")
+        print(f"{'='*80}\n")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

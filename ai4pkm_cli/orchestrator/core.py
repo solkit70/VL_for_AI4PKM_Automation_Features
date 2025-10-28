@@ -153,6 +153,7 @@ class Orchestrator:
         for agent in matching_agents:
             # Check if we can execute (concurrency limits)
             if not self.execution_manager.can_execute(agent):
+                print(f"⏸️  Cannot execute {agent.abbreviation}: concurrency limit reached")
                 logger.warning(
                     f"Cannot execute {agent.abbreviation}: "
                     f"concurrency limit reached (global={self.execution_manager.get_running_count()}, "
@@ -160,6 +161,9 @@ class Orchestrator:
                 )
                 # TODO: Queue for later execution
                 continue
+
+            # Print console notification
+            print(f"▶️  Starting {agent.abbreviation}: {file_event.path}")
 
             # Execute in background thread
             execution_thread = threading.Thread(
@@ -181,20 +185,24 @@ class Orchestrator:
             ctx = self.execution_manager.execute(agent, event_data)
 
             if ctx.success:
+                print(f"✅ {agent.abbreviation} completed ({ctx.duration:.1f}s)")
                 logger.info(
                     f"✓ {agent.abbreviation} completed successfully "
                     f"(duration: {ctx.duration:.1f}s)"
                 )
             else:
                 duration_str = f"{ctx.duration:.1f}s" if ctx.duration else "unknown"
+                print(f"❌ {agent.abbreviation} failed: {ctx.status} ({duration_str})")
                 logger.error(
                     f"✗ {agent.abbreviation} failed: {ctx.status} "
                     f"(duration: {duration_str})"
                 )
                 if ctx.error_message:
+                    print(f"   Error: {ctx.error_message}")
                     logger.error(f"  Error: {ctx.error_message}")
 
         except Exception as e:
+            print(f"❌ {agent.abbreviation} error: {e}")
             logger.error(f"Unexpected error executing {agent.abbreviation}: {e}", exc_info=True)
 
     def get_status(self) -> dict:

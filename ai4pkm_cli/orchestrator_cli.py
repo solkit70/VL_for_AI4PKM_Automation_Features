@@ -17,16 +17,33 @@ class OrchestratorCLI:
     def __init__(self, vault_path: Path = None):
         """Initialize orchestrator CLI."""
         self.console = Console()
+        # Use CWD as vault (requires config file in CWD)
         self.vault_path = vault_path or Path.cwd()
         self.orchestrator = None
 
-    def run_daemon(self, max_concurrent: int = 3):
+    def run_daemon(self, max_concurrent: int = None):
         """
         Run orchestrator in daemon mode.
 
         Args:
-            max_concurrent: Maximum concurrent executions
+            max_concurrent: Maximum concurrent executions (defaults to config)
         """
+        from .config import Config
+
+        # Check for config file in CWD
+        config_path = Path.cwd() / "ai4pkm_cli.json"
+        if not config_path.exists():
+            self.console.print(f"[red]✗ Error:[/red] ai4pkm_cli.json not found in current directory")
+            self.console.print(f"[yellow]Current directory:[/yellow] {Path.cwd()}")
+            self.console.print(f"\n[cyan]Must run from vault directory containing ai4pkm_cli.json[/cyan]")
+            sys.exit(1)
+
+        config = Config(config_file=str(config_path))
+
+        # Use config value if not specified
+        if max_concurrent is None:
+            max_concurrent = config.get_orchestrator_max_concurrent()
+
         self.console.print(Panel.fit(
             "[bold cyan]AI4PKM Orchestrator[/bold cyan]\n"
             f"Vault: {self.vault_path}\n"
@@ -34,12 +51,11 @@ class OrchestratorCLI:
             title="Starting"
         ))
 
-        # Create orchestrator
-        agents_dir = self.vault_path / "_Settings_" / "Prompts"
+        # Create orchestrator (it will load paths from config)
         self.orchestrator = Orchestrator(
             vault_path=self.vault_path,
-            agents_dir=agents_dir,
-            max_concurrent=max_concurrent
+            max_concurrent=max_concurrent,
+            config=config
         )
 
         # Setup signal handlers
@@ -67,11 +83,22 @@ class OrchestratorCLI:
 
     def show_status(self):
         """Show orchestrator status."""
-        agents_dir = self.vault_path / "_Settings_" / "Prompts"
+        from .config import Config
+
+        # Check for config file in CWD
+        config_path = Path.cwd() / "ai4pkm_cli.json"
+        if not config_path.exists():
+            self.console.print(f"[red]✗ Error:[/red] ai4pkm_cli.json not found in current directory")
+            self.console.print(f"[yellow]Current directory:[/yellow] {Path.cwd()}")
+            self.console.print(f"\n[cyan]Must run from vault directory containing ai4pkm_cli.json[/cyan]")
+            sys.exit(1)
+
+        config = Config(config_file=str(config_path))
+
+        # Create orchestrator just to load agents (don't start)
         orch = Orchestrator(
             vault_path=self.vault_path,
-            agents_dir=agents_dir,
-            max_concurrent=1  # Don't actually start
+            config=config
         )
 
         status = orch.get_status()

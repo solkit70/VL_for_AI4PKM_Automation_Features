@@ -1,37 +1,53 @@
-"""Claude Code SDK integration for running prompts."""
+"""Claude Code CLI integration for running prompts."""
 
 import os
 import subprocess
+import tempfile
 from datetime import datetime
-from claude_code_sdk import query, ClaudeCodeOptions
-ClaudeCodeClient = query
+from pathlib import Path
 
 
 class ClaudeRunner:
-    """Handles running prompts using Claude Code SDK."""
-    
+    """Handles running prompts using Claude Code CLI."""
+
     def __init__(self, logger):
         """Initialize Claude runner."""
         self.logger = logger
-        self.claude_client = None
-        self._initialize_claude_client()
-        
-    def _initialize_claude_client(self):
-        """Initialize the Claude Code SDK client."""
-        if ClaudeCodeClient is None:
-            self.logger.warning("Claude Code SDK not available. Install with: pip install claude-code-sdk")
-            return
-            
+        self.claude_path = self._find_claude_cli()
+
+    def _find_claude_cli(self):
+        """Find the Claude CLI executable."""
+        # First try the user's local installation
+        local_path = Path.home() / ".claude" / "local" / "claude"
+        if local_path.exists():
+            return str(local_path)
+
+        # Try to find it in PATH
         try:
-            # The query function is available, store it as the client
-            self.claude_client = ClaudeCodeClient
-            # Claude SDK is ready
+            result = subprocess.run(
+                ["which", "claude"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
         except Exception as e:
-            self.logger.error(f"Failed to initialize Claude Code SDK client: {e}")
-            self.claude_client = None
+            self.logger.warning(f"Could not find claude in PATH: {e}")
+
+        # Last resort: try common locations
+        common_paths = [
+            "/usr/local/bin/claude",
+            str(Path.home() / "node_modules" / ".bin" / "claude"),
+        ]
+        for path in common_paths:
+            if Path(path).exists():
+                return path
+
+        return None
         
     def run_prompt(self, inline_prompt=None, prompt_name=None, params=None, context=None, session_id=None):
-        """Run a prompt using Claude Code SDK with template parameter replacement."""
+        """Run a prompt using Claude Code CLI with template parameter replacement."""
         if inline_prompt:
             prompt_content = inline_prompt
         else:
@@ -55,8 +71,8 @@ class ClaudeRunner:
             # Add context if provided
             if context:
                 prompt_content = f"{prompt_content}\n\nContext:\n{context}"
-            
-            # Use claude-code-sdk to run the prompt
+
+            # Use Claude CLI to run the prompt
             result, session_id = self._execute_claude_prompt(prompt_content, prompt_name or inline_prompt, session_id)
             if result:
                 return result, session_id
@@ -69,75 +85,75 @@ class ClaudeRunner:
             return None
             
     def _execute_claude_prompt(self, prompt_content, prompt_name, session_id=None):
-        """Execute the prompt using Claude Code SDK."""
+        """Execute the prompt using Claude Code CLI."""
         try:
-            # Check if Claude client is available
-            if self.claude_client is None:
-                self.logger.warning("Claude Code SDK not available, using fallback")
+            # Check if Claude CLI is available
+            if self.claude_path is None:
+                self.logger.warning("Claude CLI not found, using fallback")
                 return self._fallback_execution(prompt_content, prompt_name), None
-            
-            options = ClaudeCodeOptions(
-                cwd=os.getcwd(),
-                permission_mode='bypassPermissions',
-                resume=session_id,
-            )
 
-            # Send the prompt to Claude using async query function
+            # Write prompt to temporary file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                f.write(prompt_content)
+                prompt_file = f.name
+
             try:
-                import asyncio
-                
-                async def run_query():
-                    response_parts = []
-                    final_session_id = None
-                    message_count = 0
-                    
-                    async for message in self.claude_client(prompt=prompt_content, options=options):
-                        message_count += 1
-                        
-                        # Extract only the text content from the message
-                        extracted_text = ""
-                        if hasattr(message, 'content') and message.content:
-                            if isinstance(message.content, list):
-                                for block in message.content:
-                                    if hasattr(block, 'text'):
-                                        extracted_text += block.text
-                            elif hasattr(message.content, 'text'):
-                                extracted_text = message.content.text
-                            elif isinstance(message.content, str):
-                                extracted_text = message.content
-                        elif hasattr(message, 'text'):
-                            extracted_text = message.text
-                        elif hasattr(message, 'result') and isinstance(message.result, str):
-                            extracted_text = message.result
-                        elif hasattr(message, 'data') and isinstance(message.data, dict):
-                            final_session_id = message.data.get('session_id')
-                        
-                        # Append extracted text to response and log it
-                        if extracted_text:
-                            response_parts.append(extracted_text)
-                            self.logger.info(f"{extracted_text}")
-                    
-                    return ''.join(response_parts), final_session_id
+                # Build command
+                cmd = [
+                    self.claude_path,
+                    "--permission-mode", "bypassPermissions",
+                ]
 
-                # Run the async query
-                processed_content, final_session_id = asyncio.run(run_query())
-                return processed_content, final_session_id
-                
-            except AttributeError as e:
-                self.logger.error(f"Claude SDK API mismatch: {e}")
+                # Add session ID if provided
+                if session_id:
+                    cmd.extend(["--resume", session_id])
+
+                # Add prompt as argument (claude CLI reads from stdin if no file specified)
+                self.logger.info(f"🚀 Executing Claude CLI: {' '.join(cmd[:2])}")
+
+                # Execute Claude CLI
+                result = subprocess.run(
+                    cmd,
+                    input=prompt_content,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,  # 10 minute timeout
+                    cwd=os.getcwd()
+                )
+
+                # Clean up temp file
+                try:
+                    os.unlink(prompt_file)
+                except:
+                    pass
+
+                if result.returncode != 0:
+                    self.logger.error(f"Claude CLI failed with code {result.returncode}")
+                    self.logger.error(f"STDERR: {result.stderr}")
+                    return self._fallback_execution(prompt_content, prompt_name), None
+
+                # Log output
+                if result.stdout:
+                    self.logger.info("✅ Claude response received")
+
+                # Return the response (no session_id support in CLI mode)
+                return result.stdout, None
+
+            except subprocess.TimeoutExpired:
+                self.logger.error("Claude CLI execution timed out after 10 minutes")
                 return self._fallback_execution(prompt_content, prompt_name), None
             except Exception as e:
-                self.logger.error(f"Claude API call failed: {e}")
+                self.logger.error(f"Claude CLI execution failed: {e}")
                 return self._fallback_execution(prompt_content, prompt_name), None
-            
+
         except Exception as e:
             self.logger.error(f"Claude execution error: {e}")
             return None, None
             
     def _fallback_execution(self, prompt_content, prompt_name):
-        """Fallback execution when Claude SDK is not available."""
+        """Fallback execution when Claude CLI is not available."""
         self.logger.info("Using fallback execution - returning processed prompt template")
-        
+
         # Simple fallback: return a basic response based on the prompt
         fallback_response = f"""# Generated Response for {prompt_name}
 
@@ -146,7 +162,7 @@ Based on the provided prompt and parameters, here is the generated content:
 {prompt_content}
 
 ---
-*Note: This is a fallback response. For AI-generated content, ensure Claude Code SDK is properly configured.*
+*Note: This is a fallback response. For AI-generated content, ensure Claude Code CLI is available at ~/.claude/local/claude*
 """
         return fallback_response
 

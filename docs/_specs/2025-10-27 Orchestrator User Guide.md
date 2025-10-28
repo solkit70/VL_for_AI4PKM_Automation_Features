@@ -236,6 +236,52 @@ python -m ai4pkm_cli.orchestrator_cli daemon -m 5
 - Check logs in `ai4pkm_vault/AI/Tasks/Logs/`
 - Task files created in `ai4pkm_vault/AI/Tasks/`
 
+### Real-Time Console Output
+
+When the orchestrator runs, it displays real-time notifications for all agent activity:
+
+**Starting Execution:**
+```
+▶️  Starting EIC: Ingest/Clippings/2025-10-28 Article.md
+```
+
+**Successful Completion:**
+```
+✅ EIC completed (120.5s)
+```
+
+**Failure:**
+```
+❌ EIC failed: timeout (180.0s)
+   Error: Execution timed out after 30 minutes
+```
+
+**Concurrency Blocked:**
+```
+⏸️  Cannot execute PLL: concurrency limit reached
+```
+
+**Example Full Session:**
+```
+╭────────────────── Starting ───────────────────╮
+│ AI4PKM Orchestrator                           │
+│ Vault: /Users/lifidea/dev/AI4PKM/ai4pkm_vault │
+│ Max concurrent: 3                             │
+╰───────────────────────────────────────────────╯
+
+✓ Loaded 7 agent(s):
+  • [EIC] Enrich Ingested Content (EIC) (ingestion)
+  • [PLL] Process Life Logs (PLL) (ingestion)
+  • [GDR] Generate Daily Roundup (GDR) (research)
+  ...
+
+Starting orchestrator...
+▶️  Starting EIC: Ingest/Clippings/2025-10-28 Article.md
+✅ EIC completed (125.3s)
+▶️  Starting PLL: Ingest/Limitless/2025-10-28 Activities.md
+✅ PLL completed (89.7s)
+```
+
 ---
 
 ## Execution Flow
@@ -542,6 +588,60 @@ echo "---\ntitle: Test\n---\nContent" > ai4pkm_vault/Ingest/Clippings/test.md
 - [[2025-10-24 KTM to Multi-Agent Migration Plan]] - Overall migration strategy
 - [[2025-10-25 Phase 1 - Parallel Implementation]] - Implementation plan
 
+### Troubleshooting
+
+#### Agent Not Triggering
+
+**Problem:** File added but no "▶️ Starting..." message appears
+
+**Solution 1: Path Mismatch**
+Check if agent's input_path matches actual directory:
+```bash
+# Check agent configuration
+cat ai4pkm_vault/_Settings_/Prompts/Enrich\ Ingested\ Content\ \(EIC\).md
+
+# Verify actual directory name
+ls -la ai4pkm_vault/Ingest/
+
+# Common issue: "Clipping" vs "Clippings" (singular vs plural)
+```
+
+**Solution 2: Wrong Event Type**
+- Agent watches `created` but you modified existing file → change to `updated_file`
+- Agent watches `modified` but you created new file → change to `new_file`
+
+**Solution 3: File Created Before Orchestrator Started**
+The orchestrator only detects NEW events after it starts. Files created before startup won't trigger agents.
+
+#### Manual Agent Pattern
+
+Some agents like ARP (Ad-hoc Research) are **manual-only** and don't auto-trigger:
+
+```yaml
+---
+title: Ad-hoc Research within PKM (ARP)
+abbreviation: ARP
+category: research
+input_path: null           # No automatic trigger
+input_type: manual         # Only runs on explicit invocation
+---
+```
+
+Manual agents are invoked on-demand, not by file events.
+
+#### Concurrency Limit Blocking
+
+**Problem:** Seeing "⏸️ Cannot execute" messages repeatedly
+
+**Solution:**
+```bash
+# Increase max concurrent executions
+python -m ai4pkm_cli.orchestrator_cli daemon --max-concurrent 5
+
+# Or reduce agent processing time
+# Check if agents are timing out or hanging
+```
+
 ### Getting Help
 
 **Check logs:**
@@ -562,5 +662,5 @@ logging.basicConfig(level=logging.DEBUG)
 
 ---
 
-*Last Updated: 2025-10-27*
-*Status: Phase 1 Complete - Ready for Testing*
+*Last Updated: 2025-10-28*
+*Status: Phase 1 Complete - Orchestrator Working*

@@ -2,9 +2,9 @@
 title: Enrich Ingested Content (EIC)
 abbreviation: EIC
 category: ingestion
-input_path: Ingest/Clipping
+input_path: Ingest/Clippings
 input_type: new_file
-output_path: AI/Clipping
+output_path: AI/Articles
 output_type: new_file
 ---
 Improve captured content through transcript correction, summarization, and knowledge linking.

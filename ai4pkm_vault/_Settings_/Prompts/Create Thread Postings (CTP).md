@@ -3,7 +3,7 @@ title: Create Thread Postings (CTP)
 abbreviation: CTP
 category: publish
 input_path:
-  - AI/Clipping
+  - AI/Articles
   - AI/Roundup
   - AI/Research
 input_type: new_file

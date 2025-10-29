@@ -65,25 +65,69 @@ class AgentRegistry:
         self.load_all_agents()
 
     def load_all_agents(self):
-        """Load all agent definitions from directory."""
-        if not self.agents_dir.exists():
-            logger.warning(f"Agent directory does not exist: {self.agents_dir}")
+        """
+        Load agents from orchestrator.yaml only.
+
+        Agents are loaded based on the list in orchestrator.yaml, not by scanning
+        the prompts directory. This makes orchestrator.yaml the single source of
+        truth for which agents are active.
+        """
+        yaml_agents = self.orchestrator_config.get('agents', {})
+
+        if not yaml_agents:
+            logger.warning("No agents defined in orchestrator.yaml")
             return
 
-        # Get all .md files but exclude README files
-        agent_files = [f for f in self.agents_dir.glob("*.md") if not f.stem.upper().startswith("README")]
-        logger.info(f"Loading agents from {self.agents_dir}")
+        logger.info(f"Loading {len(yaml_agents)} agents from orchestrator.yaml")
 
-        for agent_file in agent_files:
+        for abbr in yaml_agents.keys():
             try:
-                agent = self._load_agent(agent_file)
-                if agent:
-                    self.agents[agent.abbreviation] = agent
-                    logger.info(f"Loaded agent: {agent.abbreviation} ({agent.name})")
+                # Construct expected prompt file path from abbreviation
+                # Pattern: "{Full Name} ({ABBR}).md"
+                # We'll search for files matching the abbreviation pattern
+                agent_file = self._find_agent_prompt_file(abbr)
+
+                if agent_file:
+                    agent = self._load_agent(agent_file)
+                    if agent:
+                        self.agents[agent.abbreviation] = agent
+                        logger.info(f"Loaded agent: {agent.abbreviation} ({agent.name})")
+                else:
+                    logger.warning(f"No prompt file found for agent: {abbr}")
             except Exception as e:
-                logger.error(f"Error loading agent from {agent_file}: {e}")
+                logger.error(f"Error loading agent {abbr}: {e}")
 
         logger.info(f"Total agents loaded: {len(self.agents)}")
+
+    def _find_agent_prompt_file(self, abbreviation: str) -> Optional[Path]:
+        """
+        Find the prompt file for an agent by abbreviation.
+
+        Searches for files matching the pattern "*({ABBR}).md" in the agents directory.
+
+        Args:
+            abbreviation: Agent abbreviation (e.g., "EIC", "HTC")
+
+        Returns:
+            Path to prompt file, or None if not found
+        """
+        if not self.agents_dir.exists():
+            return None
+
+        # Pattern: "*({ABBR}).md"
+        pattern = f"*({abbreviation}).md"
+
+        matching_files = list(self.agents_dir.glob(pattern))
+
+        if not matching_files:
+            logger.debug(f"No prompt file found matching pattern: {pattern}")
+            return None
+
+        if len(matching_files) > 1:
+            logger.warning(f"Multiple prompt files found for {abbreviation}: {matching_files}")
+            logger.warning(f"Using first match: {matching_files[0]}")
+
+        return matching_files[0]
 
     def _load_orchestrator_yaml(self, yaml_path: Path) -> dict:
         """

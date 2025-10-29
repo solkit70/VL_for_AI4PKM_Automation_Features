@@ -11,8 +11,8 @@ defaults:
   task_priority: medium
   task_archived: false
 
-# Agent-specific input/output configuration
-# Each agent is keyed by its abbreviation (e.g., EIC, HTC, GDR)
+# Agent input/output configuration
+# Agents are loaded from this list only (not scanned from _Settings_/Prompts)
 agents:
   # Enrich Ingested Content
   EIC:
@@ -27,6 +27,10 @@ agents:
     input_type: updated_file
     output_path: _Settings_/Tasks
     output_type: new_file
+    trigger_exclude_pattern: "_Settings_/*"
+    trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
+    post_process_action: remove_trigger_content
+    task_priority: high
 
   # Generate Daily Roundup
   GDR:

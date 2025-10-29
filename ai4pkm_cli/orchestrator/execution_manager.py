@@ -327,12 +327,12 @@ class ExecutionManager:
         # Prepare log file path
         log_path = self._prepare_log_path(agent, ctx)
 
-        # Execute Codex CLI
-        cmd = [
-            'codex',
-            '--prompt', prompt,
-            '--vault', str(self.vault_path),
-        ]
+        # Execute Codex CLI using correct structure from KTM code
+        cmd = ['codex']
+        cmd.append('--search')      # Global flag
+        cmd.append('exec')          # Subcommand
+        cmd.append('--full-auto')   # Exec-specific flag
+        cmd.append(prompt)          # Prompt as positional argument
 
         timeout_seconds = agent.timeout_minutes * 60
         result = subprocess.run(
@@ -340,7 +340,7 @@ class ExecutionManager:
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
-            cwd=self.vault_path
+            cwd=self.vault_path  # Run in vault directory
         )
 
         ctx.output = result.stdout

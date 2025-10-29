@@ -19,21 +19,23 @@ This folder contains canonical agent definitions for the AI4PKM orchestrator sys
 
 ---
 
-## Frontmatter Structure
+## Configuration Structure
 
-### Required Fields
+Agent configuration is split into two parts:
+1. **Agent Prompt** (`.md` file): Contains agent identity and instructions
+2. **Orchestrator Config** (`orchestrator.yaml`): Contains input/output routing
+
+### Agent Frontmatter (Required Fields)
 
 ```yaml
 ---
 title: Full Agent Title (ABC)
 abbreviation: ABC
 category: ingestion|research|publish
-input_path: Path/To/Input
-input_type: new_file|daily_file|updated_file
-output_path: Path/To/Output
-output_type: new_file|daily_file|updated_file
 ---
 ```
+
+**Note**: Input/output configuration has been moved to `orchestrator.yaml` at vault root.
 
 ### Field Descriptions
 
@@ -54,42 +56,88 @@ output_type: new_file|daily_file|updated_file
   - `publish` - Output preparation and distribution
 - **Purpose**: Organize agents by workflow stage
 
-#### `input_path` (required)
-- **Format**: String or list of strings (relative to vault root)
+---
+
+## Orchestrator Configuration (`orchestrator.yaml`)
+
+Input/output routing is now centralized in `orchestrator.yaml` at the vault root. This file defines where each agent reads from and writes to.
+
+### File Location
+
+```
+vault/
+├── orchestrator.yaml          # Configuration file
+├── ai4pkm_cli.json           # Existing config
+└── _Settings_/
+    └── Prompts/              # Agent definitions
+```
+
+### Structure
+
+```yaml
+version: "1.0"
+
+# Global defaults for all agents
+defaults:
+  executor: claude_code
+  timeout_minutes: 30
+  max_parallel: 1
+  task_create: true
+  task_priority: medium
+  task_archived: false
+
+# Agent-specific configuration
+agents:
+  # Key by agent abbreviation
+  EIC:
+    input_path: Ingest/Clippings
+    input_type: new_file
+    output_path: AI/Articles
+    output_type: new_file
+
+  HTC:
+    input_path: ""  # Content pattern triggered
+    input_type: updated_file
+    output_path: _Settings_/Tasks
+    output_type: new_file
+```
+
+### Input/Output Configuration
+
+#### `input_path`
+- **Format**: String, list, empty string, or null
 - **Purpose**: Where the agent looks for input files
 - **Examples**:
   ```yaml
-  # Single path
-  input_path: Ingest/Clipping
-
-  # Multiple paths
-  input_path:
-    - Ingest/Limitless
-    - Ingest/Photolog/Processed
+  input_path: Ingest/Clippings        # Single path
+  input_path:                          # Multiple paths
+    - AI/Articles
+    - Journal
+  input_path: ""                       # Empty (content pattern)
+  input_path: null                     # Manual invocation
   ```
 
-#### `input_type` (required)
+#### `input_type`
 - **Values**:
-  - `new_file` - Trigger on every new file created in input_path
-  - `daily_file` - Process all files for a given day (scheduled/batch)
-  - `updated_file` - Trigger when existing files are modified
-  - `manual` - Only run when explicitly invoked
-- **Purpose**: Defines when/how agent is triggered
-- **Example**: `new_file` for real-time processing, `daily_file` for end-of-day summaries
+  - `new_file` - Trigger on new files
+  - `updated_file` - Trigger on modifications
+  - `daily_files` - Batch process for a day
+  - `manual` - Explicit invocation only
+- **Purpose**: Defines trigger behavior
 
-#### `output_path` (required)
+#### `output_path`
 - **Format**: String (relative to vault root)
-- **Purpose**: Where agent writes output files
-- **Example**: `AI/Clipping`, `AI/Research`, `Ingest/Photolog`
+- **Purpose**: Output directory
+- **Examples**: `AI/Articles`, `_Settings_/Tasks`
 
-#### `output_type` (required)
+#### `output_type`
 - **Values**:
-  - `new_file` - Create new file for each execution
-  - `daily_file` - One file per day (append/update)
-  - `update_file` - Modify input file in place
-- **Purpose**: Defines output file strategy
+  - `new_file` - Create new file per execution
+  - `daily_file` - One file per day
+  - `new_files` - Multiple files per execution
+- **Purpose**: Output file strategy
 
-### Optional Fields
+### Agent-Level Optional Fields
 
 ```yaml
 # Output file naming

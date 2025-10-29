@@ -2,11 +2,6 @@
 title: Process Life Logs (PLL)
 abbreviation: PLL
 category: ingestion
-input_path:
-  - Ingest/Limitless
-input_type: daily_files
-output_path: AI/Lifelog
-output_type: daily_file
 ---
 
 Summarize voice-based life logs into structured daily summaries with accurate linking and photo integration.

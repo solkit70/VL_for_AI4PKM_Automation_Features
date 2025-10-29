@@ -2,12 +2,6 @@
 title: Generate Event Summary (GES)
 abbreviation: GES
 category: ingestion
-input_path:
-  - Ingest/Limitless
-  - MCP#gcal
-input_type: updated_file
-output_path: AI/Events
-output_type: new_file
 ---
 Summarize meeting/event content from voice transcriptions with calendar integration.
 

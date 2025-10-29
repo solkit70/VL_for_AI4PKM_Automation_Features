@@ -2,13 +2,6 @@
 title: Generate Daily Roundup (GDR)
 abbreviation: GDR
 category: research
-input_path:
-  - AI/Articles
-  - Journal
-input_type: daily_files
-input_range: daily
-output_path: AI/Roundup
-output_type: daily_file
 ---
 
 Generate comprehensive daily summaries integrating multiple sources with quote mining and topic linking.

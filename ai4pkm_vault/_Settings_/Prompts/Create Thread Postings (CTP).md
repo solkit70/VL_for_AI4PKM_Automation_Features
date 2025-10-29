@@ -2,13 +2,6 @@
 title: Create Thread Postings (CTP)
 abbreviation: CTP
 category: publish
-input_path:
-  - AI/Articles
-  - AI/Roundup
-  - AI/Research
-input_type: new_file
-output_path: AI/Sharable
-output_type: new_files
 ---
 Generate social media thread candidates from personal content within specified date ranges.
 

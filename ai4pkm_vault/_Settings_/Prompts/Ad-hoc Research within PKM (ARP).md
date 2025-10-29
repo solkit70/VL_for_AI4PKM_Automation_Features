@@ -2,10 +2,6 @@
 title: Ad-hoc Research within PKM (ARP)
 abbreviation: ARP
 category: research
-input_path: null
-input_type: manual
-output_path: AI/Research
-output_type: new_file
 ---
 
 Generate comprehensive research summaries from PKM content for deep dive analysis and content creation.

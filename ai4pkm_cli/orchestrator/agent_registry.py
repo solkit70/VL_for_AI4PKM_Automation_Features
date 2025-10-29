@@ -6,6 +6,7 @@ Loads and manages agent definitions from _Settings_/Agents/.
 import logging
 import json
 import re
+import yaml
 from pathlib import Path
 from typing import Dict, List, Optional
 import fnmatch
@@ -57,6 +58,10 @@ class AgentRegistry:
         self.config = config or Config()
         self.agents: Dict[str, AgentDefinition] = {}
 
+        # Load centralized orchestrator configuration
+        orchestrator_yaml_path = vault_path / "orchestrator.yaml"
+        self.orchestrator_config = self._load_orchestrator_yaml(orchestrator_yaml_path)
+
         self.load_all_agents()
 
     def load_all_agents(self):
@@ -80,6 +85,37 @@ class AgentRegistry:
 
         logger.info(f"Total agents loaded: {len(self.agents)}")
 
+    def _load_orchestrator_yaml(self, yaml_path: Path) -> dict:
+        """
+        Load centralized orchestrator configuration from YAML file.
+
+        Args:
+            yaml_path: Path to orchestrator.yaml file
+
+        Returns:
+            Dictionary with 'agents' and 'defaults' keys
+        """
+        if not yaml_path.exists():
+            logger.warning(f"orchestrator.yaml not found at {yaml_path}")
+            logger.warning("Agent input/output configuration will not be available")
+            return {'agents': {}, 'defaults': {}}
+
+        try:
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+
+            if not config:
+                logger.warning(f"Empty orchestrator.yaml at {yaml_path}")
+                return {'agents': {}, 'defaults': {}}
+
+            logger.info(f"Loaded orchestrator configuration from {yaml_path}")
+            logger.info(f"  Agents configured: {len(config.get('agents', {}))}")
+
+            return config
+        except Exception as e:
+            logger.error(f"Failed to load orchestrator.yaml: {e}")
+            return {'agents': {}, 'defaults': {}}
+
     def _load_agent(self, file_path: Path) -> Optional[AgentDefinition]:
         """
         Load a single agent definition from file.
@@ -96,7 +132,8 @@ class AgentRegistry:
             return None
 
         # Validate required fields (basic check)
-        required = ['title', 'abbreviation', 'category', 'input_path', 'input_type']
+        # Note: input_path and input_type moved to orchestrator.yaml
+        required = ['title', 'abbreviation', 'category']
         for field in required:
             if field not in frontmatter:
                 logger.error(f"Missing required field '{field}' in {file_path}")
@@ -105,15 +142,27 @@ class AgentRegistry:
         # Extract prompt body
         prompt_body = extract_body(file_path.read_text(encoding='utf-8'))
 
-        # Convert frontmatter to AgentDefinition
-        # Handle list fields
-        input_path = frontmatter.get('input_path', [])
+        # Get agent abbreviation for looking up orchestrator config
+        abbr = frontmatter['abbreviation']
+
+        # Get input/output configuration from orchestrator.yaml
+        agent_config = self.orchestrator_config.get('agents', {}).get(abbr, {})
+        defaults = self.orchestrator_config.get('defaults', {})
+
+        # Extract input_path from orchestrator config
+        input_path = agent_config.get('input_path', [])
 
         # Handle null input_path (for manual agents)
         if input_path is None or input_path == 'null':
             input_path = []
         elif isinstance(input_path, str):
-            input_path = [input_path]
+            input_path = [input_path] if input_path else []
+
+        # Get input/output types from orchestrator config
+        input_type = agent_config.get('input_type', 'new_file')
+        output_path = agent_config.get('output_path', '')
+        output_type = agent_config.get('output_type', 'new_file')
+        input_pattern = agent_config.get('input_pattern')
 
         # Derive trigger_pattern and trigger_event if not specified
         trigger_pattern = frontmatter.get('trigger_pattern')
@@ -122,8 +171,8 @@ class AgentRegistry:
         if not trigger_pattern or not trigger_event:
             trigger_pattern, trigger_event = self._derive_trigger_from_input(
                 input_path,
-                frontmatter.get('input_type', 'new_file'),
-                frontmatter.get('input_pattern')
+                input_type,
+                input_pattern
             )
 
         skills = frontmatter.get('skills', [])
@@ -138,6 +187,31 @@ class AgentRegistry:
         if isinstance(trigger_wait_for, str):
             trigger_wait_for = [trigger_wait_for]
 
+        # Apply defaults with frontmatter override for execution settings
+        executor = frontmatter.get('executor',
+                   agent_config.get('executor',
+                   defaults.get('executor', 'claude_code')))
+
+        max_parallel = int(frontmatter.get('max_parallel',
+                       agent_config.get('max_parallel',
+                       defaults.get('max_parallel', 1))))
+
+        timeout_minutes = int(frontmatter.get('timeout_minutes',
+                           agent_config.get('timeout_minutes',
+                           defaults.get('timeout_minutes', 30))))
+
+        task_create = frontmatter.get('task_create',
+                      agent_config.get('task_create',
+                      defaults.get('task_create', True)))
+
+        task_priority = frontmatter.get('task_priority',
+                        agent_config.get('task_priority',
+                        defaults.get('task_priority', 'medium')))
+
+        task_archived = frontmatter.get('task_archived',
+                        agent_config.get('task_archived',
+                        defaults.get('task_archived', False)))
+
         agent = AgentDefinition(
             name=frontmatter['title'],
             abbreviation=frontmatter['abbreviation'],
@@ -149,22 +223,22 @@ class AgentRegistry:
             trigger_schedule=frontmatter.get('trigger_schedule'),
             trigger_wait_for=trigger_wait_for,
             input_path=input_path,
-            input_type=frontmatter.get('input_type', 'new_file'),
-            output_path=frontmatter.get('output_path', ''),
-            output_type=frontmatter.get('output_type', 'new_file'),
+            input_type=input_type,
+            output_path=output_path,
+            output_type=output_type,
             output_naming=frontmatter.get('output_naming', '{title} - {agent}.md'),
             prompt_body=prompt_body,
             skills=skills,
             mcp_servers=mcp_servers,
-            executor=frontmatter.get('executor', 'claude_code'),
-            max_parallel=int(frontmatter.get('max_parallel', 1)),
-            timeout_minutes=int(frontmatter.get('timeout_minutes', 30)),
+            executor=executor,
+            max_parallel=max_parallel,
+            timeout_minutes=timeout_minutes,
             log_prefix=frontmatter.get('log_prefix', frontmatter['abbreviation']),
             log_pattern=frontmatter.get('log_pattern', '{timestamp}-{agent}.log'),
             post_process_action=frontmatter.get('post_process_action'),
-            task_create=frontmatter.get('task_create', True),
-            task_priority=frontmatter.get('task_priority', 'medium'),
-            task_archived=frontmatter.get('task_archived', False),
+            task_create=task_create,
+            task_priority=task_priority,
+            task_archived=task_archived,
             file_path=file_path,
             version=frontmatter.get('version', '1.0')
         )

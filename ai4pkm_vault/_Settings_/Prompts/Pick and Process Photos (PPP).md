@@ -2,12 +2,6 @@
 title: Pick and Process Photos (PPP)
 abbreviation: PPP
 category: ingestion
-input_path:
-  - Ingest/Photolog/Processed/
-input_type: daily_files
-input_pattern: "*.{jpg,jpeg,png,yaml}"
-output_path: Ingest/Photolog
-output_type: daily_file
 ---
 Process and curate daily photos into organized photologs with quality filtering and accurate timestamping.
 

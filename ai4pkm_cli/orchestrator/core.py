@@ -29,26 +29,41 @@ class Orchestrator:
         self,
         vault_path: Path,
         agents_dir: Optional[Path] = None,
-        max_concurrent: int = 3,
-        poll_interval: float = 1.0
+        max_concurrent: Optional[int] = None,
+        poll_interval: Optional[float] = None,
+        config: Optional['Config'] = None
     ):
         """
         Initialize orchestrator.
 
         Args:
             vault_path: Path to vault root
-            agents_dir: Directory containing agent definitions (defaults to vault/_Settings_/Prompts)
-            max_concurrent: Maximum concurrent task executions
-            poll_interval: Seconds between event queue polls
+            agents_dir: Directory containing agent definitions (defaults to config orchestrator.prompts_dir)
+            max_concurrent: Maximum concurrent task executions (defaults to config)
+            poll_interval: Seconds between event queue polls (defaults to config)
+            config: Config instance (will create default if None)
         """
+        from ..config import Config
+
         self.vault_path = Path(vault_path)
-        self.agents_dir = agents_dir or self.vault_path / "_Settings_" / "Prompts"
-        self.max_concurrent = max_concurrent
-        self.poll_interval = poll_interval
+        self.config = config or Config()
+
+        # Use config values if not explicitly provided
+        if agents_dir is None:
+            prompts_dir = self.config.get_orchestrator_prompts_dir()
+            self.agents_dir = self.vault_path / prompts_dir
+        else:
+            self.agents_dir = agents_dir
+
+        self.max_concurrent = max_concurrent or self.config.get_orchestrator_max_concurrent()
+        self.poll_interval = poll_interval or self.config.get_orchestrator_poll_interval()
+
+        # Ensure required directories exist
+        self._ensure_directories()
 
         # Initialize components
-        self.agent_registry = AgentRegistry(self.agents_dir, self.vault_path)
-        self.execution_manager = ExecutionManager(self.vault_path, max_concurrent)
+        self.agent_registry = AgentRegistry(self.agents_dir, self.vault_path, self.config)
+        self.execution_manager = ExecutionManager(self.vault_path, self.max_concurrent, self.config)
         self.file_monitor = FileSystemMonitor(self.vault_path, self.agent_registry)
 
         # Control state
@@ -57,6 +72,31 @@ class Orchestrator:
 
         logger.info(f"Orchestrator initialized for vault: {self.vault_path}")
         logger.info(f"Loaded {len(self.agent_registry.agents)} agents")
+
+    def _ensure_directories(self):
+        """Create orchestrator directories if they don't exist."""
+        # Get all configured directories
+        directories = [
+            self.config.get_orchestrator_prompts_dir(),
+            self.config.get_orchestrator_tasks_dir(),
+            self.config.get_orchestrator_logs_dir(),
+            self.config.get('orchestrator.skills_dir', '_Settings_/Skills'),
+            self.config.get('orchestrator.bases_dir', '_Settings_/Bases'),
+        ]
+
+        created = []
+        # Create each directory
+        for dir_path in directories:
+            full_path = self.vault_path / dir_path
+            if not full_path.exists():
+                full_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created directory: {dir_path}")
+                created.append(dir_path)
+
+        if created:
+            print(f"✓ Created {len(created)} missing director{'y' if len(created) == 1 else 'ies'}:")
+            for dir_path in created:
+                print(f"  • {dir_path}")
 
     def start(self):
         """Start the orchestrator event loop."""

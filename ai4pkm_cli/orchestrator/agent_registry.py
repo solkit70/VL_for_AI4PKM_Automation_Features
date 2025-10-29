@@ -41,18 +41,22 @@ class AgentRegistry:
     Loads agent definitions from _Settings_/Agents/ directory.
     """
 
-    def __init__(self, agents_dir: Path, vault_path: Path):
+    def __init__(self, agents_dir: Path, vault_path: Path, config: Optional['Config'] = None):
         """
         Initialize agent registry.
 
         Args:
             agents_dir: Directory containing agent definition files
             vault_path: Path to vault root
+            config: Config instance (will create default if None)
         """
+        from ..config import Config
+
         self.agents_dir = Path(agents_dir)
         self.vault_path = Path(vault_path)
+        self.config = config or Config()
         self.agents: Dict[str, AgentDefinition] = {}
-        
+
         self.load_all_agents()
 
     def load_all_agents(self):
@@ -261,8 +265,11 @@ class AgentRegistry:
 
         # Check exclusion pattern if specified
         if agent.trigger_exclude_pattern:
-            if fnmatch.fnmatch(event_path, agent.trigger_exclude_pattern):
-                return False
+            # Support multiple patterns separated by |
+            exclude_patterns = agent.trigger_exclude_pattern.split('|')
+            for pattern in exclude_patterns:
+                if fnmatch.fnmatch(event_path, pattern.strip()):
+                    return False
 
         # Check content pattern if specified
         if agent.trigger_content_pattern:
@@ -304,7 +311,7 @@ class AgentRegistry:
 
     def _has_existing_task(self, event_path: str) -> bool:
         """
-        Check if a task already exists for this file in _Tasks_/ directory.
+        Check if a task already exists for this file in tasks directory.
 
         Args:
             event_path: Relative file path from event
@@ -313,7 +320,9 @@ class AgentRegistry:
             True if task file already exists
         """
         try:
-            tasks_dir = self.vault_path / "_Tasks_"
+            # Get tasks directory from config
+            tasks_dir_path = self.config.get_orchestrator_tasks_dir()
+            tasks_dir = self.vault_path / tasks_dir_path
             if not tasks_dir.exists():
                 return False
 

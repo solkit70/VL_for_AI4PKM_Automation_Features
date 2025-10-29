@@ -4,8 +4,8 @@ abbreviation: HTC
 category: ingestion
 input_path: ""
 input_type: updated_file
-trigger_exclude_pattern: "_Tasks_/*.md"
-trigger_content_pattern: "%%\\s*#ai\\b.*?%%"
+trigger_exclude_pattern: "_Settings_/*"
+trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
 output_path: AI/Tasks
 output_type: new_file
 post_process_action: remove_trigger_content

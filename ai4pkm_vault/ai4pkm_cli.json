@@ -26,5 +26,14 @@
   "web_api": {
     "port": 8000
   },
-  "cron_jobs": []
+  "cron_jobs": [],
+  "orchestrator": {
+    "prompts_dir": "_Settings_/Prompts",
+    "tasks_dir": "_Settings_/Tasks",
+    "logs_dir": "_Settings_/Logs",
+    "skills_dir": "_Settings_/Skills",
+    "bases_dir": "_Settings_/Bases",
+    "max_concurrent": 3,
+    "poll_interval": 1.0
+  }
 }

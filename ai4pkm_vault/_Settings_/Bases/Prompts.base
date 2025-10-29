@@ -6,7 +6,7 @@ views:
     name: Table
     filters:
       and:
-        - file.path.startsWith("_Settings_/Agents")
+        - file.path.startsWith("_Settings_/Prompts")
     order:
       - file.name
       - title

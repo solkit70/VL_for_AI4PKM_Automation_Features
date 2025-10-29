@@ -60,16 +60,20 @@ class ExecutionManager:
     Each agent can specify max_parallel limit.
     """
 
-    def __init__(self, vault_path: Path, max_concurrent: int = 3):
+    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None):
         """
         Initialize execution manager.
 
         Args:
             vault_path: Path to vault root
             max_concurrent: Maximum concurrent executions across all agents
+            config: Config instance (will create default if None)
         """
+        from ..config import Config
+
         self.vault_path = Path(vault_path)
         self.max_concurrent = max_concurrent
+        self.config = config or Config()
 
         # Instance-level state (no global state)
         self._running_count = 0
@@ -85,7 +89,7 @@ class ExecutionManager:
 
         # Task file manager
         from .task_manager import TaskFileManager
-        self.task_manager = TaskFileManager(vault_path)
+        self.task_manager = TaskFileManager(vault_path, config=self.config)
 
     def can_execute(self, agent: AgentDefinition) -> bool:
         """
@@ -387,7 +391,9 @@ class ExecutionManager:
             execution_id=ctx.execution_id
         )
 
-        log_path = self.vault_path / "AI" / "Tasks" / "Logs" / log_name
+        # Get logs directory from config
+        logs_dir = self.config.get_orchestrator_logs_dir()
+        log_path = self.vault_path / logs_dir / log_name
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         return log_path

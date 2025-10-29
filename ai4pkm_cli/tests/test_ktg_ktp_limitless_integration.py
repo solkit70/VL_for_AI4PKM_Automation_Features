@@ -21,6 +21,7 @@ import json
 import shutil
 import subprocess
 import signal
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -38,12 +39,13 @@ class KTGKTPLimitlessIntegrationTest:
         """Initialize test environment."""
         self.logger = Logger(console_output=True)
 
-        # IMPORTANT: Use the AI4PKM repo as test workspace, NOT production vault!
+        # IMPORTANT: Use ai4pkm_vault as test workspace (demo/test-purpose vault)
+        # This keeps test artifacts separate from production data
         self.repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.workspace_path = self.repo_root
+        self.workspace_path = os.path.join(self.repo_root, 'ai4pkm_vault')
 
-        # Config must be loaded from workspace
-        self.config = Config(config_file=os.path.join(self.workspace_path, 'ai4pkm_cli.json'))
+        # Config must be loaded from repo root (not vault)
+        self.config = Config(config_file=os.path.join(self.repo_root, 'ai4pkm_cli.json'))
 
         # Validate workspace has required folders
         required_folders = ['AI/Tasks', 'Ingest/Limitless', '_Settings_/Prompts']
@@ -53,6 +55,9 @@ class KTGKTPLimitlessIntegrationTest:
                 raise ValueError(f"Invalid test workspace: {full_path} does not exist")
 
         self.logger.info(f"Using test workspace: {self.workspace_path}")
+
+        # Flag to use existing daemon instead of starting/stopping one
+        self.use_existing_daemon = False
 
         # Test file paths
         self.test_timestamp = datetime.now().strftime('%Y-%m-%d-%H%M%S')
@@ -85,6 +90,17 @@ class KTGKTPLimitlessIntegrationTest:
         self.logger.info("=" * 80)
         self.logger.info("STAGE 0: Starting ai4pkm watchdog")
         self.logger.info("=" * 80)
+
+        # Skip if using existing daemon
+        if self.use_existing_daemon:
+            self.logger.info("⚠️  Using existing daemon (--use-existing-daemon)")
+            self.logger.info("   Assuming daemon is already running")
+            self.test_results['stages']['watchdog_start'] = {
+                'success': True,
+                'timestamp': datetime.now(),
+                'note': 'Using existing daemon'
+            }
+            return True
 
         try:
             # Start ai4pkm with test flag (-t) which runs watchdog
@@ -127,6 +143,11 @@ class KTGKTPLimitlessIntegrationTest:
 
     def stop_watchdog(self):
         """Stop the watchdog process gracefully."""
+        # Skip if using existing daemon
+        if self.use_existing_daemon:
+            self.logger.info("\n⚠️  Leaving daemon running (--use-existing-daemon)")
+            return
+
         if self.watchdog_process:
             self.logger.info("=" * 80)
             self.logger.info("Stopping watchdog process...")
@@ -628,5 +649,16 @@ class KTGKTPLimitlessIntegrationTest:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Integration test for KTG/KTP/KTE Limitless "Hey PKM" workflow'
+    )
+    parser.add_argument(
+        '--use-existing-daemon',
+        action='store_true',
+        help='Use existing daemon instead of starting/stopping one'
+    )
+    args = parser.parse_args()
+
     test = KTGKTPLimitlessIntegrationTest()
+    test.use_existing_daemon = args.use_existing_daemon
     test.run()

@@ -55,6 +55,15 @@
     "max_retries": 2,
     "polling_interval": 30
   },
+  "orchestrator": {
+    "prompts_dir": "_Settings_/Prompts",
+    "tasks_dir": "_Tasks_",
+    "logs_dir": "AI/Tasks/Logs",
+    "skills_dir": "_AI4PKM_/Skills",
+    "bases_dir": "_AI4PKM_/Bases",
+    "max_concurrent": 3,
+    "poll_interval": 1.0
+  },
   "cron_jobs": [
     {
       "inline_prompt": "CKU for hourly run",

@@ -138,6 +138,15 @@ def main(
         app.show_config()
     elif ktp or ktp_task:
         # Run Knowledge Task Processor
+        click.echo("=" * 80)
+        click.echo("⚠️  DEPRECATION WARNING: --ktp flag is deprecated")
+        click.echo("   This system will be removed in a future version.")
+        click.echo("   Please migrate to the new orchestrator system:")
+        click.echo("   → Use: ai4pkm --orchestrator")
+        click.echo("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
+        click.echo("=" * 80)
+        click.echo()
+
         ktp_args = {}
         if ktp_task:
             ktp_args["task"] = ktp_task
@@ -145,7 +154,7 @@ def main(
             ktp_args["priority"] = ktp_priority.upper()
         if ktp_status:
             ktp_args["status"] = ktp_status.upper()
-        
+
         app.execute_command("ktp", ktp_args)
     elif agent and not prompt:
         # Error: agent option can only be used with prompts
@@ -167,6 +176,15 @@ def main(
         app.test_cron_job()
     elif task_management:
         # Run continuous task management (KTG+KTP pipeline)
+        click.echo("=" * 80)
+        click.echo("⚠️  DEPRECATION WARNING: --task-management (-t) flag is deprecated")
+        click.echo("   This system will be removed in a future version.")
+        click.echo("   Please migrate to the new orchestrator system:")
+        click.echo("   → Use: ai4pkm --orchestrator")
+        click.echo("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
+        click.echo("=" * 80)
+        click.echo()
+
         app.run_task_management()
     elif run_cron:
         # Run continuously with cron jobs and web server

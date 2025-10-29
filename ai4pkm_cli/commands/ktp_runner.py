@@ -16,7 +16,10 @@ from ..config import Config
 
 class KTPRunner:
     """Main KTP runner implementing 3-phase task processing workflow."""
-    
+
+    # Class-level flag to track if deprecation warning has been shown
+    _deprecation_warning_shown = False
+
     def __init__(self, logger, config: Config = None):
         """Initialize KTP Runner.
 
@@ -26,6 +29,17 @@ class KTPRunner:
         """
         self.logger = logger
         self.config = config or Config()
+
+        # Show deprecation warning once per session
+        if not KTPRunner._deprecation_warning_shown:
+            self.logger.warning("=" * 80)
+            self.logger.warning("⚠️  DEPRECATION WARNING: KTP/KTG workflow is deprecated")
+            self.logger.warning("   This system will be removed in a future version.")
+            self.logger.warning("   Please migrate to the new orchestrator system:")
+            self.logger.warning("   → Use: ai4pkm --orchestrator")
+            self.logger.warning("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
+            self.logger.warning("=" * 80)
+            KTPRunner._deprecation_warning_shown = True
         self.workspace_path = os.getcwd()
         self.tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")
         self.processing_agent = self.config.get_ktp_routing()  # Maps task type to agent for Phase 1 & 2

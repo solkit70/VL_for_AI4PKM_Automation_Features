@@ -40,7 +40,7 @@ agents:
 
   # Process Life Logs
   PLL:
-    input_path: []  # Multiple sources, dynamically determined
+    input_path: Ingest/Limitless
     input_type: daily_files
     output_path: AI/Lifelog
     output_type: daily_file

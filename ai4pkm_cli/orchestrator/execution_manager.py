@@ -157,6 +157,8 @@ class ExecutionManager:
                 self._execute_claude_code(agent, ctx, trigger_data)
             elif agent.executor == 'gemini_cli':
                 self._execute_gemini_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'codex_cli':
+                self._execute_codex_cli(agent, ctx, trigger_data)
             elif agent.executor == 'custom_script':
                 self._execute_custom_script(agent, ctx, trigger_data)
             else:
@@ -309,6 +311,41 @@ class ExecutionManager:
         ctx.output = result.stdout
         if result.returncode != 0:
             raise RuntimeError(f"Gemini CLI execution failed: {result.stderr}")
+
+    def _execute_codex_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Codex CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        prompt = self._build_prompt(agent, trigger_data)
+
+        # Prepare log file path
+        log_path = self._prepare_log_path(agent, ctx)
+
+        # Execute Codex CLI
+        cmd = [
+            'codex',
+            '--prompt', prompt,
+            '--vault', str(self.vault_path),
+        ]
+
+        timeout_seconds = agent.timeout_minutes * 60
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            cwd=self.vault_path
+        )
+
+        ctx.output = result.stdout
+        if result.returncode != 0:
+            raise RuntimeError(f"Codex CLI execution failed: {result.stderr}")
 
     def _execute_custom_script(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
         """

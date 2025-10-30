@@ -70,7 +70,9 @@ def signal_handler(sig, frame):
 )
 @click.option("--show-config", is_flag=True, help="Show current configuration")
 @click.option(
+    "-o",
     "--orchestrator",
+    "orchestrator",
     is_flag=True,
     help="Run orchestrator daemon (new multi-agent system)",
 )
@@ -142,7 +144,7 @@ def main(
         click.echo("⚠️  DEPRECATION WARNING: --ktp flag is deprecated")
         click.echo("   This system will be removed in a future version.")
         click.echo("   Please migrate to the new orchestrator system:")
-        click.echo("   → Use: ai4pkm --orchestrator")
+        click.echo("   → Use: ai4pkm -o (or ai4pkm --orchestrator)")
         click.echo("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
         click.echo("=" * 80)
         click.echo()
@@ -180,7 +182,7 @@ def main(
         click.echo("⚠️  DEPRECATION WARNING: --task-management (-t) flag is deprecated")
         click.echo("   This system will be removed in a future version.")
         click.echo("   Please migrate to the new orchestrator system:")
-        click.echo("   → Use: ai4pkm --orchestrator")
+        click.echo("   → Use: ai4pkm -o (or ai4pkm --orchestrator)")
         click.echo("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
         click.echo("=" * 80)
         click.echo()

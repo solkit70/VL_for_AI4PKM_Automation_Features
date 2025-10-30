@@ -35,6 +35,11 @@ The Orchestrator is a new multi-agent system that monitors your vault for file c
 
 ```bash
 cd /Users/lifidea/dev/AI4PKM
+ai4pkm --orchestrator-status
+```
+
+Or using the legacy command:
+```bash
 python -m ai4pkm_cli.orchestrator_cli status
 ```
 
@@ -59,7 +64,9 @@ Available Agents:
 ### Run the Orchestrator
 
 ```bash
-python -m ai4pkm_cli.orchestrator_cli daemon
+ai4pkm -o
+# or
+ai4pkm --orchestrator
 ```
 
 This starts the orchestrator in daemon mode - it will:
@@ -72,8 +79,47 @@ This starts the orchestrator in daemon mode - it will:
 **With custom settings:**
 ```bash
 # Increase concurrent execution limit
-python -m ai4pkm_cli.orchestrator_cli daemon --max-concurrent 5
+ai4pkm -o --max-concurrent 5
 ```
+
+**Legacy command (still works):**
+```bash
+python -m ai4pkm_cli.orchestrator_cli daemon
+```
+
+---
+
+## Configuration
+
+### Orchestrator Settings (orchestrator.yaml)
+
+The orchestrator's runtime settings are now configured per-vault in `orchestrator.yaml`. This allows each vault to have its own directory structure and settings.
+
+**Location**: `<vault_root>/orchestrator.yaml`
+
+**Configuration section:**
+```yaml
+# Orchestrator runtime settings
+orchestrator:
+  prompts_dir: "_Settings_/Prompts"
+  tasks_dir: "_Settings_/Tasks"
+  logs_dir: "_Settings_/Logs"
+  skills_dir: "_Settings_/Skills"
+  bases_dir: "_Settings_/Bases"
+  max_concurrent: 3
+  poll_interval: 1.0
+```
+
+**Settings:**
+- `prompts_dir`: Directory for agent prompt definitions (default: `_Settings_/Prompts`)
+- `tasks_dir`: Directory where task files are created (default: `_Settings_/Tasks`)
+- `logs_dir`: Directory for execution logs (default: `_Settings_/Logs`)
+- `skills_dir`: Directory for skills library (default: `_Settings_/Skills`)
+- `bases_dir`: Directory for knowledge bases (default: `_Settings_/Bases`)
+- `max_concurrent`: Maximum concurrent agent executions (default: 3)
+- `poll_interval`: File monitor polling interval in seconds (default: 1.0)
+
+**Note**: These settings override the fallback defaults in `ai4pkm_cli.json`. If not specified in `orchestrator.yaml`, the system will use config file defaults for backward compatibility.
 
 ---
 
@@ -194,8 +240,14 @@ Matches pattern but excludes files in `AI/Tasks/` directory.
 
 ## CLI Commands
 
-### `status` - Show System Status
+### Show Orchestrator Status
 
+**Recommended:**
+```bash
+ai4pkm --orchestrator-status
+```
+
+**Legacy (still works):**
 ```bash
 python -m ai4pkm_cli.orchestrator_cli status
 ```
@@ -213,28 +265,39 @@ python -m ai4pkm_cli.orchestrator_cli status
 
 ---
 
-### `daemon` - Run Orchestrator
+### Run Orchestrator Daemon
 
+**Recommended:**
+```bash
+ai4pkm -o [OPTIONS]
+# or
+ai4pkm --orchestrator [OPTIONS]
+```
+
+**Legacy (still works):**
 ```bash
 python -m ai4pkm_cli.orchestrator_cli daemon [OPTIONS]
 ```
 
 **Options:**
-- `--max-concurrent N` or `-m N`: Set maximum concurrent executions (default: 3)
+- `--max-concurrent N`: Set maximum concurrent executions (default: 3)
 
-**Example:**
+**Examples:**
 ```bash
 # Standard mode
-python -m ai4pkm_cli.orchestrator_cli daemon
+ai4pkm -o
 
 # Higher concurrency for faster processing
+ai4pkm -o --max-concurrent 5
+
+# Or using legacy command
 python -m ai4pkm_cli.orchestrator_cli daemon -m 5
 ```
 
 **When running:**
 - Press `Ctrl+C` to stop gracefully
-- Check logs in `ai4pkm_vault/AI/Tasks/Logs/`
-- Task files created in `ai4pkm_vault/AI/Tasks/`
+- Check logs in `<vault>/_Settings_/Logs/`
+- Task files created in `<vault>/_Settings_/Tasks/`
 
 ### Real-Time Console Output
 
@@ -455,7 +518,7 @@ trigger_event: "created|modified"
 **Example debug:**
 ```bash
 # Run with verbose logging
-python -m ai4pkm_cli.orchestrator_cli daemon
+ai4pkm -o
 
 # Watch for:
 # "Agent Registry: matched [ABC] Agent Name" ✓
@@ -516,7 +579,7 @@ python -m pytest ai4pkm_cli/tests/unit/orchestrator/ -v
 **Test 1: Hashtag Detection**
 ```bash
 # Start orchestrator
-python -m ai4pkm_cli.orchestrator_cli daemon
+ai4pkm -o
 
 # In another terminal, create test file
 echo "Test content #AI" > ai4pkm_vault/test.md
@@ -636,7 +699,7 @@ Manual agents are invoked on-demand, not by file events.
 **Solution:**
 ```bash
 # Increase max concurrent executions
-python -m ai4pkm_cli.orchestrator_cli daemon --max-concurrent 5
+ai4pkm -o --max-concurrent 5
 
 # Or reduce agent processing time
 # Check if agents are timing out or hanging
@@ -662,5 +725,5 @@ logging.basicConfig(level=logging.DEBUG)
 
 ---
 
-*Last Updated: 2025-10-28*
-*Status: Phase 1 Complete - Orchestrator Working*
+*Last Updated: 2025-10-30*
+*Status: Phase 1 Complete - Orchestrator Working with Config Migration*

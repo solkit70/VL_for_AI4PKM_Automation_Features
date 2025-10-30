@@ -218,10 +218,10 @@ class Config:
         """Get orchestrator configuration."""
         return self.get('orchestrator', {
             'prompts_dir': '_Settings_/Prompts',
-            'tasks_dir': '_Tasks_',
-            'logs_dir': 'AI/Tasks/Logs',
-            'skills_dir': '_AI4PKM_/Skills',
-            'bases_dir': '_AI4PKM_/Bases',
+            'tasks_dir': '_Settings_/Tasks',
+            'logs_dir': '_Settings_/Logs',
+            'skills_dir': '_Settings_/Skills',
+            'bases_dir': '_Settings_/Bases',
             'max_concurrent': 3,
             'poll_interval': 1.0
         })
@@ -232,19 +232,19 @@ class Config:
 
     def get_orchestrator_tasks_dir(self) -> str:
         """Get orchestrator tasks directory."""
-        return self.get('orchestrator.tasks_dir', '_Tasks_')
+        return self.get('orchestrator.tasks_dir', '_Settings_/Tasks')
 
     def get_orchestrator_logs_dir(self) -> str:
         """Get orchestrator logs directory."""
-        return self.get('orchestrator.logs_dir', 'AI/Tasks/Logs')
+        return self.get('orchestrator.logs_dir', '_Settings_/Logs')
 
     def get_orchestrator_skills_dir(self) -> str:
         """Get orchestrator skills directory (future use)."""
-        return self.get('orchestrator.skills_dir', '_AI4PKM_/Skills')
+        return self.get('orchestrator.skills_dir', '_Settings_/Skills')
 
     def get_orchestrator_bases_dir(self) -> str:
         """Get orchestrator bases directory (future use)."""
-        return self.get('orchestrator.bases_dir', '_AI4PKM_/Bases')
+        return self.get('orchestrator.bases_dir', '_Settings_/Bases')
 
     def get_orchestrator_max_concurrent(self) -> int:
         """Get max concurrent executions."""

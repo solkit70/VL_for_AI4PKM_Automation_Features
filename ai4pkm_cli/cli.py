@@ -314,7 +314,7 @@ class PKMApp:
         self.console.print("⚠️  DEPRECATION WARNING: Task Management mode (KTG+KTP) is deprecated", style="bold yellow")
         self.console.print("   This system will be removed in a future version.", style="yellow")
         self.console.print("   Please migrate to the new orchestrator system:", style="yellow")
-        self.console.print("   → Use: ai4pkm --orchestrator", style="cyan")
+        self.console.print("   → Use: ai4pkm -o (or ai4pkm --orchestrator)", style="cyan")
         self.console.print("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md", style="cyan")
         self.console.print("=" * 80 + "\n", style="yellow")
 
@@ -758,7 +758,7 @@ class PKMApp:
             f'  [cyan]ai4pkm -a g -p "TKI"[/cyan]          Run prompt with specific agent'
         )
         self.console.print(
-            f"  [cyan]ai4pkm -t[/cyan]                     Start task management (KTG+KTP pipeline)"
+            f"  [cyan]ai4pkm -o[/cyan]                     Start orchestrator (multi-agent system)"
         )
         self.console.print(
             f"  [cyan]ai4pkm -c[/cyan]                     Start cron scheduler + web server"

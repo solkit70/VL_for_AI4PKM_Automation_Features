@@ -63,7 +63,12 @@ class Orchestrator:
 
         # Initialize components
         self.agent_registry = AgentRegistry(self.agents_dir, self.vault_path, self.config)
-        self.execution_manager = ExecutionManager(self.vault_path, self.max_concurrent, self.config)
+        self.execution_manager = ExecutionManager(
+            self.vault_path,
+            self.max_concurrent,
+            self.config,
+            orchestrator_settings=self.agent_registry.orchestrator_settings
+        )
         self.file_monitor = FileSystemMonitor(self.vault_path, self.agent_registry)
 
         # Control state
@@ -75,7 +80,8 @@ class Orchestrator:
 
     def _ensure_directories(self):
         """Create orchestrator directories if they don't exist."""
-        # Get all configured directories
+        # Get all configured directories from orchestrator_settings if available
+        # This method is called before agent_registry is initialized, so use config as fallback
         directories = [
             self.config.get_orchestrator_prompts_dir(),
             self.config.get_orchestrator_tasks_dir(),

@@ -114,13 +114,49 @@ class ExecutionManager:
 
         return True
 
-    def execute(self, agent: AgentDefinition, trigger_data: Dict) -> ExecutionContext:
+    def reserve_slot(self, agent: AgentDefinition) -> bool:
+        """
+        Atomically check if can execute and reserve a slot.
+
+        This prevents race conditions where multiple threads check can_execute()
+        before any of them increment the counters.
+
+        Args:
+            agent: Agent definition
+
+        Returns:
+            True if slot was reserved, False if at capacity
+        """
+        with self._count_lock:
+            # Check global limit
+            if self._running_count >= self.max_concurrent:
+                return False
+
+            # Reserve global slot immediately
+            self._running_count += 1
+
+        with self._agent_lock:
+            # Check per-agent limit
+            agent_count = self._agent_counts.get(agent.abbreviation, 0)
+            if agent_count >= agent.max_parallel:
+                # Release global slot since we can't reserve agent slot
+                with self._count_lock:
+                    self._running_count -= 1
+                return False
+
+            # Reserve agent slot immediately
+            self._agent_counts[agent.abbreviation] = agent_count + 1
+
+        return True
+
+    def execute(self, agent: AgentDefinition, trigger_data: Dict, slot_reserved: bool = False) -> ExecutionContext:
         """
         Execute an agent task.
 
         Args:
             agent: Agent definition to execute
             trigger_data: Data about the triggering event
+            slot_reserved: If True, slot was already reserved by reserve_slot()
 
         Returns:
             ExecutionContext with execution results
@@ -131,12 +167,13 @@ class ExecutionManager:
             start_time=datetime.now()
         )
 
-        # Increment counters
-        with self._count_lock:
-            self._running_count += 1
+        # Increment counters only if not already reserved
+        if not slot_reserved:
+            with self._count_lock:
+                self._running_count += 1
 
-        with self._agent_lock:
-            self._agent_counts[agent.abbreviation] = self._agent_counts.get(agent.abbreviation, 0) + 1
+            with self._agent_lock:
+                self._agent_counts[agent.abbreviation] = self._agent_counts.get(agent.abbreviation, 0) + 1
 
         with self._executions_lock:
             self._running_executions[ctx.execution_id] = ctx

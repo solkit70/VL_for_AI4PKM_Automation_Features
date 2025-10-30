@@ -194,8 +194,8 @@ class Orchestrator:
 
         # Execute each matching agent
         for agent in matching_agents:
-            # Check if we can execute (concurrency limits)
-            if not self.execution_manager.can_execute(agent):
+            # Try to reserve a slot atomically (prevents race conditions)
+            if not self.execution_manager.reserve_slot(agent):
                 # Create QUEUED task instead of dropping
                 import json
                 from datetime import datetime, date
@@ -242,24 +242,25 @@ class Orchestrator:
             # Print console notification
             print(f"▶️  Starting {agent.abbreviation}: {file_event.path}")
 
-            # Execute in background thread
+            # Execute in background thread (slot already reserved)
             execution_thread = threading.Thread(
                 target=self._execute_agent,
-                args=(agent, event_data),
+                args=(agent, event_data, True),  # slot_reserved=True
                 daemon=True
             )
             execution_thread.start()
 
-    def _execute_agent(self, agent, event_data):
+    def _execute_agent(self, agent, event_data, slot_reserved=False):
         """
         Execute an agent task.
 
         Args:
             agent: AgentDefinition to execute
             event_data: Event data dictionary
+            slot_reserved: Whether slot was already reserved
         """
         try:
-            ctx = self.execution_manager.execute(agent, event_data)
+            ctx = self.execution_manager.execute(agent, event_data, slot_reserved=slot_reserved)
 
             if ctx.success:
                 print(f"✅ {agent.abbreviation} completed ({ctx.duration:.1f}s)")
@@ -318,8 +319,8 @@ class Orchestrator:
                     logger.warning(f"Agent not found for QUEUED task: {agent_abbr}")
                     continue
 
-                # Check if we can execute now
-                if not self.execution_manager.can_execute(agent):
+                # Try to reserve a slot atomically
+                if not self.execution_manager.reserve_slot(agent):
                     break  # Still no capacity, wait for next iteration
 
                 # Reconstruct trigger data (unescape quotes)
@@ -327,19 +328,24 @@ class Orchestrator:
                     event_data = json.loads(trigger_data_json.replace('\\"', '"'))
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse trigger_data_json: {e}")
+                    # Release the reserved slot since we can't process this task
+                    with self.execution_manager._count_lock:
+                        self.execution_manager._running_count -= 1
+                    with self.execution_manager._agent_lock:
+                        self.execution_manager._agent_counts[agent.abbreviation] -= 1
                     continue
 
                 # Update task status from QUEUED to IN_PROGRESS
                 self.execution_manager.task_manager.update_task_status(task_path, "IN_PROGRESS")
 
-                # Execute agent
+                # Execute agent (slot already reserved)
                 event_path = event_data.get('path', '')
                 print(f"▶️  Starting queued {agent.abbreviation}: {event_path}")
                 logger.info(f"Starting queued task: {agent.abbreviation} for {event_path}")
 
                 execution_thread = threading.Thread(
                     target=self._execute_agent,
-                    args=(agent, event_data),
+                    args=(agent, event_data, True),  # slot_reserved=True
                     daemon=True
                 )
                 execution_thread.start()

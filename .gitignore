@@ -26,3 +26,4 @@ workspace.json
 .env.local
 .obsidian/plugins/recent-files-obsidian/data.json
 ai4pkm_cli/README_LOCAL.md
+ai4pkm_cli.json

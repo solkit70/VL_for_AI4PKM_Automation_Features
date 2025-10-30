@@ -21,9 +21,7 @@ nodes:
   # Generate Daily Roundup
   - type: agent
     name: Generate Daily Roundup (GDR)
-    input_path:
-      - AI/Articles
-      - Journal
+    cron: 0 1 * * * # 1AM every day
     output_path: AI/Roundup
 
   # Process Life Logs

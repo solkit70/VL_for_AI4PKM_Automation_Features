@@ -198,12 +198,21 @@ class Orchestrator:
             if not self.execution_manager.can_execute(agent):
                 # Create QUEUED task instead of dropping
                 import json
-                from datetime import datetime
+                from datetime import datetime, date
 
-                # Convert datetime to string for JSON serialization
-                event_data_serializable = event_data.copy()
-                if 'timestamp' in event_data_serializable and isinstance(event_data_serializable['timestamp'], datetime):
-                    event_data_serializable['timestamp'] = event_data_serializable['timestamp'].isoformat()
+                # Convert all date/datetime objects to strings for JSON serialization
+                def make_json_serializable(obj):
+                    """Recursively convert date/datetime objects to ISO strings."""
+                    if isinstance(obj, (datetime, date)):
+                        return obj.isoformat()
+                    elif isinstance(obj, dict):
+                        return {k: make_json_serializable(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [make_json_serializable(item) for item in obj]
+                    else:
+                        return obj
+
+                event_data_serializable = make_json_serializable(event_data)
 
                 # Serialize trigger data (escape quotes for YAML)
                 trigger_data_json = json.dumps(event_data_serializable).replace('"', '\\"')

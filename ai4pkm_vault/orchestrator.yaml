@@ -57,6 +57,7 @@ nodes:
       - MCP#gcal
     output_path: AI/Events
   
+  # Ad-hoc Research within PKM
   - type: agent
-    name: ARP
+    name: Ad-hoc Research within PKM (ARP)
     output_path: AI/Research

@@ -11,11 +11,14 @@ from ...config import Config
 class TaskRequestFileHandler(BaseFileHandler):
     """
     Handler for task request markdown files in AI/Tasks/Requests/{source}/.
-    
+
     Automatically triggers the KTG (Knowledge Task Generator) agent
     when new request files are created.
     """
-    
+
+    # Class-level flag to track if deprecation warning has been shown
+    _deprecation_warning_shown = False
+
     def __init__(self, logger=None, workspace_path=None):
         """
         Initialize the handler.
@@ -26,6 +29,17 @@ class TaskRequestFileHandler(BaseFileHandler):
         """
         super().__init__(logger, workspace_path)
         self.config = Config()
+
+        # Show deprecation warning once per session
+        if not TaskRequestFileHandler._deprecation_warning_shown:
+            self.logger.warning("=" * 80)
+            self.logger.warning("⚠️  DEPRECATION WARNING: KTG (Knowledge Task Generator) is deprecated")
+            self.logger.warning("   This system will be removed in a future version.")
+            self.logger.warning("   Please migrate to the new orchestrator system:")
+            self.logger.warning("   → Use: ai4pkm --orchestrator")
+            self.logger.warning("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
+            self.logger.warning("=" * 80)
+            TaskRequestFileHandler._deprecation_warning_shown = True
 
         # Get generation semaphore (separate from execution)
         from ..task_semaphore import get_generation_semaphore

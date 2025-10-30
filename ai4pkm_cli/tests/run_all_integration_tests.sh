@@ -5,8 +5,29 @@
 
 set -e  # Exit on error
 
+# Parse arguments
+USE_EXISTING_DAEMON=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --use-existing-daemon)
+            USE_EXISTING_DAEMON="--use-existing-daemon"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--use-existing-daemon]"
+            exit 1
+            ;;
+    esac
+done
+
 echo "╔════════════════════════════════════════════════════════════════════════════╗"
 echo "║           KTG/KTP/KTE Integration Test Suite                              ║"
+if [ -n "$USE_EXISTING_DAEMON" ]; then
+    echo "║           Mode: Using Existing Daemon                                      ║"
+else
+    echo "║           Mode: Start/Stop Daemon Per Test                                 ║"
+fi
 echo "╚════════════════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -19,20 +40,23 @@ echo ""
 cleanup_before_test() {
     echo "🧹 Cleaning up old test artifacts..."
 
-    # Kill any running watchdog processes
-    pkill -f "ai4pkm -t" 2>/dev/null || true
-    sleep 2
+    # Only kill daemon if we're managing it
+    if [ -z "$USE_EXISTING_DAEMON" ]; then
+        # Kill any running watchdog processes
+        pkill -f "ai4pkm -t" 2>/dev/null || true
+        sleep 2
+    fi
 
-    # Remove old task files from previous tests
-    rm -f "AI/Tasks/2025-10-17"*.md 2>/dev/null || true
-    rm -f "Ingest/Clippings/2025-10-17 Test"*.md 2>/dev/null || true
-    rm -f "Projects/2025-10-17 Test"*.md 2>/dev/null || true
-    rm -f "Ingest/Limitless/2025-10-17-test"*.md 2>/dev/null || true
+    # Remove old task files from previous tests (in ai4pkm_vault)
+    rm -f "ai4pkm_vault/AI/Tasks/2025-10-17"*.md 2>/dev/null || true
+    rm -f "ai4pkm_vault/Ingest/Clippings/2025-10-17 Test"*.md 2>/dev/null || true
+    rm -f "ai4pkm_vault/Projects/2025-10-17 Test"*.md 2>/dev/null || true
+    rm -f "ai4pkm_vault/Ingest/Limitless/2025-10-17-test"*.md 2>/dev/null || true
 
     # Remove old request files
-    rm -f "AI/Tasks/Requests/Clipping/2025-10-17"*.json 2>/dev/null || true
-    rm -f "AI/Tasks/Requests/Hashtag/2025-10-17"*.json 2>/dev/null || true
-    rm -f "AI/Tasks/Requests/Limitless/2025-10-17"*.json 2>/dev/null || true
+    rm -f "ai4pkm_vault/AI/Tasks/Requests/Clipping/2025-10-17"*.json 2>/dev/null || true
+    rm -f "ai4pkm_vault/AI/Tasks/Requests/Hashtag/2025-10-17"*.json 2>/dev/null || true
+    rm -f "ai4pkm_vault/AI/Tasks/Requests/Limitless/2025-10-17"*.json 2>/dev/null || true
 
     # Remove test logs
     rm -f ai4pkm_cli/tests/watchdog_*.log 2>/dev/null || true
@@ -52,8 +76,8 @@ run_test() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    # Run test with timeout
-    if timeout "$timeout" python "$test_file"; then
+    # Run test with timeout and optional flag
+    if timeout "$timeout" python "$test_file" $USE_EXISTING_DAEMON; then
         echo ""
         echo "   ✅ $test_name PASSED"
         echo ""

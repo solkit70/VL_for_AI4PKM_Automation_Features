@@ -1,0 +1,85 @@
+# AI4PKM Orchestrator Configuration
+# Centralized input/output routing for all agents
+version: "1.0"
+
+# Global defaults for all agents
+defaults:
+  executor: claude_code
+  timeout_minutes: 30
+  max_parallel: 3  # Allow 3 concurrent executions
+  task_create: true
+  task_priority: medium
+  task_archived: false
+
+# Agent input/output configuration
+# Agents are loaded from this list only (not scanned from _Settings_/Prompts)
+agents:
+  # Enrich Ingested Content
+  EIC:
+    input_path: Ingest/Clippings
+    input_type: new_file
+    output_path: AI/Articles
+    output_type: new_file
+
+  # Hashtag Task Creator
+  HTC:
+    input_path: ""  # Triggered by content pattern, not path
+    input_type: updated_file
+    output_path: _Settings_/Tasks
+    output_type: new_file
+    trigger_exclude_pattern: "_Settings_/*"
+    trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
+    post_process_action: remove_trigger_content
+    task_priority: high
+
+  # Generate Daily Roundup
+  GDR:
+    input_path:
+      - AI/Articles
+      - Journal
+    input_type: daily_files
+    input_range: daily
+    output_path: AI/Roundup
+    output_type: daily_file
+
+  # Process Life Logs
+  PLL:
+    input_path: Ingest/Limitless
+    input_type: daily_files
+    output_path: AI/Lifelog
+    output_type: daily_file
+
+  # Create Thread Postings
+  CTP:
+    input_path:
+      - AI/Articles
+      - AI/Roundup
+      - AI/Research
+    input_type: new_file
+    output_path: AI/Sharable
+    output_type: new_files
+
+  # Pick and Process Photos
+  PPP:
+    input_path:
+      - Ingest/Photolog/Processed/
+    input_type: daily_files
+    input_pattern: "*.{jpg,jpeg,png,yaml}"
+    output_path: Ingest/Photolog
+    output_type: daily_file
+
+  # Generate Event Summary
+  GES:
+    input_path:
+      - Ingest/Limitless
+      - MCP#gcal
+    input_type: updated_file
+    output_path: AI/Events
+    output_type: new_file
+
+  # Ad-hoc Research within PKM
+  ARP:
+    input_path: null  # Manual invocation only
+    input_type: manual
+    output_path: AI/Research
+    output_type: new_file

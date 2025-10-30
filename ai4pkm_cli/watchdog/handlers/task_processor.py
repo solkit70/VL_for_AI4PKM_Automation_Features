@@ -12,11 +12,14 @@ from ..task_semaphore import get_task_semaphore
 class TaskProcessor(BaseFileHandler):
     """
     Handler for task files in AI/Tasks/ with TBD status.
-    
+
     Automatically triggers the KTP (Knowledge Task Processor) execution
     when a task's status is TBD.
     """
-    
+
+    # Class-level flag to track if deprecation warning has been shown
+    _deprecation_warning_shown = False
+
     def __init__(self, logger=None, workspace_path=None):
         """
         Initialize the handler.
@@ -28,6 +31,17 @@ class TaskProcessor(BaseFileHandler):
         super().__init__(logger, workspace_path)
         self.processed_cache = {}  # Track processed files to avoid duplicates
         self.cache_lock = threading.Lock()  # Protect cache from race conditions
+
+        # Show deprecation warning once per session
+        if not TaskProcessor._deprecation_warning_shown:
+            self.logger.warning("=" * 80)
+            self.logger.warning("⚠️  DEPRECATION WARNING: KTP Task Processor is deprecated")
+            self.logger.warning("   This system will be removed in a future version.")
+            self.logger.warning("   Please migrate to the new orchestrator system:")
+            self.logger.warning("   → Use: ai4pkm --orchestrator")
+            self.logger.warning("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md")
+            self.logger.warning("=" * 80)
+            TaskProcessor._deprecation_warning_shown = True
 
         # Ensure AI/Tasks directory exists
         tasks_dir = os.path.join(self.workspace_path, "AI", "Tasks")

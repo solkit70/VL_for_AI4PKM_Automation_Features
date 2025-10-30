@@ -1,8 +1,7 @@
 ---
-title: "Generate Daily Roundup"
-abbreviation: "GDR"
-category: "workflow"
-created: "2024-01-01"
+title: Generate Daily Roundup (GDR)
+abbreviation: GDR
+category: research
 ---
 
 Generate comprehensive daily summaries integrating multiple sources with quote mining and topic linking.

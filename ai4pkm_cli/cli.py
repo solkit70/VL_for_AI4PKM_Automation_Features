@@ -308,7 +308,16 @@ class PKMApp:
     def run_task_management(self):
         """Run continuous task management (full KTG+KTP pipeline)."""
         self.running = True
-        
+
+        # Show deprecation warning
+        self.console.print("\n" + "=" * 80, style="yellow")
+        self.console.print("⚠️  DEPRECATION WARNING: Task Management mode (KTG+KTP) is deprecated", style="bold yellow")
+        self.console.print("   This system will be removed in a future version.", style="yellow")
+        self.console.print("   Please migrate to the new orchestrator system:", style="yellow")
+        self.console.print("   → Use: ai4pkm --orchestrator", style="cyan")
+        self.console.print("   → Migration guide: docs/_specs/2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code.md", style="cyan")
+        self.console.print("=" * 80 + "\n", style="yellow")
+
         # Display welcome message for task management mode
         welcome_text = Text()
         welcome_text.append(

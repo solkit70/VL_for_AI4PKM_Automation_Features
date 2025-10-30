@@ -212,3 +212,44 @@ class Config:
         """Get agent used for task generation (KTG)."""
         # Fall back to default agent if not specified
         return self.get('task_management.generation_agent', self.get_agent())
+
+    # Orchestrator configuration
+    def get_orchestrator_config(self) -> Dict[str, Any]:
+        """Get orchestrator configuration."""
+        return self.get('orchestrator', {
+            'prompts_dir': '_Settings_/Prompts',
+            'tasks_dir': '_Tasks_',
+            'logs_dir': 'AI/Tasks/Logs',
+            'skills_dir': '_AI4PKM_/Skills',
+            'bases_dir': '_AI4PKM_/Bases',
+            'max_concurrent': 3,
+            'poll_interval': 1.0
+        })
+
+    def get_orchestrator_prompts_dir(self) -> str:
+        """Get orchestrator prompts directory."""
+        return self.get('orchestrator.prompts_dir', '_Settings_/Prompts')
+
+    def get_orchestrator_tasks_dir(self) -> str:
+        """Get orchestrator tasks directory."""
+        return self.get('orchestrator.tasks_dir', '_Tasks_')
+
+    def get_orchestrator_logs_dir(self) -> str:
+        """Get orchestrator logs directory."""
+        return self.get('orchestrator.logs_dir', 'AI/Tasks/Logs')
+
+    def get_orchestrator_skills_dir(self) -> str:
+        """Get orchestrator skills directory (future use)."""
+        return self.get('orchestrator.skills_dir', '_AI4PKM_/Skills')
+
+    def get_orchestrator_bases_dir(self) -> str:
+        """Get orchestrator bases directory (future use)."""
+        return self.get('orchestrator.bases_dir', '_AI4PKM_/Bases')
+
+    def get_orchestrator_max_concurrent(self) -> int:
+        """Get max concurrent executions."""
+        return self.get('orchestrator.max_concurrent', 3)
+
+    def get_orchestrator_poll_interval(self) -> float:
+        """Get event queue poll interval."""
+        return self.get('orchestrator.poll_interval', 1.0)

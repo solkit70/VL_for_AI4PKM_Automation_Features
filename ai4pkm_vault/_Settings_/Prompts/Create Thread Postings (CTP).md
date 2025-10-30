@@ -1,10 +1,8 @@
 ---
-title: "Create Thread Postings"
-abbreviation: "CTP"
-category: "creation"
-created: "2024-01-01"
+title: Create Thread Postings (CTP)
+abbreviation: CTP
+category: publish
 ---
-
 Generate social media thread candidates from personal content within specified date ranges.
 
 ## Input

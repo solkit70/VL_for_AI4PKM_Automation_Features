@@ -1,0 +1,112 @@
+{
+  "default-agent": "claude_code",
+  "agents-config": {
+    "claude_code": {
+      "permission_mode": "bypassPermissions"
+    },
+    "gemini_cli": {
+      "command": "gemini"
+    },
+    "codex_cli": {
+      "command": "codex"
+    }
+  },
+  "gobi_sync": {
+    "local_timezone": "America/Los_Angeles",
+    "api_base_url": "https://api.joingobi.com/api",
+    "output_dir": "Ingest/Gobi"
+  },
+  "gobi_sync_by_tags": {
+    "local_timezone": "America/Los_Angeles",
+    "api_base_url": "https://api.joingobi.com/api",
+    "output_dir": "Ingest/GobiByTags"
+  },
+  "limitless_sync": {
+    "local_timezone": "America/Los_Angeles",
+    "api_base_url": "https://api.limitless.ai/v1",
+    "output_dir": "Ingest/Limitless",
+    "start_days_ago": 7
+  },
+  "photo_processing": {
+    "source_folder": "Ingest/Photolog/Original/",
+    "destination_folder": "Ingest/Photolog/Processed/",
+    "albums": [
+      "AI4PKM"
+    ],
+    "days": 1
+  },
+  "notes_processing": {
+    "destination_folder": "Ingest/Apple Notes/",
+    "days": 7
+  },
+  "web_api": {
+      "port": 8000
+  },
+  "task_management": {
+    "max_concurrent": 1,
+    "generation_agent": "claude_code",
+    "processing_agent": {
+      "EIC": "claude_code",
+      "Writing": "claude_code",
+      "default": "claude_code"
+    },
+    "evaluation_agent": "claude_code",
+    "timeout_minutes": 30,
+    "max_retries": 2,
+    "polling_interval": 30
+  },
+  "orchestrator": {
+    "prompts_dir": "_Settings_/Prompts",
+    "tasks_dir": "_Tasks_",
+    "logs_dir": "AI/Tasks/Logs",
+    "skills_dir": "_AI4PKM_/Skills",
+    "bases_dir": "_AI4PKM_/Bases",
+    "max_concurrent": 3,
+    "poll_interval": 1.0
+  },
+  "cron_jobs": [
+    {
+      "inline_prompt": "CKU for hourly run",
+      "cron": "0 * * * *",
+      "description": "Regularly run tasks for keeping knowledge base clean every hour",
+      "agent": "claude_code",
+      "enabled": false
+    },
+    {
+      "inline_prompt": "DIR for today",
+      "cron": "0 21 * * *",
+      "description": "Daily ingestion and processing of contents into daily roundup at 9 PM",
+      "enabled": true
+    },
+    {
+      "inline_prompt": "WRP for this week",
+      "cron": "0 12 * * 0",
+      "description": "Weekly review of knowledge base every Sunday at 12 PM",
+      "enabled": true
+    },
+    {
+      "command": "process_photos",
+      "cron": "0 * * * *",
+      "description": "Regularly sync and process photos from iCloud",
+      "enabled": true
+    },
+    {
+      "command": "process_notes",
+      "cron": "15 * * * *",
+      "description": "Regularly sync and process notes from Apple Notes",
+      "enabled": true
+    },
+    {
+      "command": "sync-limitless",
+      "cron": "*/30 * * * *",
+      "description": "Automatically sync Limitless data every 30 minutes",
+      "enabled": false
+    },
+    {
+      "command": "sync-gobi",
+      "cron": "* * * * *",
+      "description": "Automatically sync Gobi data every 30 minutes",
+      "enabled": false
+    }
+  ]
+}

@@ -1,8 +1,7 @@
 ---
-title: "Process Life Logs"
-abbreviation: "PLL"
-category: "workflow"
-created: "2024-01-01"
+title: Process Life Logs (PLL)
+abbreviation: PLL
+category: ingestion
 ---
 
 Summarize voice-based life logs into structured daily summaries with accurate linking and photo integration.

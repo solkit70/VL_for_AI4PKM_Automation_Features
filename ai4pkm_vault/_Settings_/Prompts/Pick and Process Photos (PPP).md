@@ -1,10 +1,8 @@
 ---
-title: "Pick and Process Photos"
-abbreviation: "PPP"
-category: "workflow"
-created: "2024-01-01"
+title: Pick and Process Photos (PPP)
+abbreviation: PPP
+category: ingestion
 ---
-
 Process and curate daily photos into organized photologs with quality filtering and accurate timestamping.
 
 ## Input

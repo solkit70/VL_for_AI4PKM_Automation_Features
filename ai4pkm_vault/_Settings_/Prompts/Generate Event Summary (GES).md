@@ -1,10 +1,8 @@
 ---
-title: "Generate Event Summary"
-abbreviation: "GES"
-category: "workflow"
-created: "2024-01-01"
+title: Generate Event Summary (GES)
+abbreviation: GES
+category: ingestion
 ---
-
 Summarize meeting/event content from voice transcriptions with calendar integration.
 
 ## Input

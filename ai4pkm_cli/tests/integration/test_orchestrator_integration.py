@@ -46,6 +46,7 @@ Process the input file and create output.
 
             yield vault_path, agents_dir, test_dir
 
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
     @patch('subprocess.run')
     def test_full_workflow_file_creation_triggers_agent(self, mock_run, temp_vault_with_agent):
         """Test complete workflow: file creation -> agent trigger -> execution."""
@@ -93,6 +94,7 @@ This is a test document.
             orch.stop()
             assert orch._running is False
 
+    @patch('ai4pkm_cli.orchestrator.execution_manager.CLAUDE_CLI_PATH', '/mock/claude')
     @patch('subprocess.run')
     def test_non_matching_file_does_not_trigger_agent(self, mock_run, temp_vault_with_agent):
         """Test that files outside trigger pattern are ignored."""

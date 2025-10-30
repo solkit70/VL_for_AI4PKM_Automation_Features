@@ -1,8 +1,27 @@
 ---
-title: Enrich Ingested Content (EIC)
-abbreviation: EIC
-category: ingestion
+title: "EIC - 2025-10-29 How My Company Turned a Data Crisis Into an AI-native Rebirth"
+created: 2025-10-29T16:12:45.078208
+archived: false
+worker: "claude_code"
+status: "PROCESSED"
+priority: "medium"
+output: "[[Ingest/Clippings/2025-10-29 How My Company Turned a Data Crisis Into an AI-native Rebirth.md]]"
+task_type: "EIC"
+generation_log: "[[_Settings_/Logs/2025-10-29-161245-EIC]]"
 ---
+
+## Input
+
+Target file: `[[Ingest/Clippings/2025-10-29 How My Company Turned a Data Crisis Into an AI-native Rebirth.md]]`
+
+Created file event triggered Enrich Ingested Content (EIC) processing.
+
+## Output
+
+Enrich Ingested Content (EIC) will update this section with output information.
+
+## Instructions
+
 Improve captured content through transcript correction, summarization, and knowledge linking.
 
 ## Input
@@ -77,3 +96,9 @@ Improve captured content through transcript correction, summarization, and knowl
 - Limit highlights to essence (one per chapter)
 - Preserve original prose structure
 - Overall length should equal original
+
+
+## Process Log
+
+## Evaluation Log
+

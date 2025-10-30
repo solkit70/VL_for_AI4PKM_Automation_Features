@@ -66,36 +66,41 @@ class AgentRegistry:
 
     def load_all_agents(self):
         """
-        Load agents from orchestrator.yaml only.
+        Load agents from orchestrator.yaml nodes list.
 
-        Agents are loaded based on the list in orchestrator.yaml, not by scanning
-        the prompts directory. This makes orchestrator.yaml the single source of
-        truth for which agents are active.
+        Agents are loaded based on the 'nodes' list in orchestrator.yaml.
+        orchestrator.yaml is the single source of truth for all configuration.
         """
-        yaml_agents = self.orchestrator_config.get('agents', {})
+        nodes = self.orchestrator_config.get('nodes', [])
 
-        if not yaml_agents:
-            logger.warning("No agents defined in orchestrator.yaml")
+        if not nodes:
+            logger.warning("No nodes defined in orchestrator.yaml")
             return
 
-        logger.info(f"Loading {len(yaml_agents)} agents from orchestrator.yaml")
+        # Filter for agent nodes
+        agent_nodes = [n for n in nodes if n.get('type') == 'agent']
+        logger.info(f"Loading {len(agent_nodes)} agents from orchestrator.yaml")
 
-        for abbr in yaml_agents.keys():
+        for node in agent_nodes:
             try:
-                # Construct expected prompt file path from abbreviation
-                # Pattern: "{Full Name} ({ABBR}).md"
-                # We'll search for files matching the abbreviation pattern
+                # Extract abbreviation from name field: "Name (ABBR)"
+                abbr = self._extract_abbreviation(node.get('name', ''))
+                if not abbr:
+                    logger.warning(f"Cannot extract abbreviation from: {node.get('name')}")
+                    continue
+
+                # Find prompt file by abbreviation
                 agent_file = self._find_agent_prompt_file(abbr)
 
                 if agent_file:
-                    agent = self._load_agent(agent_file)
+                    agent = self._load_agent(agent_file, node)
                     if agent:
                         self.agents[agent.abbreviation] = agent
                         logger.info(f"Loaded agent: {agent.abbreviation} ({agent.name})")
                 else:
                     logger.warning(f"No prompt file found for agent: {abbr}")
             except Exception as e:
-                logger.error(f"Error loading agent {abbr}: {e}")
+                logger.error(f"Error loading agent from node: {e}")
 
         logger.info(f"Total agents loaded: {len(self.agents)}")
 
@@ -129,6 +134,21 @@ class AgentRegistry:
 
         return matching_files[0]
 
+    def _extract_abbreviation(self, name: str) -> Optional[str]:
+        """
+        Extract abbreviation from agent name.
+
+        Expects format: "Full Name (ABBR)"
+
+        Args:
+            name: Agent name string
+
+        Returns:
+            Abbreviation string, or None if not found
+        """
+        match = re.search(r'\(([A-Z]{3,4})\)$', name)
+        return match.group(1) if match else None
+
     def _load_orchestrator_yaml(self, yaml_path: Path) -> dict:
         """
         Load centralized orchestrator configuration from YAML file.
@@ -160,12 +180,13 @@ class AgentRegistry:
             logger.error(f"Failed to load orchestrator.yaml: {e}")
             return {'agents': {}, 'defaults': {}}
 
-    def _load_agent(self, file_path: Path) -> Optional[AgentDefinition]:
+    def _load_agent(self, file_path: Path, node: dict) -> Optional[AgentDefinition]:
         """
-        Load a single agent definition from file.
+        Load a single agent definition from file and node config.
 
         Args:
-            file_path: Path to agent definition file
+            file_path: Path to agent prompt file
+            node: Node configuration from orchestrator.yaml
 
         Returns:
             AgentDefinition instance or None if invalid
@@ -175,8 +196,8 @@ class AgentRegistry:
             logger.warning(f"No frontmatter found in {file_path}")
             return None
 
-        # Validate required fields (basic check)
-        # Note: input_path and input_type moved to orchestrator.yaml
+        # Only validate basic metadata from frontmatter
+        # All configuration comes from orchestrator.yaml node
         required = ['title', 'abbreviation', 'category']
         for field in required:
             if field not in frontmatter:
@@ -186,15 +207,11 @@ class AgentRegistry:
         # Extract prompt body
         prompt_body = extract_body(file_path.read_text(encoding='utf-8'))
 
-        # Get agent abbreviation for looking up orchestrator config
-        abbr = frontmatter['abbreviation']
-
-        # Get input/output configuration from orchestrator.yaml
-        agent_config = self.orchestrator_config.get('agents', {}).get(abbr, {})
+        # Get defaults from orchestrator config
         defaults = self.orchestrator_config.get('defaults', {})
 
-        # Extract input_path from orchestrator config
-        input_path = agent_config.get('input_path', [])
+        # Extract input_path from node config (orchestrator.yaml only source)
+        input_path = node.get('input_path', [])
 
         # Handle null input_path (for manual agents)
         if input_path is None or input_path == 'null':
@@ -202,59 +219,44 @@ class AgentRegistry:
         elif isinstance(input_path, str):
             input_path = [input_path] if input_path else []
 
-        # Get input/output types from orchestrator config
-        input_type = agent_config.get('input_type', 'new_file')
-        output_path = agent_config.get('output_path', '')
-        output_type = agent_config.get('output_type', 'new_file')
-        input_pattern = agent_config.get('input_pattern')
+        # Get input/output types from node config with defaults
+        # Infer input_type if not specified
+        input_type = node.get('input_type')
+        if not input_type:
+            # Infer from input_path: empty = manual, otherwise = new_file
+            input_type = 'manual' if not input_path else 'new_file'
 
-        # Derive trigger_pattern and trigger_event if not specified
-        trigger_pattern = frontmatter.get('trigger_pattern')
-        trigger_event = frontmatter.get('trigger_event')
+        output_path = node.get('output_path', '')
+        output_type = node.get('output_type', 'new_file')
+        input_pattern = node.get('input_pattern')
 
-        if not trigger_pattern or not trigger_event:
-            trigger_pattern, trigger_event = self._derive_trigger_from_input(
-                input_path,
-                input_type,
-                input_pattern
-            )
+        # Derive trigger_pattern and trigger_event
+        trigger_pattern, trigger_event = self._derive_trigger_from_input(
+            input_path,
+            input_type,
+            input_pattern
+        )
 
-        skills = frontmatter.get('skills', [])
+        # Get skills and mcp_servers from node (if specified)
+        skills = node.get('skills', [])
         if isinstance(skills, str):
             skills = [skills]
 
-        mcp_servers = frontmatter.get('mcp_servers', [])
+        mcp_servers = node.get('mcp_servers', [])
         if isinstance(mcp_servers, str):
             mcp_servers = [mcp_servers]
 
-        trigger_wait_for = frontmatter.get('trigger_wait_for', [])
+        trigger_wait_for = node.get('trigger_wait_for', [])
         if isinstance(trigger_wait_for, str):
             trigger_wait_for = [trigger_wait_for]
 
-        # Apply defaults with frontmatter override for execution settings
-        executor = frontmatter.get('executor',
-                   agent_config.get('executor',
-                   defaults.get('executor', 'claude_code')))
-
-        max_parallel = int(frontmatter.get('max_parallel',
-                       agent_config.get('max_parallel',
-                       defaults.get('max_parallel', 1))))
-
-        timeout_minutes = int(frontmatter.get('timeout_minutes',
-                           agent_config.get('timeout_minutes',
-                           defaults.get('timeout_minutes', 30))))
-
-        task_create = frontmatter.get('task_create',
-                      agent_config.get('task_create',
-                      defaults.get('task_create', True)))
-
-        task_priority = frontmatter.get('task_priority',
-                        agent_config.get('task_priority',
-                        defaults.get('task_priority', 'medium')))
-
-        task_archived = frontmatter.get('task_archived',
-                        agent_config.get('task_archived',
-                        defaults.get('task_archived', False)))
+        # Apply node config with defaults (orchestrator.yaml is only source)
+        executor = node.get('executor', defaults.get('executor', 'claude_code'))
+        max_parallel = int(node.get('max_parallel', defaults.get('max_parallel', 1)))
+        timeout_minutes = int(node.get('timeout_minutes', defaults.get('timeout_minutes', 30)))
+        task_create = node.get('task_create', defaults.get('task_create', True))
+        task_priority = node.get('task_priority', defaults.get('task_priority', 'medium'))
+        task_archived = node.get('task_archived', defaults.get('task_archived', False))
 
         agent = AgentDefinition(
             name=frontmatter['title'],
@@ -262,29 +264,29 @@ class AgentRegistry:
             category=frontmatter['category'],
             trigger_pattern=trigger_pattern,
             trigger_event=trigger_event,
-            trigger_exclude_pattern=frontmatter.get('trigger_exclude_pattern'),
-            trigger_content_pattern=frontmatter.get('trigger_content_pattern'),
-            trigger_schedule=frontmatter.get('trigger_schedule'),
+            trigger_exclude_pattern=node.get('trigger_exclude_pattern'),
+            trigger_content_pattern=node.get('trigger_content_pattern'),
+            trigger_schedule=node.get('trigger_schedule'),
             trigger_wait_for=trigger_wait_for,
             input_path=input_path,
             input_type=input_type,
             output_path=output_path,
             output_type=output_type,
-            output_naming=frontmatter.get('output_naming', '{title} - {agent}.md'),
+            output_naming=node.get('output_naming', '{title} - {agent}.md'),
             prompt_body=prompt_body,
             skills=skills,
             mcp_servers=mcp_servers,
             executor=executor,
             max_parallel=max_parallel,
             timeout_minutes=timeout_minutes,
-            log_prefix=frontmatter.get('log_prefix', frontmatter['abbreviation']),
-            log_pattern=frontmatter.get('log_pattern', '{timestamp}-{agent}.log'),
-            post_process_action=frontmatter.get('post_process_action'),
+            log_prefix=node.get('log_prefix', frontmatter['abbreviation']),
+            log_pattern=node.get('log_pattern', '{timestamp}-{agent}.log'),
+            post_process_action=node.get('post_process_action'),
             task_create=task_create,
             task_priority=task_priority,
             task_archived=task_archived,
             file_path=file_path,
-            version=frontmatter.get('version', '1.0')
+            version=node.get('version', '1.0')
         )
 
         return agent

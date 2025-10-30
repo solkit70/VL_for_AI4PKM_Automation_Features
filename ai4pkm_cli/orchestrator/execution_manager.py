@@ -60,7 +60,7 @@ class ExecutionManager:
     Each agent can specify max_parallel limit.
     """
 
-    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None):
+    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None):
         """
         Initialize execution manager.
 
@@ -68,6 +68,7 @@ class ExecutionManager:
             vault_path: Path to vault root
             max_concurrent: Maximum concurrent executions across all agents
             config: Config instance (will create default if None)
+            orchestrator_settings: Orchestrator settings from YAML (optional)
         """
         from ..config import Config
 
@@ -89,7 +90,7 @@ class ExecutionManager:
 
         # Task file manager
         from .task_manager import TaskFileManager
-        self.task_manager = TaskFileManager(vault_path, config=self.config)
+        self.task_manager = TaskFileManager(vault_path, config=self.config, orchestrator_settings=orchestrator_settings)
 
     def can_execute(self, agent: AgentDefinition) -> bool:
         """

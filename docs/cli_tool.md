@@ -123,7 +123,37 @@ This will:
 - Show execution time and results
 - Useful for debugging scheduled tasks
 
-### 6. Task Management Mode
+### 6. Orchestrator Mode (Recommended)
+
+Start the new multi-agent orchestrator system for automated knowledge workflows:
+
+```bash
+ai4pkm -o
+# or
+ai4pkm --orchestrator
+```
+
+**What it does:**
+- Monitors vault files for changes and triggers configured agents
+- Runs multiple agents in parallel with concurrency control
+- Config-driven agent definitions in Markdown files
+- Real-time status updates and logging
+- Better architecture than legacy Task Management mode
+
+**Quick Status Check:**
+```bash
+ai4pkm --orchestrator-status
+```
+
+**See Also:**
+- [Orchestrator User Guide](/_specs/2025-10-27%20Orchestrator%20User%20Guide) - Detailed documentation
+- [Orchestrator Design](/_specs/2025-10-25%20Orchestrator%20Detailed%20Design) - Technical architecture
+
+---
+
+### 7. Task Management Mode (Deprecated)
+
+⚠️ **Note**: This mode is deprecated. Please use the new Orchestrator mode (`ai4pkm -o`) instead.
 
 Start the on-demand task processing system for real-time knowledge task execution:
 
@@ -169,7 +199,9 @@ Task routing is defined in `ai4pkm_cli.json`:
 - [On-demand Knowledge Task Processing]({% post_url 2025-10-20-on-demand-knowledge-task %}) - Detailed blog post
 - [README_KTM.md](https://github.com/jykim/AI4PKM/blob/main/README_KTM.md) - Technical implementation
 
-### 7. AI Agent Management
+---
+
+### 8. AI Agent Management
 
 The CLI supports multiple AI agents. Manage them using these commands:
 
@@ -204,6 +236,40 @@ ai4pkm -a codex   # Codex
 The system automatically falls back to available agents if the selected one is not configured.
 
 ## Configuration
+
+### Orchestrator Configuration (orchestrator.yaml)
+
+The new multi-agent orchestrator uses vault-specific configuration in `orchestrator.yaml`:
+
+```yaml
+# Orchestrator runtime settings
+orchestrator:
+  prompts_dir: "_Settings_/Prompts"
+  tasks_dir: "_Settings_/Tasks"
+  logs_dir: "_Settings_/Logs"
+  skills_dir: "_Settings_/Skills"
+  bases_dir: "_Settings_/Bases"
+  max_concurrent: 3
+  poll_interval: 1.0
+
+# Agent nodes
+nodes:
+  - type: agent
+    name: Enrich Ingested Content (EIC)
+    input_path: Ingest/Clippings
+    output_path: AI/Articles
+    # ... more agent config
+```
+
+**Key Settings:**
+- `orchestrator.tasks_dir`: Where task tracking files are created
+- `orchestrator.logs_dir`: Where execution logs are written
+- `orchestrator.max_concurrent`: Max parallel agent executions
+- `nodes`: List of agent definitions with triggers and routing
+
+See [Orchestrator User Guide](/_specs/2025-10-27%20Orchestrator%20User%20Guide) for full configuration options.
+
+---
 
 ### AI Agent Configuration
 

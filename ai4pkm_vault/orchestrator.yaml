@@ -2,6 +2,16 @@
 # Centralized input/output routing for all agents
 version: "1.0"
 
+# Orchestrator runtime settings
+orchestrator:
+  prompts_dir: "_Settings_/Prompts"
+  tasks_dir: "_Settings_/Tasks"
+  logs_dir: "_Settings_/Logs"
+  skills_dir: "_Settings_/Skills"
+  bases_dir: "_Settings_/Bases"
+  max_concurrent: 3
+  poll_interval: 1.0
+
 # Global defaults for all agents
 defaults:
   executor: claude_code

@@ -62,6 +62,9 @@ class AgentRegistry:
         orchestrator_yaml_path = vault_path / "orchestrator.yaml"
         self.orchestrator_config = self._load_orchestrator_yaml(orchestrator_yaml_path)
 
+        # Extract orchestrator runtime settings from YAML
+        self.orchestrator_settings = self.orchestrator_config.get('orchestrator', {})
+
         self.load_all_agents()
 
     def load_all_agents(self):
@@ -486,3 +489,16 @@ class AgentRegistry:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(json.dumps(config, indent=2), encoding='utf-8')
         logger.info(f"Agent configuration snapshot saved to {output_path}")
+
+    def get_orchestrator_setting(self, key: str, default=None):
+        """
+        Get orchestrator runtime setting from YAML config.
+
+        Args:
+            key: Setting key (e.g., 'tasks_dir', 'max_concurrent')
+            default: Default value if not found
+
+        Returns:
+            Setting value or default
+        """
+        return self.orchestrator_settings.get(key, default)

@@ -16,21 +16,27 @@ logger = logging.getLogger(__name__)
 class TaskFileManager:
     """Manages task file creation and updates."""
 
-    def __init__(self, vault_path: Path, config: Optional['Config'] = None):
+    def __init__(self, vault_path: Path, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None):
         """
         Initialize task file manager.
 
         Args:
             vault_path: Path to vault root
             config: Config instance (will create default if None)
+            orchestrator_settings: Orchestrator settings from YAML (optional, overrides config)
         """
         from ..config import Config
 
         self.vault_path = Path(vault_path)
         self.config = config or Config()
+        self.orchestrator_settings = orchestrator_settings or {}
 
-        # Get tasks directory from config
-        tasks_dir = self.config.get_orchestrator_tasks_dir()
+        # Get tasks directory from orchestrator settings or fallback to config
+        if orchestrator_settings and 'tasks_dir' in orchestrator_settings:
+            tasks_dir = orchestrator_settings['tasks_dir']
+        else:
+            tasks_dir = self.config.get_orchestrator_tasks_dir()
+
         self.tasks_dir = self.vault_path / tasks_dir
         self.tasks_dir.mkdir(parents=True, exist_ok=True)
 

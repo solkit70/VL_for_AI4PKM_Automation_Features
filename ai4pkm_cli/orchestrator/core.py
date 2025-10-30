@@ -13,7 +13,7 @@ from queue import Empty
 from .file_monitor import FileSystemMonitor
 from .agent_registry import AgentRegistry
 from .execution_manager import ExecutionManager
-from .models import FileEvent
+from .models import FileEvent, ExecutionContext
 
 logger = logging.getLogger(__name__)
 

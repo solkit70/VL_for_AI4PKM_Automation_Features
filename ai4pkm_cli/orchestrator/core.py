@@ -156,6 +156,9 @@ class Orchestrator:
                 # Process event
                 self._process_event(file_event)
 
+                # Check for queued tasks after processing event
+                self._process_queued_tasks()
+
             except Exception as e:
                 logger.error(f"Error in event loop: {e}", exc_info=True)
                 time.sleep(self.poll_interval)
@@ -193,13 +196,33 @@ class Orchestrator:
         for agent in matching_agents:
             # Check if we can execute (concurrency limits)
             if not self.execution_manager.can_execute(agent):
-                print(f"⏸️  Cannot execute {agent.abbreviation}: concurrency limit reached")
-                logger.warning(
-                    f"Cannot execute {agent.abbreviation}: "
-                    f"concurrency limit reached (global={self.execution_manager.get_running_count()}, "
-                    f"agent={self.execution_manager.get_agent_running_count(agent.abbreviation)})"
+                # Create QUEUED task instead of dropping
+                import json
+                from datetime import datetime
+
+                # Serialize trigger data (escape quotes for YAML)
+                trigger_data_json = json.dumps(event_data).replace('"', '\\"')
+
+                # Create minimal context for task file creation
+                ctx = ExecutionContext(
+                    agent=agent,
+                    trigger_data=event_data,
+                    start_time=datetime.now()
                 )
-                # TODO: Queue for later execution
+
+                # Prepare log path
+                log_path = self.execution_manager._prepare_log_path(agent, ctx)
+                ctx.log_file = log_path
+
+                # Create QUEUED task
+                self.execution_manager.task_manager.create_task_file(
+                    ctx, agent,
+                    initial_status="QUEUED",
+                    trigger_data_json=trigger_data_json
+                )
+
+                print(f"⏳ Queued {agent.abbreviation}: concurrency limit reached")
+                logger.info(f"Queued {agent.abbreviation}: will process when slot available")
                 continue
 
             # Print console notification
@@ -244,6 +267,74 @@ class Orchestrator:
         except Exception as e:
             print(f"❌ {agent.abbreviation} error: {e}")
             logger.error(f"Unexpected error executing {agent.abbreviation}: {e}", exc_info=True)
+
+    def _process_queued_tasks(self):
+        """
+        Process any QUEUED tasks if capacity is available.
+
+        Checks task files for QUEUED status and executes them when slots free up.
+        Only processes one task per iteration to avoid thundering herd.
+        """
+        import json
+        from ..markdown_utils import read_frontmatter
+
+        try:
+            # Find all task files (sorted for FIFO ordering)
+            task_files = sorted(self.execution_manager.task_manager.tasks_dir.glob("*.md"))
+
+            for task_path in task_files:
+                # Parse frontmatter using existing utils
+                fm = read_frontmatter(task_path)
+
+                # Skip non-queued tasks
+                if fm.get('status') != 'QUEUED':
+                    continue
+
+                # Extract agent abbreviation and trigger data
+                agent_abbr = fm.get('task_type')
+                trigger_data_json = fm.get('trigger_data_json')
+
+                if not agent_abbr or not trigger_data_json:
+                    logger.warning(f"Malformed QUEUED task: {task_path.name}")
+                    continue
+
+                # Look up agent definition
+                agent = self.agent_registry.agents.get(agent_abbr)
+                if not agent:
+                    logger.warning(f"Agent not found for QUEUED task: {agent_abbr}")
+                    continue
+
+                # Check if we can execute now
+                if not self.execution_manager.can_execute(agent):
+                    break  # Still no capacity, wait for next iteration
+
+                # Reconstruct trigger data (unescape quotes)
+                try:
+                    event_data = json.loads(trigger_data_json.replace('\\"', '"'))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse trigger_data_json: {e}")
+                    continue
+
+                # Update task status from QUEUED to IN_PROGRESS
+                self.execution_manager.task_manager.update_task_status(task_path, "IN_PROGRESS")
+
+                # Execute agent
+                event_path = event_data.get('path', '')
+                print(f"▶️  Starting queued {agent.abbreviation}: {event_path}")
+                logger.info(f"Starting queued task: {agent.abbreviation} for {event_path}")
+
+                execution_thread = threading.Thread(
+                    target=self._execute_agent,
+                    args=(agent, event_data),
+                    daemon=True
+                )
+                execution_thread.start()
+
+                # Only start one task per iteration
+                break
+
+        except Exception as e:
+            logger.error(f"Error processing queued tasks: {e}", exc_info=True)
 
     def get_status(self) -> dict:
         """

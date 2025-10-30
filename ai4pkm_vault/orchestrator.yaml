@@ -6,7 +6,7 @@ version: "1.0"
 defaults:
   executor: claude_code
   timeout_minutes: 30
-  max_parallel: 1
+  max_parallel: 3  # Allow 3 concurrent executions
   task_create: true
   task_priority: medium
   task_archived: false

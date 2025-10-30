@@ -34,13 +34,21 @@ class TaskFileManager:
         self.tasks_dir = self.vault_path / tasks_dir
         self.tasks_dir.mkdir(parents=True, exist_ok=True)
 
-    def create_task_file(self, ctx: ExecutionContext, agent: AgentDefinition) -> Optional[Path]:
+    def create_task_file(
+        self,
+        ctx: ExecutionContext,
+        agent: AgentDefinition,
+        initial_status: str = "IN_PROGRESS",
+        trigger_data_json: Optional[str] = None
+    ) -> Optional[Path]:
         """
         Create a task tracking file for this execution.
 
         Args:
             ctx: Execution context
             agent: Agent definition
+            initial_status: Initial task status (default: IN_PROGRESS)
+            trigger_data_json: JSON-encoded trigger data for QUEUED tasks
 
         Returns:
             Path to created task file, or None if task creation disabled
@@ -73,7 +81,9 @@ class TaskFileManager:
                 agent=agent,
                 ctx=ctx,
                 input_file_path=input_file_path,
-                log_link=log_link
+                log_link=log_link,
+                initial_status=initial_status,
+                trigger_data_json=trigger_data_json
             )
 
             # Write task file
@@ -156,7 +166,9 @@ class TaskFileManager:
         agent: AgentDefinition,
         ctx: ExecutionContext,
         input_file_path: str,
-        log_link: str
+        log_link: str,
+        initial_status: str = "IN_PROGRESS",
+        trigger_data_json: Optional[str] = None
     ) -> str:
         """
         Build task file content.
@@ -166,6 +178,8 @@ class TaskFileManager:
             ctx: Execution context
             input_file_path: Path to input file
             log_link: Wiki link to generation log
+            initial_status: Initial task status (default: IN_PROGRESS)
+            trigger_data_json: JSON-encoded trigger data for QUEUED tasks
 
         Returns:
             Task file content
@@ -178,12 +192,18 @@ title: "{agent.abbreviation} - {Path(input_file_path).stem}"
 created: {created_time}
 archived: {str(agent.task_archived).lower()}
 worker: "{agent.executor}"
-status: "IN_PROGRESS"
+status: "{initial_status}"
 priority: "{agent.task_priority}"
 output: ""
 task_type: "{agent.abbreviation}"
 generation_log: "{log_link}"
----"""
+"""
+
+        # Add trigger data for QUEUED tasks
+        if trigger_data_json:
+            frontmatter += f'trigger_data_json: "{trigger_data_json}"\n'
+
+        frontmatter += "---"
 
         # Build body
         event_type = ctx.trigger_data.get('event_type', 'unknown')

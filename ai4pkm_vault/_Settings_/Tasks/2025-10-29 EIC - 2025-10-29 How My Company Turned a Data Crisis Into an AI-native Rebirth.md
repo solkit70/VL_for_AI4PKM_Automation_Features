@@ -3,9 +3,9 @@ title: "EIC - 2025-10-29 How My Company Turned a Data Crisis Into an AI-native R
 created: 2025-10-29T16:12:45.078208
 archived: false
 worker: "claude_code"
-status: "IN_PROGRESS"
+status: "PROCESSED"
 priority: "medium"
-output: ""
+output: "[[Ingest/Clippings/2025-10-29 How My Company Turned a Data Crisis Into an AI-native Rebirth.md]]"
 task_type: "EIC"
 generation_log: "[[_Settings_/Logs/2025-10-29-161245-EIC]]"
 ---

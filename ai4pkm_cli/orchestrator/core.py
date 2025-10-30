@@ -200,8 +200,13 @@ class Orchestrator:
                 import json
                 from datetime import datetime
 
+                # Convert datetime to string for JSON serialization
+                event_data_serializable = event_data.copy()
+                if 'timestamp' in event_data_serializable and isinstance(event_data_serializable['timestamp'], datetime):
+                    event_data_serializable['timestamp'] = event_data_serializable['timestamp'].isoformat()
+
                 # Serialize trigger data (escape quotes for YAML)
-                trigger_data_json = json.dumps(event_data).replace('"', '\\"')
+                trigger_data_json = json.dumps(event_data_serializable).replace('"', '\\"')
 
                 # Create minimal context for task file creation
                 ctx = ExecutionContext(

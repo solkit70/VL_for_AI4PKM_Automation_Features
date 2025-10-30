@@ -11,75 +11,52 @@ defaults:
   task_priority: medium
   task_archived: false
 
-# Agent input/output configuration
-# Agents are loaded from this list only (not scanned from _Settings_/Prompts)
-agents:
+nodes:
   # Enrich Ingested Content
-  EIC:
+  - type: agent
+    name: Enrich Ingested Content (EIC)
     input_path: Ingest/Clippings
-    input_type: new_file
     output_path: AI/Articles
-    output_type: new_file
-
-  # Hashtag Task Creator
-  HTC:
-    input_path: ""  # Triggered by content pattern, not path
-    input_type: updated_file
-    output_path: _Settings_/Tasks
-    output_type: new_file
-    trigger_exclude_pattern: "_Settings_/*"
-    trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
-    post_process_action: remove_trigger_content
-    task_priority: high
 
   # Generate Daily Roundup
-  GDR:
-    input_path:
-      - AI/Articles
-      - Journal
-    input_type: daily_files
-    input_range: daily
+  - type: agent
+    name: Generate Daily Roundup (GDR)
+    cron: 0 1 * * * # 1AM every day
     output_path: AI/Roundup
-    output_type: daily_file
 
   # Process Life Logs
-  PLL:
+  - type: agent
+    name: Process Life Logs (PLL)
     input_path: Ingest/Limitless
-    input_type: daily_files
     output_path: AI/Lifelog
-    output_type: daily_file
 
   # Create Thread Postings
-  CTP:
+  - type: agent
+    name: Create Thread Postings (CTP)
     input_path:
       - AI/Articles
       - AI/Roundup
       - AI/Research
-    input_type: new_file
     output_path: AI/Sharable
-    output_type: new_files
 
   # Pick and Process Photos
-  PPP:
+  - type: agent
+    name: Pick and Process Photos (PPP)
     input_path:
-      - Ingest/Photolog/Processed/
-    input_type: daily_files
-    input_pattern: "*.{jpg,jpeg,png,yaml}"
+      - Ingest/Photolog/Processed/*.jpg
+      - Ingest/Photolog/Processed/*.jpeg
+      - Ingest/Photolog/Processed/*.png
+      - Ingest/Photolog/Processed/*.yaml
     output_path: Ingest/Photolog
-    output_type: daily_file
 
   # Generate Event Summary
-  GES:
+  - type: agent
+    name: Generate Event Summary (GES)
     input_path:
       - Ingest/Limitless
       - MCP#gcal
-    input_type: updated_file
     output_path: AI/Events
-    output_type: new_file
-
-  # Ad-hoc Research within PKM
-  ARP:
-    input_path: null  # Manual invocation only
-    input_type: manual
+  
+  - type: agent
+    name: ARP
     output_path: AI/Research
-    output_type: new_file

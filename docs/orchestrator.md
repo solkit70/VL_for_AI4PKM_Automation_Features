@@ -1,4 +1,4 @@
-# Orchestrator User Guide
+# Orchestrator
 
 The AI4PKM Orchestrator is a multi-agent system that monitors your Obsidian vault for file changes and automatically triggers AI agents to process content.
 
@@ -218,6 +218,37 @@ Each node defines an agent with the following fields:
 - `output_path` - Output directory for results
 - `cron` - Cron schedule for periodic execution (future feature)
 
+**Agent-Specific Settings** (override defaults):
+- `trigger_exclude_pattern` - Glob pattern to exclude files (e.g., `"*-EIC*"`)
+- `trigger_content_pattern` - Regex to match in file content (e.g., `"(?i)%%.*?#ai\\b.*?%%"`)
+- `post_process_action` - Action after completion (e.g., `"remove_trigger_content"`)
+- `executor` - CLI agent to use (e.g., `"claude_code"`, `"gemini_cli"`)
+- `timeout_minutes` - Execution timeout in minutes (e.g., `60`)
+- `max_parallel` - Max concurrent executions for this agent (e.g., `1`)
+- `task_priority` - Task priority level: `"low"`, `"medium"`, or `"high"`
+
+**Example with agent-specific settings:**
+
+```yaml
+nodes:
+  # Agent with custom settings
+  - type: agent
+    name: Hashtag Task Creator (HTC)
+    trigger_exclude_pattern: "_Settings_/*"
+    trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
+    post_process_action: remove_trigger_content
+    task_priority: high
+    max_parallel: 1
+    timeout_minutes: 10
+
+  # Agent with minimal settings (uses defaults)
+  - type: agent
+    name: Enrich Ingested Content (EIC)
+    input_path: Ingest/Clippings
+    output_path: AI/Articles
+    trigger_exclude_pattern: "*-EIC*"
+```
+
 **How Triggers Work:**
 
 The orchestrator automatically derives trigger patterns from `input_path`:
@@ -240,7 +271,7 @@ input_path:
 
 ### Prompt Files
 
-Agent prompts are stored as Markdown files with optional frontmatter for agent-specific settings.
+Agent prompts are stored as Markdown files containing only the prompt instructions.
 
 **Location**: `<vault_root>/_Settings_/Prompts/`
 
@@ -248,16 +279,7 @@ Agent prompts are stored as Markdown files with optional frontmatter for agent-s
 
 **Example**: `_Settings_/Prompts/Enrich Ingested Content (EIC).md`
 
-```yaml
----
-title: Enrich Ingested Content (EIC)
-abbreviation: EIC
-category: ingestion
-trigger_exclude_pattern: "*-EIC*"        # Don't re-process own output
-task_priority: high                      # Override default priority
-timeout_minutes: 45                      # Override default timeout
----
-
+```markdown
 # Enrich Ingested Content (EIC)
 
 Improve captured content through transcript correction, summarization, and knowledge linking.
@@ -290,19 +312,7 @@ Improve captured content through transcript correction, summarization, and knowl
    - Connect to related summaries
 ```
 
-#### Optional Frontmatter Fields
-
-These fields in prompt files override defaults from `orchestrator.yaml`:
-
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `trigger_exclude_pattern` | string | Glob pattern to exclude files | `"*-EIC*"` or `"_Settings_/*"` |
-| `trigger_content_pattern` | string | Regex for content matching | `"(?i)%%.*?#ai\\b.*?%%"` |
-| `post_process_action` | string | Action after completion | `remove_trigger_content` |
-| `task_priority` | string | Override default priority | `high`, `medium`, `low` |
-| `executor` | string | Override default executor | `gemini_cli`, `claude_code` |
-| `timeout_minutes` | integer | Override default timeout | `60` |
-| `max_parallel` | integer | Override per-agent limit | `1` |
+**Note**: All configuration (triggers, timeouts, priorities, etc.) is defined in `orchestrator.yaml`, not in prompt files. Prompt files contain only the instructions for the AI agent.
 
 ---
 
@@ -431,17 +441,13 @@ nodes:
   - type: agent
     name: Hashtag Task Creator (HTC)
     # No input_path -> watches entire vault
+    trigger_exclude_pattern: "_Settings_/*"
+    trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
+    post_process_action: remove_trigger_content
+    task_priority: high
 ```
 
-```yaml
-# In _Settings_/Prompts/Hashtag Task Creator (HTC).md
----
-trigger_exclude_pattern: "_Settings_/*"
-trigger_content_pattern: "(?i)%%.*?#ai\\b.*?%%"
-post_process_action: remove_trigger_content
-task_priority: high
----
-```
+The prompt file `_Settings_/Prompts/Hashtag Task Creator (HTC).md` contains only the prompt instructions (no frontmatter configuration).
 
 **Behavior:**
 - Watches: Entire vault (`**/*.md`)
@@ -814,49 +820,48 @@ input_path: Ingest/Clippings
 output_path: AI/Articles
 trigger_pattern: "Ingest/Clippings/*.md"
 trigger_event: created
+trigger_exclude_pattern: "*-EIC*"
 ---
+
+[Prompt body]
 ```
 
 **After** (new approach):
 
-1. **orchestrator.yaml** (routing):
+1. **orchestrator.yaml** - All configuration in one place:
 ```yaml
 nodes:
   - type: agent
     name: Enrich Ingested Content (EIC)
     input_path: Ingest/Clippings
     output_path: AI/Articles
-    # trigger_pattern derived automatically
+    trigger_exclude_pattern: "*-EIC*"
+    # trigger_pattern derived automatically from input_path
 ```
 
-2. **_Settings_/Prompts/Enrich Ingested Content (EIC).md** (prompt + overrides):
-```yaml
----
-title: Enrich Ingested Content (EIC)
-abbreviation: EIC
-category: ingestion
-trigger_exclude_pattern: "*-EIC*"
----
+2. **_Settings_/Prompts/Enrich Ingested Content (EIC).md** - Only prompt text:
+```markdown
+# Enrich Ingested Content (EIC)
 
-[Full prompt body]
+[Prompt body with instructions]
 ```
 
 **Benefits:**
-- Single source of truth for routing (`orchestrator.yaml`)
-- Easier to visualize agent connections
-- Simpler agent definitions
-- Better separation of concerns (routing vs. prompts)
+- Single source of truth for ALL configuration (`orchestrator.yaml`)
+- Easier to visualize agent connections and settings
+- Simpler prompt files (just instructions, no config)
+- Clear separation: configuration in YAML, instructions in Markdown
 
 ### Migration Steps
 
 1. **Create orchestrator.yaml**
    - Use example above as template
-   - Define all agents in `nodes` list
+   - Define all agents in `nodes` list with complete configuration
 
-2. **Move Agent Files**
-   - Rename `_Settings_/Agents/*.md` to `_Settings_/Prompts/*.md`
-   - Remove routing fields from frontmatter (`input_path`, `output_path`, `trigger_pattern`)
-   - Keep agent-specific overrides (`timeout_minutes`, `task_priority`, etc.)
+2. **Update Prompt Files**
+   - Move `_Settings_/Agents/*.md` to `_Settings_/Prompts/*.md`
+   - Remove ALL frontmatter (configuration moves to orchestrator.yaml)
+   - Keep only the prompt body text
 
 3. **Test Configuration**
    ```bash

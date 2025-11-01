@@ -1,6 +1,8 @@
 ---
 title: "Orchestrator User Guide - Running the Multi-Agent System"
 created: 2025-10-27
+updated: 2025-11-01
+status: DEPRECATED
 tags:
   - orchestrator
   - user-guide
@@ -14,18 +16,30 @@ related:
   - "[[2025-10-25 Phase 1 - Parallel Implementation]]"
 ---
 
-# Orchestrator User Guide
+> **⚠️ DEPRECATED**: This document is from the Phase 1 implementation (October 2025). The orchestrator configuration has been **migrated to YAML format** with nodes-based agent definitions.
+>
+> **📖 Current Documentation**: Please refer to:
+> - **[docs/orchestrator.md](../orchestrator.md)** - Current user guide with YAML configuration
+> - **[Blog Post](https://jykim.github.io/AI4PKM/blog/2025/10/30/new-architecture-for-agentic-ai.html)** - Architecture overview
+>
+> This document is kept for reference only.
+
+---
+
+# Orchestrator User Guide (Deprecated)
 
 ## Overview
 
 The Orchestrator is a new multi-agent system that monitors your vault for file changes and automatically triggers configured agents to process content. It runs in parallel with the existing KTM system and uses the same Claude CLI execution pattern.
 
-**Current Status**: Phase 1 Complete ✅
+**⚠️ Note**: This guide describes the Phase 1 implementation. Current implementation uses `orchestrator.yaml` for configuration.
+
+**Original Status**: Phase 1 Complete ✅
 - Core infrastructure implemented (1,451 lines)
 - All 47 unit tests passing
 - 8 agent definitions created
 - CLI tool functional
-- Ready for testing and validation
+- Migrated to YAML configuration (PR #36)
 
 ---
 

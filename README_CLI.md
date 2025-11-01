@@ -1,5 +1,13 @@
 # AI4PKM CLI
 
+> **⚠️ DEPRECATED**: This README is outdated. For current CLI documentation, please see:
+> - **[docs/cli_tool.md](docs/cli_tool.md)** - Current CLI tool documentation
+> - **[docs/orchestrator.md](docs/orchestrator.md)** - Orchestrator user guide
+>
+> This file is kept for reference only.
+
+---
+
 **Personal Knowledge Management CLI Framework**
 
 Version: 0.1.0

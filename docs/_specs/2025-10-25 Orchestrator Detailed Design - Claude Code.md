@@ -1,22 +1,37 @@
 ---
 title: Orchestrator Design for Multi-Agent AI4PKM System
 created: 2025-10-25
+updated: 2025-11-01
 tags:
   - architecture
   - orchestrator
   - multi-agent
   - design
+status: IMPLEMENTED
 author:
   - "[[Claude]]"
 related:
   - "[[2025-10-24 KTM to Multi-Agent Migration Plan - Claude Code]]"
   - "[[2025-10-24 Next Steps in AI4PKM]]"
+  - "[[2025-10-30 New Architecture for Agentic AI]]"
+---
+
+> **📋 Document Status**: This is the **original design document** from October 2025. The orchestrator has been **successfully implemented** and is now in production use.
+>
+> **⚠️ Important Changes**: The implementation uses a **nodes-based configuration** in `orchestrator.yaml` instead of individual agent files in `_Settings_/Agents/`. Agent prompts are now stored in `_Settings_/Prompts/`.
+>
+> **📖 Current Documentation**: For usage instructions and current configuration format, see:
+> - **User Guide**: [docs/orchestrator.md](../orchestrator.md)
+> - **Architecture Overview**: [Blog Post](https://jykim.github.io/AI4PKM/blog/2025/10/30/new-architecture-for-agentic-ai.html)
+
 ---
 
 # Orchestrator Design for Multi-Agent AI4PKM System
 
 ## Executive Summary
-This document provides the design for the orchestrator that coordinates multiple AI agents in the AI4PKM system. The orchestrator manages any number of agents through configuration rather than code.
+This document provides the **original design** for the orchestrator that coordinates multiple AI agents in the AI4PKM system. The orchestrator manages any number of agents through configuration rather than code.
+
+**Implementation Status**: ✅ Complete (as of October 2025)
 
 **Key Innovations**:
 - Agent definitions as Markdown files with flat YAML frontmatter (Obsidian compatible)

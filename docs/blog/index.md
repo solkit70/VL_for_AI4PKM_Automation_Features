@@ -19,8 +19,5 @@ permalink: /blog/
         • {{ post.author }}
       {% endif %}
     </p>
-    {% if post.excerpt %}
-      {{ post.excerpt }}
-    {% endif %}
   </article>
 {% endfor %}

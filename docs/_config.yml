@@ -14,7 +14,14 @@ header_pages:
   - orchestrator.md
   - cli_tool.md
   - blog/index.md
+  - dev-docs/index.md
   - faq.md
+
+# Collections
+collections:
+  specs:
+    output: true
+    permalink: /dev-docs/:name/
 
 # Build settings
 plugins:

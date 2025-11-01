@@ -271,7 +271,7 @@ input_path:
 
 ### Prompt Files
 
-Agent prompts are stored as Markdown files containing only the prompt instructions.
+Agent prompts are stored as Markdown files with minimal frontmatter and prompt instructions.
 
 **Location**: `<vault_root>/_Settings_/Prompts/`
 
@@ -279,9 +279,12 @@ Agent prompts are stored as Markdown files containing only the prompt instructio
 
 **Example**: `_Settings_/Prompts/Enrich Ingested Content (EIC).md`
 
-```markdown
-# Enrich Ingested Content (EIC)
-
+```yaml
+---
+title: Enrich Ingested Content (EIC)
+abbreviation: EIC
+category: ingestion
+---
 Improve captured content through transcript correction, summarization, and knowledge linking.
 
 ## Input
@@ -312,7 +315,12 @@ Improve captured content through transcript correction, summarization, and knowl
    - Connect to related summaries
 ```
 
-**Note**: All configuration (triggers, timeouts, priorities, etc.) is defined in `orchestrator.yaml`, not in prompt files. Prompt files contain only the instructions for the AI agent.
+**Required Frontmatter Fields:**
+- `title` - Full agent name (must match name in orchestrator.yaml)
+- `abbreviation` - 3-4 letter abbreviation (e.g., "EIC", "HTC")
+- `category` - Agent category: `ingestion`, `publish`, or `research`
+
+**Note**: All configuration (input/output paths, triggers, timeouts, priorities, etc.) is defined in `orchestrator.yaml`, NOT in prompt file frontmatter. Prompt files only contain metadata (title, abbreviation, category) and instructions.
 
 ---
 
@@ -447,7 +455,17 @@ nodes:
     task_priority: high
 ```
 
-The prompt file `_Settings_/Prompts/Hashtag Task Creator (HTC).md` contains only the prompt instructions (no frontmatter configuration).
+The prompt file `_Settings_/Prompts/Hashtag Task Creator (HTC).md` contains minimal frontmatter and instructions:
+
+```yaml
+---
+title: Hashtag Task Creator (HTC)
+abbreviation: HTC
+category: ingestion
+---
+
+[Prompt instructions for HTC agent]
+```
 
 **Behavior:**
 - Watches: Entire vault (`**/*.md`)
@@ -839,9 +857,13 @@ nodes:
     # trigger_pattern derived automatically from input_path
 ```
 
-2. **_Settings_/Prompts/Enrich Ingested Content (EIC).md** - Only prompt text:
-```markdown
-# Enrich Ingested Content (EIC)
+2. **_Settings_/Prompts/Enrich Ingested Content (EIC).md** - Minimal frontmatter + prompt:
+```yaml
+---
+title: Enrich Ingested Content (EIC)
+abbreviation: EIC
+category: ingestion
+---
 
 [Prompt body with instructions]
 ```
@@ -849,7 +871,7 @@ nodes:
 **Benefits:**
 - Single source of truth for ALL configuration (`orchestrator.yaml`)
 - Easier to visualize agent connections and settings
-- Simpler prompt files (just instructions, no config)
+- Simpler prompt files (only metadata + instructions, no config)
 - Clear separation: configuration in YAML, instructions in Markdown
 
 ### Migration Steps
@@ -860,8 +882,9 @@ nodes:
 
 2. **Update Prompt Files**
    - Move `_Settings_/Agents/*.md` to `_Settings_/Prompts/*.md`
-   - Remove ALL frontmatter (configuration moves to orchestrator.yaml)
-   - Keep only the prompt body text
+   - Keep minimal frontmatter: `title`, `abbreviation`, `category`
+   - Remove all configuration frontmatter (input_path, output_path, triggers, etc.)
+   - Keep the prompt body text
 
 3. **Test Configuration**
    ```bash

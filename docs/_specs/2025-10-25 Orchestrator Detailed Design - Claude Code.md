@@ -181,9 +181,14 @@ RESEARCH FLOW (Ad-hoc)
 ```
 
 ---
-# Agent Definition Schema
+# Agent Definition Schema (ORIGINAL DESIGN)
 
-## Frontmatter Format
+> **⚠️ This section describes the ORIGINAL design.** The actual implementation uses a different approach:
+> - Configuration is in `orchestrator.yaml` nodes (not individual agent files)
+> - Prompt files in `_Settings_/Prompts/` have minimal frontmatter (title, abbreviation, category only)
+> - See [docs/orchestrator.md](../orchestrator.md) for current implementation details.
+
+## Frontmatter Format (Original Design - Not Implemented)
 Each agent is defined in a Markdown file in `_Settings_/Agents/` with YAML frontmatter:
 
 ```yaml
@@ -248,7 +253,10 @@ timeout_minutes: 30
 - **timeout_minutes**: Execution timeout
 
 ## Task Schema
-When the orchestrator triggers an agent, it creates a task file in `_Tasks_/` (root level) based on the existing [[Task Template]]. The task file tracks execution state and is updated by the agent during execution:
+
+> **⚠️ Implementation Note:** Task files are actually created in `_Settings_/Tasks/`, not `_Tasks_/` at root level.
+
+When the orchestrator triggers an agent, it creates a task file in `_Settings_/Tasks/` based on the task template. The task file tracks execution state and is updated by the agent during execution:
 
 ```yaml
 ---
@@ -797,5 +805,7 @@ Next steps:
 
 ---
 **Document Version**: 2.0
-**Last Updated**: 2025-10-25
-**Status**: Ready for Implementation - Start with Phase 1
+**Last Updated**: 2025-10-25 (Design), 2025-11-01 (Status Update)
+**Status**: HISTORICAL REFERENCE - Implementation Complete with Modifications
+
+**For Current Implementation**: See [docs/orchestrator.md](../orchestrator.md)

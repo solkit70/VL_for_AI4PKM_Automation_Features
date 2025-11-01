@@ -22,6 +22,14 @@ collections:
     output: true
     permalink: /dev-docs/:name/
 
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "specs"
+    values:
+      layout: "post"
+
 # Build settings
 plugins:
   - jekyll-feed

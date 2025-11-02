@@ -1,3 +1,18 @@
+---
+title: "Next Steps in AI4PKM: Generalized Multi-Agent Architecture"
+created: 2025-10-24
+status: HISTORICAL
+tags:
+  - architecture
+  - planning
+  - multi-agent
+author:
+  - "[[Claude]]"
+related:
+  - "[[2025-10-25 Orchestrator Detailed Design]]"
+  - "[[2025-11-01 Orchestrator Implementation Spec]]"
+---
+
 ## Generalized Multi-Agent Architecture
 KTM is an multi-agent architecture where multiple agents collaborate using file system as interface. (e.g. Task Processor agent write output file, which Task Evaluation agent take as an input.) We want to take this idea further to build an architecture where 
 

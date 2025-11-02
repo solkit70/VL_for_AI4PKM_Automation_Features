@@ -64,6 +64,7 @@ Need to constantly experiment with multiple AI tools and models:
 
 - [PKM in AI Era](https://publish.obsidian.md/lifidea/Publish/PKM+in+AI+Era/0.+Why+PKM+now%3F) tutorial series
 - Video Introduction: ![](https://youtu.be/2BMOOMVTdPw)
+- [Dev Docs](dev-docs/) - Design documents and architecture specifications
 
 [^1]: Personal Knowledge Management
 [^2]: (Personal) Knowledge Base

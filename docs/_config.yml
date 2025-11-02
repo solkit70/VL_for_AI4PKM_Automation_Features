@@ -11,9 +11,24 @@ header_pages:
   - guidelines.md
   - prompts.md
   - workflows.md
+  - orchestrator.md
   - cli_tool.md
   - blog/index.md
   - faq.md
+
+# Collections
+collections:
+  specs:
+    output: true
+    permalink: /dev-docs/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "specs"
+    values:
+      layout: "post"
 
 # Build settings
 plugins:

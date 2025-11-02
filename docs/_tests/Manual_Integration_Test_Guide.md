@@ -39,7 +39,7 @@ ls ai4pkm_vault/_Settings_/Prompts/*.md
 
 ### 2. Configuration Validation
 
-Verify [ai4pkm_vault/orchestrator.yaml](../ai4pkm_vault/orchestrator.yaml) has correct format:
+Verify [ai4pkm_vault/orchestrator.yaml](orchestrator.yaml) has correct format:
 
 ```yaml
 version: "1.0"
@@ -573,7 +573,7 @@ INFO: Task completed: {task_name}
 
 **Cause**: Agent name doesn't follow `"Full Name (ABBR)"` format
 
-**Fix**: Edit [orchestrator.yaml](../ai4pkm_vault/orchestrator.yaml):
+**Fix**: Edit [orchestrator.yaml](orchestrator.yaml):
 ```yaml
 # Wrong:
 - type: agent
@@ -784,9 +784,9 @@ To properly test `max_parallel` limits:
 
 ## References
 
-- [orchestrator.yaml](../ai4pkm_vault/orchestrator.yaml) - Main configuration
-- [agent_registry.py](../ai4pkm_cli/orchestrator/agent_registry.py) - Agent loading logic
-- [test_orchestrator_eic_integration.py](../ai4pkm_cli/tests/test_orchestrator_eic_integration.py) - Automated test example
+- [orchestrator.yaml](orchestrator.yaml) - Main configuration
+- [agent_registry.py](agent_registry.py) - Agent loading logic
+- [test_orchestrator_eic_integration.py](test_orchestrator_eic_integration.py) - Automated test example
 - README files: [KTG](../README_KTG.md), [KTP](../README_KTP.md), [KTM](../README_KTM.md)
 
 ---

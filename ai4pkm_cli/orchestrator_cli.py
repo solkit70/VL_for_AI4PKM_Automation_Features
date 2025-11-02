@@ -21,12 +21,13 @@ class OrchestratorCLI:
         self.vault_path = vault_path or Path.cwd()
         self.orchestrator = None
 
-    def run_daemon(self, max_concurrent: int = None):
+    def run_daemon(self, max_concurrent: int = None, debug: bool = False):
         """
         Run orchestrator in daemon mode.
 
         Args:
             max_concurrent: Maximum concurrent executions (defaults to config)
+            debug: Enable debug logging to console
         """
         from .config import Config
 
@@ -44,8 +45,9 @@ class OrchestratorCLI:
         if max_concurrent is None:
             max_concurrent = config.get_orchestrator_max_concurrent()
 
+        debug_mode = "[yellow](DEBUG)[/yellow]" if debug else ""
         self.console.print(Panel.fit(
-            "[bold cyan]AI4PKM Orchestrator[/bold cyan]\n"
+            f"[bold cyan]AI4PKM Orchestrator[/bold cyan] {debug_mode}\n"
             f"Vault: {self.vault_path}\n"
             f"Max concurrent: {max_concurrent}",
             title="Starting"
@@ -55,7 +57,8 @@ class OrchestratorCLI:
         self.orchestrator = Orchestrator(
             vault_path=self.vault_path,
             max_concurrent=max_concurrent,
-            config=config
+            config=config,
+            debug=debug
         )
 
         # Setup signal handlers
@@ -132,10 +135,16 @@ def orchestrator_cli():
     default=3,
     help='Maximum concurrent agent executions'
 )
-def daemon(max_concurrent):
+@click.option(
+    '--debug',
+    '-d',
+    is_flag=True,
+    help='Enable debug logging to console'
+)
+def daemon(max_concurrent, debug):
     """Run orchestrator in daemon mode (monitors files and triggers agents)."""
     cli = OrchestratorCLI()
-    cli.run_daemon(max_concurrent=max_concurrent)
+    cli.run_daemon(max_concurrent=max_concurrent, debug=debug)
 
 
 @orchestrator_cli.command()

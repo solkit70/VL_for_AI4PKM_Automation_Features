@@ -31,7 +31,8 @@ class Orchestrator:
         agents_dir: Optional[Path] = None,
         max_concurrent: Optional[int] = None,
         poll_interval: Optional[float] = None,
-        config: Optional['Config'] = None
+        config: Optional['Config'] = None,
+        debug: bool = False
     ):
         """
         Initialize orchestrator.
@@ -42,11 +43,14 @@ class Orchestrator:
             max_concurrent: Maximum concurrent task executions (defaults to config)
             poll_interval: Seconds between event queue polls (defaults to config)
             config: Config instance (will create default if None)
+            debug: Enable debug logging to console
         """
         from ..config import Config
+        from datetime import datetime
 
         self.vault_path = Path(vault_path)
         self.config = config or Config()
+        self.debug = debug
 
         # Use config values if not explicitly provided
         if agents_dir is None:
@@ -57,6 +61,9 @@ class Orchestrator:
 
         self.max_concurrent = max_concurrent or self.config.get_orchestrator_max_concurrent()
         self.poll_interval = poll_interval or self.config.get_orchestrator_poll_interval()
+
+        # Setup logging before creating directories
+        self._setup_logging()
 
         # Ensure required directories exist
         self._ensure_directories()
@@ -77,6 +84,52 @@ class Orchestrator:
 
         logger.info(f"Orchestrator initialized for vault: {self.vault_path}")
         logger.info(f"Loaded {len(self.agent_registry.agents)} agents")
+
+    def _setup_logging(self):
+        """
+        Configure logging for orchestrator.
+
+        - Console: INFO+ (or DEBUG+ if debug=True)
+        - File: DEBUG+ (all logs)
+        """
+        from datetime import datetime
+
+        # Get logs directory from config
+        logs_dir = self.vault_path / self.config.get_orchestrator_logs_dir()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create log file with date stamp
+        log_filename = f"orchestrator_{datetime.now().strftime('%Y-%m-%d')}.log"
+        log_file = logs_dir / log_filename
+
+        # Configure file handler (DEBUG level - captures everything)
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_formatter)
+
+        # Configure console handler (INFO or DEBUG based on flag)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        console_formatter = logging.Formatter('%(message)s')
+        console_handler.setFormatter(console_formatter)
+
+        # Get root logger for orchestrator modules
+        orchestrator_logger = logging.getLogger('ai4pkm_cli.orchestrator')
+        orchestrator_logger.setLevel(logging.DEBUG)  # Capture all levels
+
+        # Remove existing handlers to avoid duplicates
+        orchestrator_logger.handlers.clear()
+
+        # Add both handlers
+        orchestrator_logger.addHandler(file_handler)
+        orchestrator_logger.addHandler(console_handler)
+
+        # Prevent propagation to root logger (avoid duplicate console output)
+        orchestrator_logger.propagate = False
 
     def _ensure_directories(self):
         """Create orchestrator directories if they don't exist."""
@@ -100,9 +153,8 @@ class Orchestrator:
                 created.append(dir_path)
 
         if created:
-            print(f"✓ Created {len(created)} missing director{'y' if len(created) == 1 else 'ies'}:")
-            for dir_path in created:
-                print(f"  • {dir_path}")
+            dir_word = "directory" if len(created) == 1 else "directories"
+            logger.info(f"Created {len(created)} missing {dir_word}: {', '.join(created)}")
 
     def start(self):
         """Start the orchestrator event loop."""
@@ -241,12 +293,11 @@ class Orchestrator:
                     trigger_data_json=trigger_data_json
                 )
 
-                print(f"⏳ Queued {agent.abbreviation}: concurrency limit reached")
-                logger.info(f"Queued {agent.abbreviation}: will process when slot available")
+                logger.info(f"Queued {agent.abbreviation}: concurrency limit reached")
                 continue
 
-            # Print console notification
-            print(f"▶️  Starting {agent.abbreviation}: {file_event.path}")
+            # Log agent start
+            logger.info(f"Starting {agent.abbreviation}: {file_event.path}")
 
             # Execute in background thread (slot already reserved)
             execution_thread = threading.Thread(
@@ -269,25 +320,16 @@ class Orchestrator:
             ctx = self.execution_manager.execute(agent, event_data, slot_reserved=slot_reserved)
 
             if ctx.success:
-                print(f"✅ {agent.abbreviation} completed ({ctx.duration:.1f}s)")
-                logger.info(
-                    f"✓ {agent.abbreviation} completed successfully "
-                    f"(duration: {ctx.duration:.1f}s)"
-                )
+                logger.info(f"{agent.abbreviation} completed ({ctx.duration:.1f}s)")
             else:
                 duration_str = f"{ctx.duration:.1f}s" if ctx.duration else "unknown"
-                print(f"❌ {agent.abbreviation} failed: {ctx.status} ({duration_str})")
-                logger.error(
-                    f"✗ {agent.abbreviation} failed: {ctx.status} "
-                    f"(duration: {duration_str})"
-                )
+                error_msg = f"{agent.abbreviation} failed: {ctx.status} ({duration_str})"
                 if ctx.error_message:
-                    print(f"   Error: {ctx.error_message}")
-                    logger.error(f"  Error: {ctx.error_message}")
+                    error_msg += f" - {ctx.error_message}"
+                logger.error(error_msg)
 
         except Exception as e:
-            print(f"❌ {agent.abbreviation} error: {e}")
-            logger.error(f"Unexpected error executing {agent.abbreviation}: {e}", exc_info=True)
+            logger.error(f"{agent.abbreviation} error: {e}", exc_info=True)
 
     def _process_queued_tasks(self):
         """
@@ -346,8 +388,7 @@ class Orchestrator:
 
                 # Execute agent (slot already reserved)
                 event_path = event_data.get('path', '')
-                print(f"▶️  Starting queued {agent.abbreviation}: {event_path}")
-                logger.info(f"Starting queued task: {agent.abbreviation} for {event_path}")
+                logger.info(f"Starting queued {agent.abbreviation}: {event_path}")
 
                 execution_thread = threading.Thread(
                     target=self._execute_agent,

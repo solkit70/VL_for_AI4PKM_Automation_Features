@@ -131,7 +131,7 @@ def main(
         if orchestrator_status:
             orch_cli.show_status()
         else:
-            orch_cli.run_daemon(max_concurrent=max_concurrent)
+            orch_cli.run_daemon(max_concurrent=max_concurrent, debug=debug)
     elif list_agents:
         # List available agents
         app.list_agents()

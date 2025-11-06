@@ -17,41 +17,6 @@ from .models import AgentDefinition, ExecutionContext
 
 logger = logging.getLogger(__name__)
 
-# Claude CLI discovery
-def _find_claude_cli():
-    """Find the Claude CLI executable."""
-    # First try the user's local installation
-    local_path = Path.home() / ".claude" / "local" / "claude"
-    if local_path.exists():
-        return str(local_path)
-
-    # Try to find it in PATH
-    try:
-        result = subprocess.run(
-            ["which", "claude"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-    except Exception as e:
-        logger.warning(f"Could not find claude in PATH: {e}")
-
-    # Last resort: try common locations
-    common_paths = [
-        "/usr/local/bin/claude",
-        str(Path.home() / "node_modules" / ".bin" / "claude"),
-    ]
-    for path in common_paths:
-        if Path(path).exists():
-            return path
-
-    return None
-
-CLAUDE_CLI_PATH = _find_claude_cli()
-
-
 class ExecutionManager:
     """
     Manages concurrent execution of agent tasks.
@@ -280,12 +245,9 @@ class ExecutionManager:
             ctx: Execution context
             trigger_data: Trigger event data
         """
-        if CLAUDE_CLI_PATH is None:
-            raise RuntimeError("Claude CLI not found. Install Claude Code from https://claude.com/claude-code")
-
         # Build prompt from agent definition
         ctx.prompt = self._build_prompt(agent, trigger_data)
-        self._execute_subprocess(ctx, 'Claude CLI', [CLAUDE_CLI_PATH, '--permission-mode', 'bypassPermissions'], agent.timeout_minutes * 60, ctx.prompt)
+        self._execute_subprocess(ctx, 'Claude CLI', ['claude', '--permission-mode', 'bypassPermissions', '--print', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_gemini_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
         """
@@ -313,20 +275,16 @@ class ExecutionManager:
         ctx.prompt = self._build_prompt(agent, trigger_data)
         self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
 
-    def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int, input: Optional[str] = None):
+    def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
         process = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE if input else subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             cwd=str(self.vault_path)
         )
 
-        if input:
-            process.stdin.write(input)
-            process.stdin.close()
-        
         logs = []
         def stream_stderr(proc):
             for line in proc.stdout:

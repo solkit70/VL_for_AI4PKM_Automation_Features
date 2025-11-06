@@ -51,10 +51,16 @@ def signal_handler(sig, frame):
 )
 @click.option(
     "-t",
+    "--trigger-agent",
+    "trigger_agent",
+    is_flag=True,
+    help="Trigger an orchestrator agent interactively once",
+)
+@click.option(
     "--task-management",
     "task_management",
     is_flag=True,
-    help="Run continuous task management (KTG+KTP pipeline with file monitoring)",
+    help="[DEPRECATED] Run continuous task management (KTG+KTP pipeline with file monitoring)",
 )
 @click.option(
     "-c", "--cron", "run_cron", is_flag=True, help="Run continuous cron job scheduler and web server"
@@ -96,6 +102,7 @@ def main(
     ktp_priority,
     ktp_status,
     run_job_once,
+    trigger_agent,
     task_management,
     run_cron,
     agent,
@@ -176,6 +183,9 @@ def main(
     elif run_job_once:
         # Test/run a specific cron job once
         app.test_cron_job()
+    elif trigger_agent:
+        # Trigger an orchestrator agent interactively once
+        app.trigger_orchestrator_agent()
     elif task_management:
         # Run continuous task management (KTG+KTP pipeline)
         click.echo("=" * 80)

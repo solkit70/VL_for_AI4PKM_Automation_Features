@@ -22,16 +22,10 @@ def trigger_orchestrator_agent(abbreviation=None):
         # Create orchestrator (but don't start daemon)
         orch = Orchestrator(vault_path=Path.cwd(), config=config)
 
-        agents_list = [agent for agent in orch.agent_registry.agents.values() if agent.input_path]
+        agents_list = [agent for agent in orch.agent_registry.agents.values()]
         
         if not agents_list:
-            logger.error("No triggerable agents found")
-            logger.error(
-                "[yellow]No agents available for manual trigger.[/yellow]"
-            )
-            logger.error(
-                "[dim]File-based agents (EIC, CTP) require file events to trigger.[/dim]"
-            )
+            logger.error("No agents found", console=True)
             return
 
         # If abbreviation provided, skip selection
@@ -39,13 +33,8 @@ def trigger_orchestrator_agent(abbreviation=None):
             abbreviation = abbreviation.upper()
             selected_agent = orch.agent_registry.agents.get(abbreviation)
             if not selected_agent:
-                logger.error(f"Agent '{abbreviation}' not found")
-                logger.info(f"\n[red]✗ Agent '{abbreviation}' not found[/red]")
+                logger.error(f"Agent '{abbreviation}' not found", console=True)
                 logger.info(f"[dim]Available agents: {', '.join(sorted(orch.agent_registry.agents.keys()))}[/dim]")
-                return
-            if not selected_agent.input_path:
-                logger.error(f"Agent '{abbreviation}' cannot be triggered manually (requires file events)")
-                logger.info(f"\n[red]✗ Agent '{abbreviation}' cannot be triggered manually[/red]")
                 return
         else:
             # Sort by abbreviation for consistent display
@@ -55,14 +44,14 @@ def trigger_orchestrator_agent(abbreviation=None):
             logger.info("\n[bold blue]Available Orchestrator Agents:[/bold blue]")
             for i, agent in enumerate(agents_list, 1):
                 cron_info = f" [dim]cron: {agent.cron}[/dim]" if agent.cron else ""
-                input_info = (
+                output_info = (
                     f" [dim]→ {agent.output_path}[/dim]" if agent.output_path else ""
                 )
 
                 logger.info(
                     f"[cyan]{i}.[/cyan] [bold]{agent.name} ({agent.abbreviation})[/bold]"
                 )
-                logger.info(f"   Category: {agent.category}{cron_info}{input_info}\n")
+                logger.info(f"   Category: {agent.category}{cron_info}{output_info}\n")
 
             # Get user selection
             try:

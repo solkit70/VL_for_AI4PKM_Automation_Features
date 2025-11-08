@@ -16,7 +16,7 @@ class Logger:
     _instances = {}
     _lock = Lock()
 
-    def __new__(cls, log_file=None, console_output=True):
+    def __new__(cls, log_file=None, console_output=False):
         """Singleton pattern: return same instance for same parameters."""
         # Create a key based on log_file and console_output
         key = (log_file, console_output)
@@ -52,7 +52,7 @@ class Logger:
         self.log_file = log_file
         self.lock = Lock()
         self.console_output = console_output
-        self.console = Console() if console_output else None
+        self.console = Console()
 
         # Print log file path for user reference
         # print(f"📝 Log file: {os.path.abspath(self.log_file)}")
@@ -117,10 +117,8 @@ class Logger:
                 f.write(log_entry)
 
             # Print to console if requested (message only, no formatting)
-            if console:
-                if self.console is None:
-                    self.console = Console()
-                print(message)
+            if console or self.console_output:
+                self.console.print(message)
                 
     def info(self, message, exc_info=False, console=False):
         """Log info message.

@@ -8,9 +8,7 @@ from ..logger import Logger
 from ..config import Config
 from ..orchestrator.core import Orchestrator
 
-logger = Logger()
-console = Console()
-
+logger = Logger(console_output=True)
 
 def trigger_orchestrator_agent():
     """Trigger an orchestrator agent interactively."""
@@ -20,19 +18,8 @@ def trigger_orchestrator_agent():
         # Create orchestrator (but don't start daemon)
         orch = Orchestrator(vault_path=Path.cwd(), config=config)
 
-        # Get agents that can be triggered manually
-        # Include: agents with cron schedules (can run on-demand)
-        # Exclude: pure file-based agents (no cron, need specific file events)
-        agents_list = []
-        for abbr, agent in orch.agent_registry.agents.items():
-            # Show agents that have a cron schedule (scheduled agents)
-            # These can be triggered manually and will work without specific file input
-            if agent.cron:
-                agents_list.append(agent)
-            # Also show agents with no input_path and no cron (manual agents)
-            elif not agent.input_path or (isinstance(agent.input_path, list) and not any(agent.input_path)):
-                agents_list.append(agent)
-
+        agents_list = [agent for agent in orch.agent_registry.agents.values() if agent.input_path]
+        
         if not agents_list:
             logger.error("No triggerable agents found")
             logger.error(
@@ -47,17 +34,17 @@ def trigger_orchestrator_agent():
         agents_list.sort(key=lambda a: a.abbreviation)
 
         # Display available agents
-        console.print("\n[bold blue]Available Orchestrator Agents:[/bold blue]")
+        logger.info("\n[bold blue]Available Orchestrator Agents:[/bold blue]")
         for i, agent in enumerate(agents_list, 1):
             cron_info = f" [dim]cron: {agent.cron}[/dim]" if agent.cron else ""
             input_info = (
                 f" [dim]→ {agent.output_path}[/dim]" if agent.output_path else ""
             )
 
-            console.print(
+            logger.info(
                 f"[cyan]{i}.[/cyan] [bold]{agent.name} ({agent.abbreviation})[/bold]"
             )
-            console.print(f"   Category: {agent.category}{cron_info}{input_info}\n")
+            logger.info(f"   Category: {agent.category}{cron_info}{input_info}\n")
 
         # Get user selection
         try:
@@ -100,26 +87,26 @@ def trigger_orchestrator_agent():
                 logger.info(
                     f"✓ Agent completed successfully ({execution_time:.1f}s)"
                 )
-                console.print(f"\n[green]✓ Agent completed successfully[/green]")
-                console.print(
+                logger.info(f"\n[green]✓ Agent completed successfully[/green]")
+                logger.info(
                     f"[dim]Execution time: {execution_time:.2f}s[/dim]"
                 )
                 if ctx.task_file:
-                    console.print(f"[dim]Task file: {ctx.task_file.name}[/dim]")
+                    logger.info(f"[dim]Task file: {ctx.task_file.name}[/dim]")
             else:
                 error_msg = ctx.error_message if ctx else "Unknown error"
                 logger.error(f"✗ Agent failed: {error_msg}")
-                console.print(f"\n[red]✗ Agent failed: {error_msg}[/red]")
+                logger.info(f"\n[red]✗ Agent failed: {error_msg}[/red]")
 
         except Exception as e:
             end_time = time.time()
             execution_time = end_time - start_time
             logger.error(f"✗ Trigger error ({execution_time:.1f}s): {e}")
-            console.print(
+            logger.info(
                 f"\n[red]✗ Trigger error after {execution_time:.2f}s: {e}[/red]"
             )
 
     except Exception as e:
         logger.error(f"Error initializing orchestrator: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
+        logger.info(f"[red]✗ Error: {e}[/red]")
 

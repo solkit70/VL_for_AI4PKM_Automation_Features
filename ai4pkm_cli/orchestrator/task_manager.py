@@ -3,14 +3,14 @@ Task file manager for orchestrator.
 
 Creates and updates task tracking files in _Tasks_/ directory.
 """
-import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
 from .models import AgentDefinition, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class TaskFileManager:

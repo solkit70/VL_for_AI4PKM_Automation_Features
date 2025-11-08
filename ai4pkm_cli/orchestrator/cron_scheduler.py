@@ -4,7 +4,6 @@ Cron scheduler for orchestrator.
 Handles time-based agent execution using cron expressions.
 Re-implements cron logic within orchestrator folder.
 """
-import logging
 import threading
 import time
 from datetime import datetime
@@ -14,8 +13,9 @@ from croniter import croniter
 
 from .models import TriggerEvent
 from .agent_registry import AgentRegistry
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class CronScheduler:

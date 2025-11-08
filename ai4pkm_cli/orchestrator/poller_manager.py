@@ -1,10 +1,10 @@
 """Poller manager for orchestrator - manages enabled pollers."""
 
-import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class PollerManager:
@@ -70,14 +70,9 @@ class PollerManager:
                 
                 poll_interval = poller_config.get('poll_interval', 3600)
                 
-                # Create logger instance for this poller
-                from ..logger import Logger
-                poller_logger = Logger(console_output=False)
-                
-                # Instantiate poller
+                # Instantiate poller (each poller uses its own module-level logger)
                 poller_class = poller_classes[poller_name]
                 poller = poller_class(
-                    logger_instance=poller_logger,
                     poller_config=poller_config,
                     vault_path=self.vault_path
                 )

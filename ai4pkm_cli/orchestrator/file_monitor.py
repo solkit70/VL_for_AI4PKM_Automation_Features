@@ -4,7 +4,6 @@ File system monitor for orchestrator.
 Monitors vault for file changes and queues events for processing.
 Simplified from KTM approach - no complex semaphores.
 """
-import logging
 from pathlib import Path
 from queue import Queue
 from datetime import datetime
@@ -12,8 +11,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
 from ..markdown_utils import read_frontmatter
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class FileSystemMonitor:

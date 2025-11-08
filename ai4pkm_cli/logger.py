@@ -12,9 +12,29 @@ from rich.text import Text
 
 class Logger:
     """Logger that writes to logs.txt and supports real-time tail display."""
+    
+    _instances = {}
+    _lock = Lock()
 
-    def __init__(self, log_file=None, console_output=True):
-        """Initialize logger."""
+    def __new__(cls, log_file=None, console_output=True):
+        """Singleton pattern: return same instance for same parameters."""
+        # Create a key based on log_file and console_output
+        key = (log_file, console_output)
+        
+        if key not in cls._instances:
+            with cls._lock:
+                # Double-check after acquiring lock
+                if key not in cls._instances:
+                    instance = super().__new__(cls)
+                    cls._instances[key] = instance
+                    instance._initialized = False
+        return cls._instances[key]
+
+    def __init__(self, log_file=None, console_output=False):
+        """Initialize logger (only once per instance)."""
+        if self._initialized:
+            return
+            
         if log_file is None:
             # Use current working directory as project root
             project_root = os.getcwd()
@@ -41,11 +61,15 @@ class Logger:
 
         logging.basicConfig(level=logging.INFO)
         
+        self._initialized = True
+        
     def _ensure_log_file(self):
-        """Ensure log file exists and clear it for fresh start."""
-        with open(self.log_file, 'w') as f:
-            f.write(f"PKM CLI Log - Started at {datetime.now().isoformat()}\n")
-            f.write("=" * 60 + "\n")
+        """Ensure log file exists and add header if it's a new file."""
+        # Only write header if file doesn't exist
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, 'w') as f:
+                f.write(f"PKM CLI Log - Started at {datetime.now().isoformat()}\n")
+                f.write("=" * 60 + "\n")
 
     def _should_log(self, level):
         """Check if message should be logged based on current log level."""
@@ -61,11 +85,14 @@ class Logger:
         current_level = logging.getLogger().getEffectiveLevel()
         return message_level >= current_level
 
-    def _write_log(self, level, message):
+    def _write_log(self, level, message, exc_info=False):
         """Write log entry to file and optionally to console."""
         # Check if this message should be logged based on log level
         if not self._should_log(level):
             return
+
+        import traceback
+        import sys
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -76,6 +103,14 @@ class Logger:
 
         log_entry = f"[{timestamp}] {thread_prefix}{level}: {message}\n"
 
+        # Add traceback if exc_info is True
+        if exc_info:
+            exc_type, exc_value, exc_tb = sys.exc_info()
+            if exc_type is not None:
+                tb_lines = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+                if tb_lines.strip():
+                    log_entry += tb_lines
+
         with self.lock:
             # Write to main log file
             with open(self.log_file, 'a') as f:
@@ -85,21 +120,21 @@ class Logger:
             if self.console_output and self.console:
                 self._display_log_line(self.console, log_entry.rstrip())
                 
-    def info(self, message):
+    def info(self, message, exc_info=False):
         """Log info message."""
-        self._write_log("INFO", message)
+        self._write_log("INFO", message, exc_info=exc_info)
         
-    def error(self, message):
+    def error(self, message, exc_info=False):
         """Log error message."""
-        self._write_log("ERROR", message)
+        self._write_log("ERROR", message, exc_info=exc_info)
         
-    def warning(self, message):
+    def warning(self, message, exc_info=False):
         """Log warning message."""
-        self._write_log("WARNING", message)
+        self._write_log("WARNING", message, exc_info=exc_info)
         
-    def debug(self, message):
+    def debug(self, message, exc_info=False):
         """Log debug message."""
-        self._write_log("DEBUG", message)
+        self._write_log("DEBUG", message, exc_info=exc_info)
 
     def _display_log_line(self, console, line):
         """Display a single log line with appropriate styling."""

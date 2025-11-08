@@ -3,7 +3,6 @@ Orchestrator core - main event loop and coordination.
 
 Ties together file monitoring, agent matching, and execution management.
 """
-import logging
 import threading
 import time
 from pathlib import Path
@@ -14,8 +13,9 @@ from .file_monitor import FileSystemMonitor
 from .agent_registry import AgentRegistry
 from .execution_manager import ExecutionManager
 from .models import TriggerEvent, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class Orchestrator:
@@ -62,8 +62,9 @@ class Orchestrator:
         self.max_concurrent = max_concurrent or self.config.get_orchestrator_max_concurrent()
         self.poll_interval = poll_interval or self.config.get_orchestrator_poll_interval()
 
-        # Setup logging before creating directories
-        self._setup_logging()
+        # Update logger console output based on debug flag
+        if self.debug:
+            logging.basicConfig(level=logging.DEBUG)
 
         # Ensure required directories exist
         self._ensure_directories()
@@ -87,12 +88,9 @@ class Orchestrator:
 
         # Initialize poller manager
         from .poller_manager import PollerManager
-        from ..logger import Logger
-        poller_logger = Logger(console_output=False)
         self.poller_manager = PollerManager(
             vault_path=self.vault_path,
-            config=self.config,
-            logger_instance=poller_logger
+            config=self.config
         )
 
         # Control state
@@ -102,52 +100,6 @@ class Orchestrator:
         logger.info(f"Orchestrator initialized for vault: {self.vault_path}")
         logger.info(f"Loaded {len(self.agent_registry.agents)} agents")
         logger.info(f"Loaded {len(self.poller_manager.pollers)} poller(s)")
-
-    def _setup_logging(self):
-        """
-        Configure logging for orchestrator.
-
-        - Console: INFO+ (or DEBUG+ if debug=True)
-        - File: DEBUG+ (all logs)
-        """
-        from datetime import datetime
-
-        # Get logs directory from config
-        logs_dir = self.vault_path / self.config.get_orchestrator_logs_dir()
-        logs_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create log file with date stamp
-        log_filename = f"orchestrator_{datetime.now().strftime('%Y-%m-%d')}.log"
-        log_file = logs_dir / log_filename
-
-        # Configure file handler (DEBUG level - captures everything)
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(logging.DEBUG)
-        file_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        file_handler.setFormatter(file_formatter)
-
-        # Configure console handler (INFO or DEBUG based on flag)
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
-        console_formatter = logging.Formatter('%(message)s')
-        console_handler.setFormatter(console_formatter)
-
-        # Get root logger for orchestrator modules
-        orchestrator_logger = logging.getLogger('ai4pkm_cli.orchestrator')
-        orchestrator_logger.setLevel(logging.DEBUG)  # Capture all levels
-
-        # Remove existing handlers to avoid duplicates
-        orchestrator_logger.handlers.clear()
-
-        # Add both handlers
-        orchestrator_logger.addHandler(file_handler)
-        orchestrator_logger.addHandler(console_handler)
-
-        # Prevent propagation to root logger (avoid duplicate console output)
-        orchestrator_logger.propagate = False
 
     def _ensure_directories(self):
         """Create orchestrator directories if they don't exist."""

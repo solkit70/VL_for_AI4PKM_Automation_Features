@@ -4,7 +4,6 @@ Execution manager for orchestrator.
 Manages concurrent execution of agent tasks without global semaphores.
 Uses simple instance-level counter with threading lock.
 """
-import logging
 import threading
 import subprocess
 import time
@@ -14,8 +13,9 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from .models import AgentDefinition, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 class ExecutionManager:
     """

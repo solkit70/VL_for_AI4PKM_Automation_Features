@@ -9,6 +9,9 @@ from tzlocal import get_localzone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_poller import BasePoller
+from ..logger import Logger
+
+logger = Logger()
 
 
 class GobiByTagsPoller(BasePoller):
@@ -16,7 +19,6 @@ class GobiByTagsPoller(BasePoller):
 
     def __init__(
         self,
-        logger_instance: Any,
         poller_config: Dict[str, Any],
         vault_path: Optional[Path] = None,
     ):
@@ -24,11 +26,10 @@ class GobiByTagsPoller(BasePoller):
         Initialize Gobi sync by tags poller.
 
         Args:
-            logger_instance: Logger instance
             poller_config: Poller-specific configuration dictionary
             vault_path: Vault root path
         """
-        super().__init__(logger_instance, poller_config, vault_path)
+        super().__init__(poller_config, vault_path)
         
         self.tags = self.poller_config.get("tags")
         self.admin_api_key = self.poller_config.get("admin_api_key")
@@ -267,10 +268,8 @@ class GobiByTagsPoller(BasePoller):
 def main():
     """Standalone execution entry point."""
     import sys
-    from ..logger import Logger
     from ..config import Config
     
-    logger = Logger(console_output=True)
     config = Config()
     
     poller_config = config.get('pollers', {}).get("gobi_by_tags", {})
@@ -278,7 +277,7 @@ def main():
         logger.error("gobi_by_tags poller configuration not found in orchestrator.yaml")
         sys.exit(1)
     
-    poller = GobiByTagsPoller(logger, poller_config)
+    poller = GobiByTagsPoller(poller_config)
     success = poller.run_once()
     sys.exit(0 if success else 1)
 

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
+from .logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class Config:

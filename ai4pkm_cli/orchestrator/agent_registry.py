@@ -3,7 +3,6 @@ Agent registry for orchestrator.
 
 Loads and manages agent definitions from _Settings_/Agents/.
 """
-import logging
 import json
 import re
 import yaml
@@ -15,8 +14,9 @@ from croniter import croniter
 
 from .models import AgentDefinition
 from ..markdown_utils import read_frontmatter, extract_body
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 # JSON Schema for agent definition validation

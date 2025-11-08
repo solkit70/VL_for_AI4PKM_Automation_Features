@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .base_poller import BasePoller
+from ..logger import Logger
+
+logger = Logger()
 
 
 class ApplePhotosPoller(BasePoller):
@@ -14,7 +17,6 @@ class ApplePhotosPoller(BasePoller):
 
     def __init__(
         self,
-        logger_instance: Any,
         poller_config: Dict[str, Any],
         vault_path: Optional[Path] = None,
     ):
@@ -22,11 +24,10 @@ class ApplePhotosPoller(BasePoller):
         Initialize photo processing poller.
 
         Args:
-            logger_instance: Logger instance
             poller_config: Poller-specific configuration dictionary
             vault_path: Vault root path
         """
-        super().__init__(logger_instance, poller_config, vault_path)
+        super().__init__(poller_config, vault_path)
         
         self.source_folder_path = self.target_dir / "Original"
         self.destination_folder_path = self.target_dir / "Processed"
@@ -171,10 +172,8 @@ class ApplePhotosPoller(BasePoller):
 def main():
     """Standalone execution entry point."""
     import sys
-    from ..logger import Logger
     from ..config import Config
     
-    logger = Logger(console_output=True)
     config = Config()
     
     poller_config = config.get('pollers', {}).get("apple_photos", {})
@@ -182,7 +181,7 @@ def main():
         logger.error("apple_photos poller configuration not found in orchestrator.yaml")
         sys.exit(1)
     
-    poller = ApplePhotosPoller(logger, poller_config)
+    poller = ApplePhotosPoller(poller_config)
     success = poller.run_once()
     sys.exit(0 if success else 1)
 

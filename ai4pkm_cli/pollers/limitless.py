@@ -10,6 +10,9 @@ import pytz
 from tzlocal import get_localzone
 
 from .base_poller import BasePoller
+from ..logger import Logger
+
+logger = Logger()
 
 
 class LimitlessPoller(BasePoller):
@@ -17,7 +20,6 @@ class LimitlessPoller(BasePoller):
 
     def __init__(
         self,
-        logger_instance: Any,
         poller_config: Dict[str, Any],
         vault_path: Optional[Path] = None,
     ):
@@ -25,11 +27,10 @@ class LimitlessPoller(BasePoller):
         Initialize Limitless sync poller.
 
         Args:
-            logger_instance: Logger instance
             poller_config: Poller-specific configuration dictionary
             vault_path: Vault root path
         """
-        super().__init__(logger_instance, poller_config, vault_path)
+        super().__init__(poller_config, vault_path)
         
         self.api_key = self.poller_config.get("api_key")
         
@@ -285,10 +286,8 @@ class LimitlessPoller(BasePoller):
 def main():
     """Standalone execution entry point."""
     import sys
-    from ..logger import Logger
     from ..config import Config
     
-    logger = Logger(console_output=True)
     config = Config()
     
     poller_config = config.get('pollers', {}).get("limitless", {})
@@ -296,7 +295,7 @@ def main():
         logger.error("limitless poller configuration not found in orchestrator.yaml")
         sys.exit(1)
     
-    poller = LimitlessPoller(logger, poller_config)
+    poller = LimitlessPoller(poller_config)
     success = poller.run_once()
     sys.exit(0 if success else 1)
 

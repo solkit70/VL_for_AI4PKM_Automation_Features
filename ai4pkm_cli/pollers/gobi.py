@@ -8,6 +8,9 @@ import pytz
 from tzlocal import get_localzone
 
 from .base_poller import BasePoller
+from ..logger import Logger
+
+logger = Logger()
 
 
 class GobiPoller(BasePoller):
@@ -15,7 +18,6 @@ class GobiPoller(BasePoller):
 
     def __init__(
         self,
-        logger_instance: Any,
         poller_config: Dict[str, Any],
         vault_path: Optional[Path] = None,
     ):
@@ -23,11 +25,10 @@ class GobiPoller(BasePoller):
         Initialize Gobi sync poller.
 
         Args:
-            logger_instance: Logger instance
             poller_config: Poller-specific configuration dictionary
             vault_path: Vault root path
         """
-        super().__init__(logger_instance, poller_config, vault_path)
+        super().__init__(poller_config, vault_path)
         
         self.api_key = self.poller_config.get("api_key")
         self.api_base_url = self.poller_config.get(
@@ -258,10 +259,8 @@ class GobiPoller(BasePoller):
 def main():
     """Standalone execution entry point."""
     import sys
-    from ..logger import Logger
     from ..config import Config
     
-    logger = Logger(console_output=True)
     config = Config()
 
     poller_config = config.get('pollers', {}).get("gobi", {})
@@ -269,7 +268,7 @@ def main():
         logger.error("gobi poller configuration not found in orchestrator.yaml")
         sys.exit(1)
     
-    poller = GobiPoller(logger, poller_config)
+    poller = GobiPoller(poller_config)
     success = poller.run_once()
     sys.exit(0 if success else 1)
 

@@ -1,7 +1,6 @@
 """Base poller class with common functionality for all pollers."""
 
 import json
-import logging
 import signal
 import sys
 import threading
@@ -11,15 +10,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
-
 
 class BasePoller(ABC):
     """Base class for all pollers with common state management and polling logic."""
 
     def __init__(
         self,
-        logger_instance: Any,
         poller_config: Dict[str, Any],
         vault_path: Optional[Path] = None,
     ):
@@ -27,11 +23,15 @@ class BasePoller(ABC):
         Initialize base poller.
 
         Args:
-            logger_instance: Logger instance for logging
             poller_config: Poller-specific configuration dictionary (must contain 'target_dir' and optionally 'poll_interval')
             vault_path: Vault root path (defaults to CWD)
         """
-        self.logger = logger_instance
+        # Get logger from the subclass's module
+        import sys
+        module = sys.modules[self.__class__.__module__]
+        self.logger = getattr(module, 'logger', None)
+        if self.logger is None:
+            raise ValueError(f"Logger not found in module {self.__class__.__module__}. Each poller must define 'logger' at module level.")
         self.poller_config = poller_config or {}
         self.vault_path = Path(vault_path) if vault_path else Path.cwd()
         

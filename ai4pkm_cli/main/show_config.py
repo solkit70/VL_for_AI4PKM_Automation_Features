@@ -6,8 +6,9 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from ..config import Config
+from ..logger import Logger
 
-console = Console()
+logger = Logger(console_output=True)
 
 
 def show_config():
@@ -46,7 +47,7 @@ def show_config():
 
         # Show config file path
         config_path = config.config_path
-        console.print(Panel.fit(
+        logger.info(Panel.fit(
             content,
             title=f"Configuration ({config_path})"
         ))
@@ -55,12 +56,12 @@ def show_config():
         if config_path.exists():
             try:
                 yaml_content = config_path.read_text(encoding="utf-8")
-                console.print("\n[bold]Raw YAML:[/bold]")
+                logger.info("\n[bold]Raw YAML:[/bold]")
                 syntax = Syntax(yaml_content, "yaml", theme="monokai", line_numbers=True)
-                console.print(syntax)
+                logger.info(syntax)
             except Exception as e:
-                console.print(f"[yellow]Could not display raw YAML: {e}[/yellow]")
+                logger.info(f"[yellow]Could not display raw YAML: {e}[/yellow]")
 
     except Exception as e:
-        console.print(f"[red]✗ Error showing config: {e}[/red]")
+        logger.info(f"[red]✗ Error showing config: {e}[/red]")
 

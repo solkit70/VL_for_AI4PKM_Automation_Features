@@ -7,6 +7,9 @@ from rich.console import Console
 from rich.panel import Panel
 
 from ..orchestrator.core import Orchestrator
+from ..logger import Logger
+
+logger = Logger(console_output=True)
 
 
 def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
@@ -20,14 +23,13 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
     from ..config import Config
     
     config = Config()
-    console = Console()
     
     # Use CWD as vault (requires config file in CWD)
     vault_path = vault_path or Path.cwd()
     max_concurrent = config.get_orchestrator_max_concurrent()
 
     debug_mode = "[yellow](DEBUG)[/yellow]" if debug else ""
-    console.print(Panel.fit(
+    logger.info(Panel.fit(
         f"[bold cyan]AI4PKM Orchestrator[/bold cyan] {debug_mode}\n"
         f"Vault: {vault_path}\n"
         f"Max concurrent: {max_concurrent}",
@@ -44,7 +46,7 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
 
     # Setup signal handlers
     def signal_handler(sig, frame):
-        console.print("\n[yellow]Received interrupt signal, shutting down...[/yellow]")
+        logger.info("\n[yellow]Received interrupt signal, shutting down...[/yellow]")
         if orchestrator:
             orchestrator.stop()
         sys.exit(0)
@@ -54,15 +56,15 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
 
     # Show loaded agents
     status = orchestrator.get_status()
-    console.print(f"\n[green]✓[/green] Loaded {status['agents_loaded']} agent(s):")
+    logger.info(f"\n[green]✓[/green] Loaded {status['agents_loaded']} agent(s):")
     for agent_info in status['agent_list']:
-        console.print(
+        logger.info(
             f"  • [{agent_info['abbreviation']}] {agent_info['name']} "
             f"({agent_info['category']})"
         )
 
     # Start orchestrator
-    console.print("\n[cyan]Starting orchestrator...[/cyan]")
+    logger.info("\n[cyan]Starting orchestrator...[/cyan]")
     orchestrator.run_forever()
 
 
@@ -76,7 +78,6 @@ def show_orchestrator_status(vault_path: Path = None):
     from ..config import Config
     
     config = Config()
-    console = Console()
     
     # Use CWD as vault (requires config file in CWD)
     vault_path = vault_path or Path.cwd()
@@ -89,7 +90,7 @@ def show_orchestrator_status(vault_path: Path = None):
 
     status = orch.get_status()
 
-    console.print(Panel.fit(
+    logger.info(Panel.fit(
         f"[bold]Vault:[/bold] {status['vault_path']}\n"
         f"[bold]Agents loaded:[/bold] {status['agents_loaded']}\n"
         f"[bold]Max concurrent:[/bold] {status['max_concurrent']}",
@@ -97,9 +98,9 @@ def show_orchestrator_status(vault_path: Path = None):
     ))
 
     if status['agent_list']:
-        console.print("\n[bold]Available Agents:[/bold]")
+        logger.info("\n[bold]Available Agents:[/bold]")
         for agent_info in status['agent_list']:
-            console.print(
+            logger.info(
                 f"  • [{agent_info['abbreviation']}] {agent_info['name']}\n"
                 f"    Category: {agent_info['category']}"
             )

@@ -10,8 +10,12 @@ from ..orchestrator.core import Orchestrator
 
 logger = Logger(console_output=True)
 
-def trigger_orchestrator_agent():
-    """Trigger an orchestrator agent interactively."""
+def trigger_orchestrator_agent(abbreviation=None):
+    """Trigger an orchestrator agent interactively.
+    
+    Args:
+        abbreviation: Optional agent abbreviation to skip selection UX
+    """
     try:
         config = Config()
 
@@ -30,48 +34,63 @@ def trigger_orchestrator_agent():
             )
             return
 
-        # Sort by abbreviation for consistent display
-        agents_list.sort(key=lambda a: a.abbreviation)
-
-        # Display available agents
-        logger.info("\n[bold blue]Available Orchestrator Agents:[/bold blue]")
-        for i, agent in enumerate(agents_list, 1):
-            cron_info = f" [dim]cron: {agent.cron}[/dim]" if agent.cron else ""
-            input_info = (
-                f" [dim]→ {agent.output_path}[/dim]" if agent.output_path else ""
-            )
-
-            logger.info(
-                f"[cyan]{i}.[/cyan] [bold]{agent.name} ({agent.abbreviation})[/bold]"
-            )
-            logger.info(f"   Category: {agent.category}{cron_info}{input_info}\n")
-
-        # Get user selection
-        try:
-            choice = input(
-                f"Enter agent number (1-{len(agents_list)}) or 'q' to quit: "
-            ).strip()
-
-            if choice.lower() == "q":
-                logger.info("Trigger cancelled by user")
+        # If abbreviation provided, skip selection
+        if abbreviation:
+            abbreviation = abbreviation.upper()
+            selected_agent = orch.agent_registry.agents.get(abbreviation)
+            if not selected_agent:
+                logger.error(f"Agent '{abbreviation}' not found")
+                logger.info(f"\n[red]✗ Agent '{abbreviation}' not found[/red]")
+                logger.info(f"[dim]Available agents: {', '.join(sorted(orch.agent_registry.agents.keys()))}[/dim]")
                 return
+            if not selected_agent.input_path:
+                logger.error(f"Agent '{abbreviation}' cannot be triggered manually (requires file events)")
+                logger.info(f"\n[red]✗ Agent '{abbreviation}' cannot be triggered manually[/red]")
+                return
+        else:
+            # Sort by abbreviation for consistent display
+            agents_list.sort(key=lambda a: a.abbreviation)
 
-            agent_index = int(choice) - 1
-            if agent_index < 0 or agent_index >= len(agents_list):
-                logger.error(
-                    f"Invalid choice: {choice}. Please enter a number between 1 and {len(agents_list)}"
+            # Display available agents
+            logger.info("\n[bold blue]Available Orchestrator Agents:[/bold blue]")
+            for i, agent in enumerate(agents_list, 1):
+                cron_info = f" [dim]cron: {agent.cron}[/dim]" if agent.cron else ""
+                input_info = (
+                    f" [dim]→ {agent.output_path}[/dim]" if agent.output_path else ""
                 )
+
+                logger.info(
+                    f"[cyan]{i}.[/cyan] [bold]{agent.name} ({agent.abbreviation})[/bold]"
+                )
+                logger.info(f"   Category: {agent.category}{cron_info}{input_info}\n")
+
+            # Get user selection
+            try:
+                choice = input(
+                    f"Enter agent number (1-{len(agents_list)}) or 'q' to quit: "
+                ).strip()
+
+                if choice.lower() == "q":
+                    logger.info("Trigger cancelled by user")
+                    return
+
+                agent_index = int(choice) - 1
+                if agent_index < 0 or agent_index >= len(agents_list):
+                    logger.error(
+                        f"Invalid choice: {choice}. Please enter a number between 1 and {len(agents_list)}"
+                    )
+                    return
+
+            except ValueError:
+                logger.error(f"Invalid input: {choice}. Please enter a number or 'q'")
+                return
+            except KeyboardInterrupt:
+                logger.info("\nTrigger cancelled by user")
                 return
 
-        except ValueError:
-            logger.error(f"Invalid input: {choice}. Please enter a number or 'q'")
-            return
-        except KeyboardInterrupt:
-            logger.info("\nTrigger cancelled by user")
-            return
-
-        # Trigger the selected agent
-        selected_agent = agents_list[agent_index]
+            # Trigger the selected agent
+            selected_agent = agents_list[agent_index]
+        
         logger.info(f"Triggering agent: {selected_agent.abbreviation}")
         
         start_time = time.time()

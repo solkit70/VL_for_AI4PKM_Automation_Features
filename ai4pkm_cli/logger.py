@@ -20,7 +20,7 @@ class Logger:
         """Singleton pattern: return same instance for same parameters."""
         # Create a key based on log_file and console_output
         key = (log_file, console_output)
-        
+
         if key not in cls._instances:
             with cls._lock:
                 # Double-check after acquiring lock
@@ -159,59 +159,3 @@ class Logger:
             console: Print to console (message only, no formatting) if True
         """
         self._write_log("DEBUG", message, exc_info=exc_info, console=console)
-
-    def _display_log_line(self, console, line):
-        """Display a single log line with appropriate styling."""
-        if not line.strip():
-            return
-            
-        text = Text()
-        
-        # Parse log line format: [timestamp] [thread] LEVEL: message
-        if "] " in line and ": " in line:
-            try:
-                # Extract timestamp
-                timestamp_part = line.split("] ")[0] + "]"
-                rest = line.split("] ", 1)[1]
-                
-                # Extract thread name (always present now)
-                thread_part = ""
-                if rest.startswith("[") and "] " in rest:
-                    thread_part = rest.split("] ")[0] + "]"
-                    rest = rest.split("] ", 1)[1]
-                
-                # Extract level and message
-                level_part = rest.split(": ")[0]
-                message_part = rest.split(": ", 1)[1]
-                
-                # Style timestamp
-                text.append(timestamp_part, style="dim")
-                text.append(" ")
-                
-                # Style thread name
-                if thread_part:
-                    text.append(thread_part, style="cyan")
-                    text.append(" ")
-                
-                # Style level with colors
-                if level_part == "ERROR":
-                    text.append(level_part, style="bold red")
-                elif level_part == "WARNING":
-                    text.append(level_part, style="bold yellow")
-                elif level_part == "INFO":
-                    text.append(level_part, style="bold green")
-                elif level_part == "DEBUG":
-                    text.append(level_part, style="bold blue")
-                else:
-                    text.append(level_part, style="bold")
-                    
-                text.append(": ")
-                text.append(message_part)
-                
-            except (IndexError, ValueError):
-                # If parsing fails, display line as-is
-                text.append(line)
-        else:
-            text.append(line)
-            
-        console.print(text)

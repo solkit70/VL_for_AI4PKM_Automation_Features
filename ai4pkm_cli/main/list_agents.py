@@ -6,8 +6,9 @@ from rich.table import Table
 
 from ..config import Config
 from ..orchestrator.core import Orchestrator
+from ..logger import Logger
 
-console = Console()
+logger = Logger(console_output=True)
 
 
 def list_agents():
@@ -17,7 +18,7 @@ def list_agents():
         orch = Orchestrator(vault_path=Path.cwd(), config=config)
 
         if not orch.agent_registry.agents:
-            console.print("[yellow]No agents found.[/yellow]")
+            logger.info("[yellow]No agents found.[/yellow]")
             return
 
         # Create table
@@ -53,8 +54,8 @@ def list_agents():
                 cron,
             )
 
-        console.print(table)
+        logger.info(table)
 
     except Exception as e:
-        console.print(f"[red]✗ Error listing agents: {e}[/red]")
+        logger.info(f"[red]✗ Error listing agents: {e}[/red]")
 

@@ -38,6 +38,7 @@ def signal_handler(sig, frame):
     is_flag=True,
     help="Trigger an orchestrator agent interactively once",
 )
+@click.argument("agent_abbreviation", required=False)
 @click.option("-d", "--debug", is_flag=True, help="Enable debug logging")
 @click.option(
     "--list-agents", is_flag=True, help="List available AI agents and their status"
@@ -47,6 +48,7 @@ def main(
     orchestrator,
     orchestrator_status,
     trigger_agent,
+    agent_abbreviation,
     debug,
     list_agents,
     show_config,
@@ -68,7 +70,7 @@ def main(
             run_orchestrator_daemon(debug=debug)
     elif trigger_agent:
         # Trigger an orchestrator agent interactively once
-        trigger_orchestrator_agent()
+        trigger_orchestrator_agent(abbreviation=agent_abbreviation)
     elif list_agents:
         # List available agents
         list_agents_handler()

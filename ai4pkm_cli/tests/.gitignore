@@ -1,0 +1,21 @@
+# Test Result Files (generated during test runs)
+*Results*.md
+*Summary*.md
+Task_Processing_Investigation*.md
+README_Integration_Tests.md
+
+# Test Logs
+watchdog_*.log
+*.pyc
+__pycache__/
+
+# Test Artifacts (generated during test execution)
+2025-*.md
+test_polling_performance.py
+test_trigger_detection.py
+
+# Extra fixtures not in main test suite
+fixtures/test_limitless_hey_pkm_variations.md
+
+# Temporary Test Output
+/tmp/

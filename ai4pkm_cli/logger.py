@@ -12,7 +12,7 @@ from rich.text import Text
 
 class Logger:
     """Logger that writes to logs.txt and supports real-time tail display."""
-    
+
     _instances = {}
     _lock = Lock()
 
@@ -85,7 +85,7 @@ class Logger:
         current_level = logging.getLogger().getEffectiveLevel()
         return message_level >= current_level
 
-    def _write_log(self, level, message, exc_info=False):
+    def _write_log(self, level, message, exc_info=False, console=False):
         """Write log entry to file and optionally to console."""
         # Check if this message should be logged based on log level
         if not self._should_log(level):
@@ -116,25 +116,51 @@ class Logger:
             with open(self.log_file, 'a') as f:
                 f.write(log_entry)
 
-            # Also print to console if enabled
-            if self.console_output and self.console:
-                self._display_log_line(self.console, log_entry.rstrip())
+            # Print to console if requested (message only, no formatting)
+            if console:
+                if self.console is None:
+                    self.console = Console()
+                print(message)
                 
-    def info(self, message, exc_info=False):
-        """Log info message."""
-        self._write_log("INFO", message, exc_info=exc_info)
+    def info(self, message, exc_info=False, console=False):
+        """Log info message.
         
-    def error(self, message, exc_info=False):
-        """Log error message."""
-        self._write_log("ERROR", message, exc_info=exc_info)
+        Args:
+            message: Message to log
+            exc_info: Include exception traceback if True
+            console: Print to console (message only, no formatting) if True
+        """
+        self._write_log("INFO", message, exc_info=exc_info, console=console)
         
-    def warning(self, message, exc_info=False):
-        """Log warning message."""
-        self._write_log("WARNING", message, exc_info=exc_info)
+    def error(self, message, exc_info=False, console=False):
+        """Log error message.
         
-    def debug(self, message, exc_info=False):
-        """Log debug message."""
-        self._write_log("DEBUG", message, exc_info=exc_info)
+        Args:
+            message: Message to log
+            exc_info: Include exception traceback if True
+            console: Print to console (message only, no formatting) if True
+        """
+        self._write_log("ERROR", message, exc_info=exc_info, console=console)
+        
+    def warning(self, message, exc_info=False, console=False):
+        """Log warning message.
+        
+        Args:
+            message: Message to log
+            exc_info: Include exception traceback if True
+            console: Print to console (message only, no formatting) if True
+        """
+        self._write_log("WARNING", message, exc_info=exc_info, console=console)
+        
+    def debug(self, message, exc_info=False, console=False):
+        """Log debug message.
+        
+        Args:
+            message: Message to log
+            exc_info: Include exception traceback if True
+            console: Print to console (message only, no formatting) if True
+        """
+        self._write_log("DEBUG", message, exc_info=exc_info, console=console)
 
     def _display_log_line(self, console, line):
         """Display a single log line with appropriate styling."""

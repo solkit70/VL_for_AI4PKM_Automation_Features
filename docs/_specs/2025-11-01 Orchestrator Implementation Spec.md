@@ -91,7 +91,7 @@ ai4pkm_cli/orchestrator/
 **3. Execution Manager** (`execution_manager.py:55-563`)
 - Thread-safe concurrency control with atomic slot reservation
 - Two-level limiting: global `max_concurrent` + per-agent `max_parallel`
-- Discovers and executes via 4 CLI types: claude_code, gemini_cli, codex_cli, cursor_agent
+- Discovers and executes via 5 CLI types: claude_code, gemini_cli, codex_cli, cursor_agent, continue_cli
 - Creates task files before execution starts
 - Updates task status on completion/failure
 - Applies post-processing actions (e.g., remove trigger content)
@@ -652,7 +652,7 @@ def update_task_status(self, task_name, new_status, error_message=None):
 
 ### Supported Executors
 
-**Four Executor Types** (`execution_manager.py:194-203`):
+**Five Executor Types** (`execution_manager.py:194-203`):
 
 1. **claude_code** (default):
    - Auto-discovery: `~/.claude/local/claude` or `which claude` (lines 21-52)
@@ -672,6 +672,17 @@ def update_task_status(self, task_name, new_status, error_message=None):
    - Supports optional model selection via `agent_params.model`
    - Supports MCP server auto-approval via `agent_params.approve_mcps`
    - Supports browser automation via `agent_params.browser`
+
+5. **continue_cli**:
+   - Command: `cn --print --format json [prompt]`
+   - Supports optional model selection via `agent_params.model`
+   - Supports MCP servers via `agent_params.mcp` (list or string)
+   - Supports rules via `agent_params.rule` (list or string)
+   - Supports config file via `agent_params.config`
+   - Supports `--auto` mode via `agent_params.auto`
+   - Supports `--readonly` mode via `agent_params.readonly`
+   - Supports `--silent` flag via `agent_params.silent`
+   - Default output format is JSON for structured output
 
 **Executor Selection**:
 - Specified per-agent in orchestrator.yaml node
@@ -1508,7 +1519,7 @@ ai4pkm orchestrator new-agent
 ? Category (ingestion/publish/research): ingestion
 ? Input directory: Ingest/Custom
 ? Output directory: AI/Custom
-? Executor (claude_code/gemini_cli/codex_cli/cursor_agent): claude_code
+? Executor (claude_code/gemini_cli/codex_cli/cursor_agent/continue_cli): claude_code
 
 ✓ Created prompt file: _Settings_/Prompts/My Custom Agent (MCA).md
 ✓ Added node to orchestrator.yaml
@@ -1616,7 +1627,7 @@ Test with: ai4pkm orchestrator test MCA
 - Human-readable markdown format
 
 ✅ **Multi-Executor Support**
-- 4 executors implemented: claude_code, gemini_cli, codex_cli, cursor_agent
+- 5 executors implemented: claude_code, gemini_cli, codex_cli, cursor_agent, continue_cli
 - Easy to add new executors (implement execute method)
 - Per-agent executor selection works
 - Claude CLI auto-discovery reliable

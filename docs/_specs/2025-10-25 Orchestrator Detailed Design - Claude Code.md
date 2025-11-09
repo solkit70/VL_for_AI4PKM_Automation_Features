@@ -248,7 +248,7 @@ timeout_minutes: 30
 - **mcp_servers**: List of MCP servers required (e.g., `gcal`, `web_search`)
 
 ### Execution
-- **executor**: `claude_code` | `gemini_cli` | `codex_cli` | `cursor_agent`
+- **executor**: `claude_code` | `gemini_cli` | `codex_cli` | `cursor_agent` | `continue_cli`
 - **max_parallel**: Maximum concurrent executions
 - **timeout_minutes**: Execution timeout
 
@@ -370,7 +370,7 @@ class FileSystemMonitor:
     "category": {"enum": ["ingestion", "publish", "research"]},
     "trigger_pattern": {"type": "string"},
     "trigger_event": {"enum": ["created", "modified", "deleted", "scheduled", "manual"]},
-    "executor": {"enum": ["claude_code", "gemini_cli", "codex_cli", "cursor_agent"]},
+    "executor": {"enum": ["claude_code", "gemini_cli", "codex_cli", "cursor_agent", "continue_cli"]},
     "max_parallel": {"type": "integer", "minimum": 1},
     "timeout_minutes": {"type": "integer", "minimum": 1}
   }

@@ -166,6 +166,8 @@ class ExecutionManager:
                 self._execute_codex_cli(agent, ctx, trigger_data)
             elif agent.executor == 'cursor_agent':
                 self._execute_cursor_agent(agent, ctx, trigger_data)
+            elif agent.executor == 'continue_cli':
+                self._execute_continue_cli(agent, ctx, trigger_data)
             else:
                 raise ValueError(f"Unknown executor: {agent.executor}")
 
@@ -310,6 +312,72 @@ class ExecutionManager:
         cmd.append(ctx.prompt)
         
         self._execute_subprocess(ctx, 'Cursor Agent', cmd, agent.timeout_minutes * 60)
+
+    def _execute_continue_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Continue CLI (cn).
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        
+        # Build command: cn --print [options] [prompt]
+        cmd = ['cn', '--print']
+        
+        # Add format if specified in agent_params (default: json for structured output)
+        if agent.agent_params and 'format' in agent.agent_params:
+            output_format = agent.agent_params['format']
+            cmd.extend(['--format', output_format])
+        else:
+            # Default to json for structured output if not specified
+            cmd.extend(['--format', 'json'])
+        
+        # Add silent flag if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('silent', False):
+            cmd.append('--silent')
+        
+        # Add model if specified in agent_params
+        if agent.agent_params and 'model' in agent.agent_params:
+            cmd.extend(['--model', agent.agent_params['model']])
+        
+        # Add MCP servers if specified in agent_params
+        if agent.agent_params and 'mcp' in agent.agent_params:
+            mcp_servers = agent.agent_params['mcp']
+            if isinstance(mcp_servers, list):
+                for mcp in mcp_servers:
+                    cmd.extend(['--mcp', mcp])
+            elif isinstance(mcp_servers, str):
+                cmd.extend(['--mcp', mcp_servers])
+        
+        # Add rules if specified in agent_params
+        if agent.agent_params and 'rule' in agent.agent_params:
+            rules = agent.agent_params['rule']
+            if isinstance(rules, list):
+                for rule in rules:
+                    cmd.extend(['--rule', rule])
+            elif isinstance(rules, str):
+                cmd.extend(['--rule', rules])
+        
+        # Add config if specified in agent_params
+        if agent.agent_params and 'config' in agent.agent_params:
+            cmd.extend(['--config', agent.agent_params['config']])
+        
+        # Add auto mode if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('auto', False):
+            cmd.append('--auto')
+        
+        # Add readonly mode if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('readonly', False):
+            cmd.append('--readonly')
+        
+        # Add the prompt as the final argument
+        cmd.append(ctx.prompt)
+        
+        self._execute_subprocess(ctx, 'Continue CLI', cmd, agent.timeout_minutes * 60)
 
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
         process = subprocess.Popen(

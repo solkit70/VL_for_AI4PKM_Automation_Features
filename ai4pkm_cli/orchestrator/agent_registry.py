@@ -30,7 +30,7 @@ AGENT_SCHEMA = {
         "category": {"enum": ["ingestion", "publish", "research"]},
         "trigger_pattern": {"type": "string"},
         "trigger_event": {"enum": ["created", "modified", "deleted", "scheduled", "manual"]},
-        "executor": {"enum": ["claude_code", "gemini_cli", "custom_script"]},
+        "executor": {"enum": ["claude_code", "gemini_cli", "codex_cli", "cursor_agent"]},
         "max_parallel": {"type": "integer", "minimum": 1},
         "timeout_minutes": {"type": "integer", "minimum": 1}
     }

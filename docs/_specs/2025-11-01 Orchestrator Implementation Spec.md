@@ -91,7 +91,7 @@ ai4pkm_cli/orchestrator/
 **3. Execution Manager** (`execution_manager.py:55-563`)
 - Thread-safe concurrency control with atomic slot reservation
 - Two-level limiting: global `max_concurrent` + per-agent `max_parallel`
-- Discovers and executes via 4 CLI types: claude_code, gemini_cli, codex_cli, custom_script
+- Discovers and executes via 4 CLI types: claude_code, gemini_cli, codex_cli, cursor_agent
 - Creates task files before execution starts
 - Updates task status on completion/failure
 - Applies post-processing actions (e.g., remove trigger content)
@@ -667,9 +667,11 @@ def update_task_status(self, task_name, new_status, error_message=None):
    - Command: `codex --prompt "{prompt}"`
    - Requires codex CLI installed
 
-4. **custom_script**:
-   - Executes custom shell script
-   - Script receives prompt via stdin
+4. **cursor_agent**:
+   - Command: `cursor-agent --print --output-format text [prompt]`
+   - Supports optional model selection via `agent_params.model`
+   - Supports MCP server auto-approval via `agent_params.approve_mcps`
+   - Supports browser automation via `agent_params.browser`
 
 **Executor Selection**:
 - Specified per-agent in orchestrator.yaml node
@@ -1506,7 +1508,7 @@ ai4pkm orchestrator new-agent
 ? Category (ingestion/publish/research): ingestion
 ? Input directory: Ingest/Custom
 ? Output directory: AI/Custom
-? Executor (claude_code/gemini_cli/codex_cli): claude_code
+? Executor (claude_code/gemini_cli/codex_cli/cursor_agent): claude_code
 
 ✓ Created prompt file: _Settings_/Prompts/My Custom Agent (MCA).md
 ✓ Added node to orchestrator.yaml
@@ -1614,7 +1616,7 @@ Test with: ai4pkm orchestrator test MCA
 - Human-readable markdown format
 
 ✅ **Multi-Executor Support**
-- 4 executors implemented: claude_code, gemini_cli, codex_cli, custom_script
+- 4 executors implemented: claude_code, gemini_cli, codex_cli, cursor_agent
 - Easy to add new executors (implement execute method)
 - Per-agent executor selection works
 - Claude CLI auto-discovery reliable

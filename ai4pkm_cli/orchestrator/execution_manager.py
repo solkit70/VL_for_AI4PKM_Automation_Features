@@ -164,6 +164,8 @@ class ExecutionManager:
                 self._execute_gemini_cli(agent, ctx, trigger_data)
             elif agent.executor == 'codex_cli':
                 self._execute_codex_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'cursor_agent':
+                self._execute_cursor_agent(agent, ctx, trigger_data)
             else:
                 raise ValueError(f"Unknown executor: {agent.executor}")
 
@@ -276,6 +278,38 @@ class ExecutionManager:
         # Build prompt
         ctx.prompt = self._build_prompt(agent, trigger_data)
         self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
+
+    def _execute_cursor_agent(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Cursor Agent CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        
+        # Build command: cursor-agent --print --output-format text [prompt]
+        cmd = ['cursor-agent', '--print', '--output-format', 'text']
+        
+        # Add model if specified in agent_params
+        if agent.agent_params and 'model' in agent.agent_params:
+            cmd.extend(['--model', agent.agent_params['model']])
+        
+        # Add MCP approval if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('approve_mcps', False):
+            cmd.append('--approve-mcps')
+        
+        # Add browser support if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('browser', False):
+            cmd.append('--browser')
+        
+        # Add the prompt as the final argument
+        cmd.append(ctx.prompt)
+        
+        self._execute_subprocess(ctx, 'Cursor Agent', cmd, agent.timeout_minutes * 60)
 
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
         process = subprocess.Popen(

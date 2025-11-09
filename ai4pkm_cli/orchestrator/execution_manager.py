@@ -168,6 +168,8 @@ class ExecutionManager:
                 self._execute_cursor_agent(agent, ctx, trigger_data)
             elif agent.executor == 'continue_cli':
                 self._execute_continue_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'grok_cli':
+                self._execute_grok_cli(agent, ctx, trigger_data)
             else:
                 raise ValueError(f"Unknown executor: {agent.executor}")
 
@@ -378,6 +380,19 @@ class ExecutionManager:
         cmd.append(ctx.prompt)
         
         self._execute_subprocess(ctx, 'Continue CLI', cmd, agent.timeout_minutes * 60)
+
+    def _execute_grok_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Grok CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        self._execute_subprocess(ctx, 'Grok CLI', ['grok', '--prompt', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
         process = subprocess.Popen(

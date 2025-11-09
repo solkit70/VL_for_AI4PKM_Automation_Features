@@ -12,13 +12,14 @@ from ..logger import Logger
 logger = Logger(console_output=True)
 
 
-def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
+def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False, working_dir: str = None):
     """
     Run orchestrator in daemon mode.
 
     Args:
         vault_path: Path to vault root (defaults to CWD)
         debug: Enable debug logging to console
+        working_dir: Working directory for agent subprocess execution (defaults to vault_path)
     """
     from ..config import Config
     
@@ -41,7 +42,8 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
         vault_path=vault_path,
         max_concurrent=max_concurrent,
         config=config,
-        debug=debug
+        debug=debug,
+        working_dir=Path(working_dir) if working_dir else None
     )
 
     # Setup signal handlers
@@ -68,12 +70,13 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False):
     orchestrator.run_forever()
 
 
-def show_orchestrator_status(vault_path: Path = None):
+def show_orchestrator_status(vault_path: Path = None, working_dir: str = None):
     """
     Show orchestrator status and loaded agents.
 
     Args:
         vault_path: Path to vault root (defaults to CWD)
+        working_dir: Working directory for agent subprocess execution (defaults to vault_path)
     """
     from ..config import Config
     
@@ -85,7 +88,8 @@ def show_orchestrator_status(vault_path: Path = None):
     # Create orchestrator just to load agents (don't start)
     orch = Orchestrator(
         vault_path=vault_path,
-        config=config
+        config=config,
+        working_dir=Path(working_dir) if working_dir else None
     )
 
     status = orch.get_status()

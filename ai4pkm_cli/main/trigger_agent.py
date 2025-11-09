@@ -10,17 +10,22 @@ from ..orchestrator.core import Orchestrator
 
 logger = Logger(console_output=True)
 
-def trigger_orchestrator_agent(abbreviation=None):
+def trigger_orchestrator_agent(abbreviation=None, working_dir=None):
     """Trigger an orchestrator agent interactively.
     
     Args:
         abbreviation: Optional agent abbreviation to skip selection UX
+        working_dir: Optional working directory for agent subprocess execution (defaults to vault_path)
     """
     try:
         config = Config()
 
         # Create orchestrator (but don't start daemon)
-        orch = Orchestrator(vault_path=Path.cwd(), config=config)
+        orch = Orchestrator(
+            vault_path=Path.cwd(),
+            config=config,
+            working_dir=Path(working_dir) if working_dir else None
+        )
 
         agents_list = [agent for agent in orch.agent_registry.agents.values()]
         

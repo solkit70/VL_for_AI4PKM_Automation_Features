@@ -25,7 +25,7 @@ class ExecutionManager:
     Each agent can specify max_parallel limit.
     """
 
-    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None):
+    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None, working_dir: Optional[Path] = None):
         """
         Initialize execution manager.
 
@@ -34,10 +34,12 @@ class ExecutionManager:
             max_concurrent: Maximum concurrent executions across all agents
             config: Config instance (will create default if None)
             orchestrator_settings: Orchestrator settings from YAML (optional)
+            working_dir: Working directory for agent subprocess execution (defaults to vault_path)
         """
         from ..config import Config
 
         self.vault_path = Path(vault_path)
+        self.working_dir = Path(working_dir) if working_dir else self.vault_path
         self.max_concurrent = max_concurrent
         self.config = config or Config()
 
@@ -282,7 +284,7 @@ class ExecutionManager:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            cwd=str(self.vault_path)
+            cwd=str(self.working_dir)
         )
 
         logs = []

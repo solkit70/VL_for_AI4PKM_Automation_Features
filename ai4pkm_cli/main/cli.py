@@ -5,6 +5,7 @@ import signal
 import sys
 import click
 import logging
+from pathlib import Path
 
 from .trigger_agent import trigger_orchestrator_agent
 from .list_agents import list_agents as list_agents_handler
@@ -44,6 +45,12 @@ def signal_handler(sig, frame):
     "--list-agents", is_flag=True, help="List available AI agents and their status"
 )
 @click.option("--show-config", is_flag=True, help="Show current configuration")
+@click.option(
+    "-w",
+    "--working-dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=str),
+    help="Working directory to launch the agent from",
+)
 def main(
     orchestrator,
     orchestrator_status,
@@ -52,6 +59,7 @@ def main(
     debug,
     list_agents,
     show_config,
+    working_dir,
 ):
     """PKM CLI - Personal Knowledge Management framework."""
     # Set up signal handler for graceful shutdown
@@ -62,20 +70,15 @@ def main(
     else:
         logging.basicConfig(level=logging.INFO)
 
-    if orchestrator or orchestrator_status:
-        # Use new orchestrator system
-        if orchestrator_status:
-            show_orchestrator_status()
-        else:
-            run_orchestrator_daemon(debug=debug)
+    if orchestrator:
+        show_orchestrator_status(working_dir=working_dir)
+    elif orchestrator_status:
+        run_orchestrator_daemon(debug=debug, working_dir=working_dir)
     elif trigger_agent:
-        # Trigger an orchestrator agent interactively once
-        trigger_orchestrator_agent(abbreviation=agent_abbreviation)
+        trigger_orchestrator_agent(abbreviation=agent_abbreviation, working_dir=working_dir)
     elif list_agents:
-        # List available agents
         list_agents_handler()
     elif show_config:
-        # Show current configuration
         show_config_handler()
     else:
         click.echo(main.get_help(click.get_current_context()))

@@ -28,6 +28,7 @@ class Orchestrator:
     def __init__(
         self,
         vault_path: Path,
+        working_dir: Optional[Path] = None,
         agents_dir: Optional[Path] = None,
         max_concurrent: Optional[int] = None,
         poll_interval: Optional[float] = None,
@@ -39,6 +40,7 @@ class Orchestrator:
 
         Args:
             vault_path: Path to vault root
+            working_dir: Working directory for agent subprocess execution (defaults to vault_path)
             agents_dir: Directory containing agent definitions (defaults to config orchestrator.prompts_dir)
             max_concurrent: Maximum concurrent task executions (defaults to config)
             poll_interval: Seconds between event queue polls (defaults to config)
@@ -75,7 +77,8 @@ class Orchestrator:
             self.vault_path,
             self.max_concurrent,
             self.config,
-            orchestrator_settings=self.agent_registry.orchestrator_settings
+            orchestrator_settings=self.agent_registry.orchestrator_settings,
+            working_dir=working_dir
         )
         self.file_monitor = FileSystemMonitor(self.vault_path, self.agent_registry)
 

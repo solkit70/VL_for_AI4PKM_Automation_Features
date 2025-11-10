@@ -137,3 +137,25 @@ class PollerManager:
         """
         return self.pollers.get(name)
 
+    def reload(self) -> None:
+        """
+        Reload poller configuration from config and restart pollers.
+        
+        Stops all running pollers, reloads config, and starts newly configured pollers.
+        """
+        self.logger.info("Reloading poller configuration...")
+        
+        # Stop all running pollers
+        self.stop_all()
+        
+        # Clear existing pollers
+        self.pollers.clear()
+        
+        # Reload pollers from config
+        self._load_pollers()
+        
+        # Start all newly configured pollers
+        self.start_all()
+        
+        self.logger.info(f"Poller reload complete: {len(self.pollers)} poller(s) loaded")
+

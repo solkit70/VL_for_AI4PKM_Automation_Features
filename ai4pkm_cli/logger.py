@@ -59,8 +59,6 @@ class Logger:
 
         self._ensure_log_file()
 
-        logging.basicConfig(level=logging.INFO)
-        
         self._initialized = True
         
     def _ensure_log_file(self):
@@ -117,7 +115,7 @@ class Logger:
                 f.write(log_entry)
 
             # Print to console if requested (message only, no formatting)
-            if console or self.console_output:
+            if console or self.console_output or logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
                 self.console.print(message)
                 
     def info(self, message, exc_info=False, console=False):

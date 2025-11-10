@@ -614,6 +614,20 @@ class ExecutionManager:
         with self._executions_lock:
             return list(self._running_executions.values())
 
+    def update_settings(self, max_concurrent: int) -> None:
+        """
+        Update execution manager settings.
+        
+        Updates max_concurrent without affecting running executions.
+        
+        Args:
+            max_concurrent: New maximum concurrent executions
+        """
+        with self._count_lock:
+            old_max = self.max_concurrent
+            self.max_concurrent = max_concurrent
+            logger.info(f"Updated max_concurrent: {old_max} -> {max_concurrent}")
+
     def _apply_post_processing(self, agent: AgentDefinition, trigger_data: Dict):
         """
         Apply post-processing actions after successful execution.

@@ -38,26 +38,25 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False, workin
     ))
 
     # Create orchestrator (it will load paths from config)
-    orchestrator = Orchestrator(
+    orch = Orchestrator(
         vault_path=vault_path,
         max_concurrent=max_concurrent,
         config=config,
-        debug=debug,
         working_dir=Path(working_dir) if working_dir else None
     )
 
     # Setup signal handlers
     def signal_handler(sig, frame):
         logger.info("\n[yellow]Received interrupt signal, shutting down...[/yellow]")
-        if orchestrator:
-            orchestrator.stop()
+        if orch:
+            orch.stop()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Show loaded agents
-    status = orchestrator.get_status()
+    status = orch.get_status()
     logger.info(f"\n[green]✓[/green] Loaded {status['agents_loaded']} agent(s):")
     for agent_info in status['agent_list']:
         logger.info(
@@ -67,7 +66,7 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False, workin
 
     # Start orchestrator
     logger.info("\n[cyan]Starting orchestrator...[/cyan]")
-    orchestrator.run_forever()
+    orch.run_forever()
 
 
 def show_orchestrator_status(vault_path: Path = None, working_dir: str = None):

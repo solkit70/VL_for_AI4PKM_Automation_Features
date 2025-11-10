@@ -138,8 +138,12 @@ class TaskFileManager:
 
             content = update_frontmatter_fields(content, updates)
 
-            # Write back
-            task_path.write_text(content, encoding='utf-8')
+            # Write back with explicit flush and sync to ensure disk write
+            import os
+            with open(task_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
             logger.info(f"Updated task file status: {status}")
 
         except Exception as e:

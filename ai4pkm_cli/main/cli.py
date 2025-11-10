@@ -70,9 +70,9 @@ def main(
     else:
         logging.basicConfig(level=logging.INFO)
 
-    if orchestrator:
+    if orchestrator_status:
         show_orchestrator_status(working_dir=working_dir)
-    elif orchestrator_status:
+    elif orchestrator:
         run_orchestrator_daemon(debug=debug, working_dir=working_dir)
     elif trigger_agent:
         trigger_orchestrator_agent(abbreviation=agent_abbreviation, working_dir=working_dir)

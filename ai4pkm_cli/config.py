@@ -85,6 +85,26 @@ class Config:
 
         return config_data
 
+    def reload(self) -> bool:
+        """
+        Reload orchestrator.yaml and secrets.yaml from disk.
+        
+        Returns:
+            True if reload succeeded, False otherwise
+        """
+        try:
+            new_config = self._load_config()
+            if new_config:
+                self.config = new_config
+                logger.info(f"Configuration reloaded from {self.config_path}")
+                return True
+            else:
+                logger.warning("Reload resulted in empty config, keeping existing config")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to reload configuration: {e}", exc_info=True)
+            return False
+
     # --------------------------------------------------------------------- #
     # Public accessors
     # --------------------------------------------------------------------- #

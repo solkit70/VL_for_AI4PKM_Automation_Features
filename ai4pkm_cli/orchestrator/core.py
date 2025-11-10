@@ -97,8 +97,7 @@ class Orchestrator:
         # Hot-reload state management
         self._reload_lock = threading.Lock()
         self._reload_thread: Optional[threading.Thread] = None
-        self._pending_reload_timestamp: Optional[float] = None
-        self._reload_debounce_interval = 2.0  # seconds (increased to better handle rapid modifications)
+        self._pending_reload_during_reload = False  # Flag to track if reload needed after current reload completes
         self._swap_lock = threading.Lock()
         self._swap_in_progress = False
         self._reload_in_progress = False  # Flag to prevent concurrent reload starts
@@ -188,36 +187,26 @@ class Orchestrator:
 
         logger.info("Orchestrator stopped")
 
-    def _check_pending_reload(self):
-        """Check if debounce interval has passed and trigger reload if needed."""
-        # Early return if no pending reload or reload already in progress
-        if self._pending_reload_timestamp is None or self._reload_in_progress:
-            return
-
-        elapsed = time.time() - self._pending_reload_timestamp
-        if elapsed >= self._reload_debounce_interval:
-            # Use lock to atomically check and set reload start flag
-            with self._reload_start_lock:
-                # Double-check after acquiring lock (prevent race condition)
-                if self._reload_in_progress:
-                    return
-                
-                # Check if reload thread is already running
-                if self._reload_thread is not None and self._reload_thread.is_alive():
-                    return
-                
-                # Clear pending timestamp FIRST to prevent other threads from starting
-                # This ensures only one reload starts even if multiple events are queued
-                self._pending_reload_timestamp = None
-                
-                # Set flag and start reload in background thread (atomic)
-                self._reload_in_progress = True
-                self._reload_thread = threading.Thread(
-                    target=self._reload_configuration,
-                    daemon=True
-                )
-                self._reload_thread.start()
-                logger.info("Starting configuration reload...")
+    def _trigger_reload(self):
+        """Trigger configuration reload immediately."""
+        # Use lock to atomically check and set reload start flag
+        with self._reload_start_lock:
+            # Double-check after acquiring lock (prevent race condition)
+            if self._reload_in_progress:
+                return
+            
+            # Check if reload thread is already running
+            if self._reload_thread is not None and self._reload_thread.is_alive():
+                return
+            
+            # Set flag and start reload in background thread (atomic)
+            self._reload_in_progress = True
+            self._reload_thread = threading.Thread(
+                target=self._reload_configuration,
+                daemon=True
+            )
+            self._reload_thread.start()
+            logger.info("Starting configuration reload...")
 
     def _reload_configuration(self):
         """
@@ -338,6 +327,12 @@ class Orchestrator:
         finally:
             self._reload_lock.release()
             self._reload_in_progress = False  # Reset flag when reload completes
+            
+            # Check if another reload was requested during this reload
+            if self._pending_reload_during_reload:
+                logger.info("Another orchestrator.yaml change detected during reload, triggering follow-up reload...")
+                self._pending_reload_during_reload = False
+                self._trigger_reload()
 
     def _event_loop(self):
         """
@@ -349,10 +344,6 @@ class Orchestrator:
 
         while self._running:
             try:
-                # Check for pending reload (debouncing) - but only if not already in progress
-                if not self._reload_in_progress:
-                    self._check_pending_reload()
-
                 # Check if reload is in progress (pause event processing during reload wait phase)
                 if self._swap_in_progress:
                     time.sleep(0.1)
@@ -367,20 +358,14 @@ class Orchestrator:
 
                 # Handle config reload events specially
                 if trigger_event.event_type == 'config_reload':
-                    logger.info("Detected orchestrator.yaml change, scheduling reload")
-                    # Update timestamp to reset debounce timer (this is correct for debouncing)
-                    # But only if no reload is currently in progress or already scheduled
-                    with self._reload_start_lock:
-                        if not self._reload_in_progress:
-                            # Only update timestamp if no reload is scheduled, or if enough time has passed
-                            # This prevents rapid events from resetting the timer indefinitely
-                            if self._pending_reload_timestamp is None:
-                                self._pending_reload_timestamp = time.time()
-                            else:
-                                # Only update if less than debounce interval has passed (reset timer)
-                                elapsed = time.time() - self._pending_reload_timestamp
-                                if elapsed < self._reload_debounce_interval:
-                                    self._pending_reload_timestamp = time.time()
+                    logger.info("Detected orchestrator.yaml change")
+                    # If reload is already in progress, mark that we need another reload after this one completes
+                    if self._reload_in_progress:
+                        logger.debug("Reload already in progress, will trigger another reload after current one completes")
+                        self._pending_reload_during_reload = True
+                    else:
+                        # Trigger reload immediately (no debounce)
+                        self._trigger_reload()
                     continue  # Don't process as regular event
 
                 # Process event

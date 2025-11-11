@@ -455,7 +455,7 @@ class Orchestrator:
 
             # Log agent trigger at INFO level for visibility
             input_filename = Path(trigger_event.path).name if trigger_event.path else "scheduled"
-            logger.info(f"Triggering {trigger_event.event_type} agent: {agent.abbreviation} ({input_filename})")
+            logger.info(f"🚀 Triggering {trigger_event.event_type} agent: {agent.abbreviation} ({input_filename})", console=True)
             logger.debug(f"Starting {agent.abbreviation}: {trigger_event.path}")
 
             # Execute in background thread (slot already reserved)

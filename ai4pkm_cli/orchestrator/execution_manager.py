@@ -404,14 +404,32 @@ class ExecutionManager:
             cwd=str(self.working_dir)
         )
 
+        if ctx.task_file:
+            task_identifier = ctx.task_file.name
+        elif ctx.agent and ctx.agent.abbreviation:
+            task_identifier = f"task for {ctx.agent.abbreviation}"
+
         logs = []
         def stream_stderr(proc):
             for line in proc.stdout:
                 logs.append(f"[{agent_name}] {line.strip()}")
                 logger.info(logs[-1])
 
-        stderr_thread = threading.Thread(target=stream_stderr, args=(process,))
+        status_stop_event = threading.Event()
+        def print_status():
+            while not status_stop_event.is_set():
+                if process.poll() is None:
+                    logger.info(f"⏳ {agent_name} is running for {task_identifier}", console=True)
+                else:
+                    break
+                if status_stop_event.wait(5.0):
+                    break
+
+        stderr_thread = threading.Thread(target=stream_stderr, args=(process,), daemon=True)
+        status_thread = threading.Thread(target=print_status, daemon=True)
+        
         stderr_thread.start()
+        status_thread.start()
 
         try:
             process.wait(timeout=timeout_seconds)
@@ -419,6 +437,8 @@ class ExecutionManager:
             process.kill()
             raise RuntimeError(f"{agent_name} timed out after {timeout_seconds} seconds")
         finally:
+            status_stop_event.set()
+            status_thread.join()
             stderr_thread.join()
 
         

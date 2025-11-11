@@ -94,7 +94,7 @@ class TaskFileManager:
 
             # Write task file
             task_path.write_text(task_content, encoding='utf-8')
-            logger.debug(f"Created task file: {task_path.name}")
+            logger.info(f"💾 Created task file: {task_path.name}", console=True)
 
             return task_path
 
@@ -144,10 +144,10 @@ class TaskFileManager:
                 f.write(content)
                 f.flush()
                 os.fsync(f.fileno())
-            logger.info(f"Updated task file status: {status}")
+            logger.info(f"🔄 Updated task file ({status}): {task_path.name}", console=True)
 
         except Exception as e:
-            logger.error(f"Failed to update task file: {e}")
+            logger.error(f"❌ Failed to update task file: {e}")
 
     def _truncate_filename_to_bytes(self, filename: str, max_bytes: int = 250) -> str:
         """

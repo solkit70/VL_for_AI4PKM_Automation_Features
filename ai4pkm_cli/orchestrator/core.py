@@ -223,7 +223,7 @@ class Orchestrator:
 
         try:
             logger.info("=" * 60)
-            logger.info("Starting configuration hot-reload")
+            logger.info("🔄 Starting configuration hot-reload", console=True)
             logger.info("=" * 60)
 
             # Phase 1: Build New Config (Non-blocking)
@@ -314,7 +314,7 @@ class Orchestrator:
                 self._swap_in_progress = False
             
             logger.info("=" * 60)
-            logger.info("Configuration hot-reload completed successfully")
+            logger.info("🎉 Configuration hot-reload completed successfully", console=True)
             logger.info("=" * 60)
             
             # Process any pending QUEUED tasks with new registry

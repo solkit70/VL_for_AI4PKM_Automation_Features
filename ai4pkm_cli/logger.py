@@ -69,26 +69,9 @@ class Logger:
                 f.write(f"PKM CLI Log - Started at {datetime.now().isoformat()}\n")
                 f.write("=" * 60 + "\n")
 
-    def _should_log(self, level):
-        """Check if message should be logged based on current log level."""
-        level_map = {
-            "DEBUG": logging.DEBUG,
-            "INFO": logging.INFO,
-            "WARNING": logging.WARNING,
-            "ERROR": logging.ERROR,
-            "CRITICAL": logging.CRITICAL
-        }
-        message_level = level_map.get(level, logging.INFO)
-        # Use the global logging level set by logging.basicConfig()
-        current_level = logging.getLogger().getEffectiveLevel()
-        return message_level >= current_level
 
     def _write_log(self, level, message, exc_info=False, console=False):
         """Write log entry to file and optionally to console."""
-        # Check if this message should be logged based on log level
-        if not self._should_log(level):
-            return
-
         import traceback
         import sys
 

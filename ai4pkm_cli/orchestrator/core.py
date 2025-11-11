@@ -389,6 +389,12 @@ class Orchestrator:
         """
         logger.debug(f"Processing event: {trigger_event.event_type} {trigger_event.path}")
 
+        # Check if this is a TBD task file
+        if self._is_tbd_task_file(trigger_event):
+            logger.debug(f"Detected TBD task file: {trigger_event.path}")
+            self._process_tbd_task(trigger_event)
+            return
+
         # Convert TriggerEvent to event_data dict
         event_data = {
             'path': trigger_event.path,
@@ -539,17 +545,25 @@ class Orchestrator:
                 if not self.execution_manager.reserve_slot(agent):
                     break  # Still no capacity, wait for next iteration
 
-                # Reconstruct trigger data (unescape quotes)
+                # Reconstruct trigger data
+                # Handle both formats:
+                # 1. Old format: escaped quotes in quoted string "{\\"path\\": ...}"
+                # 2. New format: literal block scalar (already unescaped by YAML parser)
                 try:
-                    event_data = json.loads(trigger_data_json.replace('\\"', '"'))
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse trigger_data_json: {e}")
-                    # Release the reserved slot since we can't process this task
-                    with self.execution_manager._count_lock:
-                        self.execution_manager._running_count -= 1
-                    with self.execution_manager._agent_lock:
-                        self.execution_manager._agent_counts[agent.abbreviation] -= 1
-                    continue
+                    # Try parsing directly first (works for literal block scalar format)
+                    event_data = json.loads(trigger_data_json)
+                except json.JSONDecodeError:
+                    # Fall back to unescaping (for old quoted string format)
+                    try:
+                        event_data = json.loads(trigger_data_json.replace('\\"', '"'))
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse trigger_data_json: {e}")
+                        # Release the reserved slot since we can't process this task
+                        with self.execution_manager._count_lock:
+                            self.execution_manager._running_count -= 1
+                        with self.execution_manager._agent_lock:
+                            self.execution_manager._agent_counts[agent.abbreviation] -= 1
+                        continue
 
                 # Update task status from QUEUED to IN_PROGRESS
                 self.execution_manager.task_manager.update_task_status(task_path, "IN_PROGRESS")
@@ -570,6 +584,208 @@ class Orchestrator:
 
         except Exception as e:
             logger.error(f"Error processing queued tasks: {e}", exc_info=True)
+
+    def _is_tbd_task_file(self, trigger_event: TriggerEvent) -> bool:
+        """
+        Check if a trigger event is for a TBD task file.
+
+        Args:
+            trigger_event: Trigger event to check
+
+        Returns:
+            True if this is a TBD task file in the tasks directory
+        """
+        try:
+            file_path = trigger_event.path
+            
+            # Check if path is in tasks directory
+            tasks_dir = self.execution_manager.task_manager.tasks_dir
+            file_full_path = self.vault_path / file_path
+            
+            # Check if file is in tasks directory
+            try:
+                file_full_path.relative_to(tasks_dir)
+                # File is in tasks directory, check if it's a markdown file
+                if not file_path.endswith('.md'):
+                    return False
+                
+                # Check status from frontmatter if available (optimization)
+                if trigger_event.frontmatter:
+                    status = trigger_event.frontmatter.get('status', '').upper()
+                    return status == 'TBD'
+                
+                # If frontmatter not available, we'll check in _process_tbd_task
+                return True
+            except ValueError:
+                # File is not in tasks directory
+                return False
+        except Exception:
+            return False
+
+    def _extract_input_path_from_task_body(self, task_body: str) -> Optional[str]:
+        """
+        Extract input file path from task body content.
+
+        Looks for wiki links in the "## Input" section.
+
+        Args:
+            task_body: Task file body content (after frontmatter)
+
+        Returns:
+            Extracted input path or None if not found
+        """
+        import re
+        
+        # Look for "## Input" section
+        input_section_match = re.search(r'##\s+Input\s*\n(.*?)(?=\n##|\Z)', task_body, re.DOTALL | re.IGNORECASE)
+        if not input_section_match:
+            return None
+        
+        input_section = input_section_match.group(1)
+        
+        # Look for wiki links [[path/to/file]] or `[[path/to/file]]`
+        wiki_link_pattern = r'(?:`)?\[\[([^\]]+)\]\](?:`)?'
+        matches = re.findall(wiki_link_pattern, input_section)
+        
+        if matches:
+            # Return first wiki link found
+            return matches[0]
+        
+        # Look for file paths in backticks
+        backtick_pattern = r'`([^`]+\.md)`'
+        matches = re.findall(backtick_pattern, input_section)
+        
+        if matches:
+            return matches[0]
+        
+        return None
+
+    def _process_tbd_task(self, trigger_event: TriggerEvent):
+        """
+        Process a TBD task file by transitioning it to QUEUED status.
+
+        Reads the task file, extracts agent type and task instructions,
+        creates a synthetic trigger event, and transitions TBD → QUEUED.
+
+        Args:
+            trigger_event: Trigger event for the TBD task file
+        """
+        from ..markdown_utils import read_frontmatter, extract_body
+        import json
+        from datetime import datetime, date
+
+        try:
+            # Get full path to task file
+            task_file_path = self.vault_path / trigger_event.path
+            
+            if not task_file_path.exists():
+                logger.warning(f"TBD task file not found: {trigger_event.path}")
+                return
+
+            # Read task file
+            task_content = task_file_path.read_text(encoding='utf-8')
+            frontmatter = read_frontmatter(task_file_path)
+            task_body = extract_body(task_content)
+
+            # Check if status is actually TBD
+            current_status = frontmatter.get('status', '').upper()
+            if current_status != 'TBD':
+                logger.debug(f"Task file {trigger_event.path} is not TBD (status: {current_status}), skipping")
+                return
+
+            # Extract agent abbreviation
+            agent_abbr = frontmatter.get('task_type')
+            if not agent_abbr:
+                logger.warning(f"TBD task file missing task_type: {trigger_event.path}")
+                self.execution_manager.task_manager.update_task_status(
+                    task_file_path,
+                    "FAILED",
+                    error_message="Missing task_type in frontmatter"
+                )
+                return
+
+            # Look up agent definition
+            agent = self.agent_registry.agents.get(agent_abbr)
+            if not agent:
+                logger.warning(
+                    f"Agent '{agent_abbr}' not found for TBD task: {trigger_event.path}. "
+                    "Agent may have been removed in configuration reload."
+                )
+                self.execution_manager.task_manager.update_task_status(
+                    task_file_path,
+                    "FAILED",
+                    error_message=f"Agent '{agent_abbr}' not found"
+                )
+                return
+
+            # Extract input file path from task body
+            input_path = self._extract_input_path_from_task_body(task_body)
+            
+            # If no input path found, try to infer from task filename
+            if not input_path:
+                # Task filename format: YYYY-MM-DD {ABBR} - {input_filename}.md
+                # Extract input filename from task filename
+                task_filename = task_file_path.stem
+                parts = task_filename.split(' - ', 1)
+                if len(parts) > 1:
+                    # Try to find a file matching the input filename
+                    input_filename = parts[1]
+                    # Search in common input directories
+                    for input_dir in agent.input_path:
+                        search_path = self.vault_path / input_dir
+                        if search_path.exists():
+                            # Look for matching file
+                            for ext in ['.md', '.txt']:
+                                candidate = search_path / f"{input_filename}{ext}"
+                                if candidate.exists():
+                                    input_path = str(candidate.relative_to(self.vault_path))
+                                    break
+                            if input_path:
+                                break
+
+            # Use task file path as fallback if no input found
+            if not input_path:
+                input_path = trigger_event.path
+
+            # Create synthetic trigger event data
+            def make_json_serializable(obj):
+                """Recursively convert date/datetime objects to ISO strings."""
+                if isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
+                elif isinstance(obj, dict):
+                    return {k: make_json_serializable(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [make_json_serializable(item) for item in obj]
+                else:
+                    return obj
+
+            event_data = {
+                'path': input_path,
+                'event_type': 'tbd_reprocess',
+                'is_directory': False,
+                'timestamp': datetime.now(),
+                'frontmatter': {}
+            }
+
+            event_data_serializable = make_json_serializable(event_data)
+
+            # Serialize trigger data (keep as JSON string, will be properly escaped in task_manager)
+            trigger_data_json = json.dumps(event_data_serializable)
+
+            # Transition TBD → QUEUED with trigger_data_json
+            self.execution_manager.task_manager.update_task_status_with_trigger_data(
+                task_file_path,
+                "QUEUED",
+                trigger_data_json
+            )
+
+            logger.info(f"🔄 Transitioned TBD task to QUEUED: {task_file_path.name} (agent: {agent_abbr})", console=True)
+
+            # Try to process the newly queued task immediately if capacity is available
+            self._process_queued_tasks()
+
+        except Exception as e:
+            logger.error(f"Error processing TBD task {trigger_event.path}: {e}", exc_info=True)
 
     def get_status(self) -> dict:
         """

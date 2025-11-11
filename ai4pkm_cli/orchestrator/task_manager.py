@@ -68,6 +68,11 @@ class TaskFileManager:
             task_filename = self._generate_task_filename(ctx, agent)
             task_path = self.tasks_dir / task_filename
 
+            # Check if task file already exists (prevent duplicates)
+            if task_path.exists():
+                logger.debug(f"Task file already exists: {task_path.name}, returning existing file")
+                return task_path
+
             # Get input file info
             input_file_path = ctx.trigger_data.get('path', 'unknown')
             input_file_name = Path(input_file_path).stem
@@ -148,6 +153,101 @@ class TaskFileManager:
 
         except Exception as e:
             logger.error(f"❌ Failed to update task file: {e}")
+
+    def update_task_status_with_trigger_data(
+        self,
+        task_path: Path,
+        status: str,
+        trigger_data_json: str
+    ):
+        """
+        Update task file status and add trigger_data_json atomically.
+        
+        Used when transitioning TBD tasks to QUEUED status.
+
+        Args:
+            task_path: Path to task file
+            status: New status (typically "QUEUED")
+            trigger_data_json: JSON-encoded trigger data to add to frontmatter
+        """
+        if not task_path or not task_path.exists():
+            logger.warning(f"Task file not found: {task_path}")
+            return
+
+        try:
+            # Read current content
+            content = task_path.read_text(encoding='utf-8')
+
+            # Update frontmatter - both status and trigger_data_json
+            from ..markdown_utils import update_frontmatter_fields, extract_frontmatter
+            
+            # Check if trigger_data_json already exists
+            frontmatter = extract_frontmatter(content)
+            updates = {'status': status}
+            
+            # Add trigger_data_json if not already present
+            if 'trigger_data_json' not in frontmatter:
+                # We need to add it manually since update_frontmatter_fields doesn't handle multi-line values well
+                # Find the end of frontmatter and insert trigger_data_json before closing ---
+                import re
+                import yaml
+                match = re.match(r'^(---\s*\n)(.*?)(\n---\s*\n)', content, re.DOTALL)
+                if match:
+                    prefix = match.group(1)
+                    yaml_content = match.group(2)
+                    suffix = match.group(3)
+                    rest = content[match.end():]
+                    
+                    # Use YAML's literal block scalar (|) to preserve JSON string without escaping issues
+                    # This handles special characters, quotes, and Unicode properly
+                    yaml_content += f'\ntrigger_data_json: |\n'
+                    # Indent each line of the JSON string
+                    for line in trigger_data_json.split('\n'):
+                        yaml_content += f'  {line}\n'
+                    
+                    content = prefix + yaml_content + suffix + rest
+                else:
+                    logger.warning(f"Could not parse frontmatter in {task_path.name}")
+            else:
+                # Update existing trigger_data_json - use literal block scalar
+                import re
+                # Match existing trigger_data_json (could be quoted string or literal block)
+                lines = content.split('\n')
+                new_lines = []
+                skip_indented = False
+                for line in lines:
+                    if skip_indented:
+                        # Skip indented lines (part of literal block or quoted string continuation)
+                        # Stop when we hit a non-indented line (new key or closing ---)
+                        if line and not line.startswith(' ') and not line.startswith('\t'):
+                            skip_indented = False
+                        else:
+                            continue  # Skip this indented line
+                    
+                    if re.match(r'^trigger_data_json:\s*', line):
+                        # Replace with new literal block format
+                        new_lines.append('trigger_data_json: |')
+                        # Add JSON content with proper indentation
+                        for json_line in trigger_data_json.split('\n'):
+                            new_lines.append(f'  {json_line}')
+                        skip_indented = True
+                    else:
+                        new_lines.append(line)
+                content = '\n'.join(new_lines)
+
+            # Update status
+            content = update_frontmatter_fields(content, updates)
+
+            # Write back with explicit flush and sync to ensure disk write
+            import os
+            with open(task_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            logger.info(f"🔄 Updated task file ({status} with trigger_data): {task_path.name}", console=True)
+
+        except Exception as e:
+            logger.error(f"❌ Failed to update task file with trigger data: {e}")
 
     def _truncate_filename_to_bytes(self, filename: str, max_bytes: int = 250) -> str:
         """

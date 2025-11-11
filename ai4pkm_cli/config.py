@@ -1,255 +1,191 @@
-"""Configuration management for AI4PKM CLI."""
+"""Configuration management for AI4PKM CLI (orchestrator.yaml)."""
 
-import json
-import os
-from typing import Dict, Any
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
+from .logger import Logger
+
+logger = Logger()
 
 
 class Config:
-    """Handles configuration for AI4PKM CLI."""
-    
-    DEFAULT_CONFIG = {
-        "default-agent": "claude_code",  # Options: claude_code, gemini_cli, codex_cli
-        "agents-config": {
-            "claude_code": {
-                "permission_mode": "bypassPermissions"
-            },
-            "gemini_cli": {
-                "command": "gemini"  # CLI command name
-            },
-            "codex_cli": {
-                "command": "codex"  # CLI command name
-            }
-        },
-        "photo_processing": {
-            "source_folder": "Ingest/Photolog/Original/",
-            "destination_folder": "Ingest/Photolog/Processed/",
-            "albums": ["AI4PKM"],
-            "days": 7
-        },
-        "notes_processing": {
-            "destination_folder": "Ingest/Notes/",
-            "days": 7
-        },
-        "web_api": {
-            "port": 8000,
-        },
-        "cron_jobs": []
-    }
-    
-    def __init__(self, config_file=None):
-        """Initialize configuration."""
-        if config_file is None:
-            # Use current working directory for config file
-            self.config_file = os.path.join(os.getcwd(), "ai4pkm_cli.json")
+    """Read orchestrator configuration sourced from orchestrator.yaml."""
+
+    def __init__(
+        self,
+        config_file: Optional[str] = None,
+        vault_path: Optional[Path] = None,
+    ):
+        """
+        Initialize configuration loader.
+
+        Args:
+            config_file: Explicit path to orchestrator.yaml (overrides vault_path)
+            vault_path: Vault directory containing orchestrator.yaml
+        """
+        if config_file:
+            self.config_path = Path(config_file)
         else:
-            self.config_file = config_file
-            
-        self.config = self._load_config()
-        
+            base_path = Path(vault_path) if vault_path else Path.cwd()
+            self.config_path = base_path / "orchestrator.yaml"
+
+        self.config: Dict[str, Any] = self._load_config()
+
+    # --------------------------------------------------------------------- #
+    # Internal helpers
+    # --------------------------------------------------------------------- #
+    def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        """Deep merge override dict into base dict."""
+        result = base.copy()
+        for key, value in override.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
+
     def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file or create default."""
-        if os.path.exists(self.config_file):
+        """Load orchestrator.yaml and merge with secrets.yaml if present."""
+        config_data: Dict[str, Any] = {}
+
+        if self.config_path.exists():
             try:
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                # Merge with defaults to ensure all keys exist
-                return {**self.DEFAULT_CONFIG, **config}
-            except Exception as e:
-                print(f"⚠️  Error loading config, using defaults: {e}")
-                return self.DEFAULT_CONFIG
+                with self.config_path.open("r", encoding="utf-8") as fh:
+                    loaded = yaml.safe_load(fh) or {}
+                    if not isinstance(loaded, dict):
+                        logger.warning(
+                            "orchestrator.yaml did not contain a mapping; falling back to defaults"
+                        )
+                    else:
+                        config_data = loaded
+            except yaml.YAMLError as exc:
+                logger.error(f"Failed to parse orchestrator.yaml: {exc}")
+            except OSError as exc:
+                logger.error(f"Failed to read orchestrator.yaml: {exc}")
         else:
-            # Create config file with defaults
-            self._save_config(self.DEFAULT_CONFIG)
-            return self.DEFAULT_CONFIG
-            
-    def _save_config(self, config: Dict[str, Any]):
-        """Save configuration to file."""
-        # Ensure config directory exists
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            logger.warning(f"orchestrator.yaml not found at {self.config_path}")
+
+        secrets_path = self.config_path.parent / "secrets.yaml"
+        if secrets_path.exists():
+            try:
+                with secrets_path.open("r", encoding="utf-8") as fh:
+                    secrets = yaml.safe_load(fh) or {}
+                    if isinstance(secrets, dict):
+                        config_data = self._deep_merge(config_data, secrets)
+                        logger.debug(f"Loaded secrets from {secrets_path}")
+                    else:
+                        logger.warning(f"secrets.yaml did not contain a mapping")
+            except yaml.YAMLError as exc:
+                logger.error(f"Failed to parse secrets.yaml: {exc}")
+            except OSError as exc:
+                logger.error(f"Failed to read secrets.yaml: {exc}")
+
+        return config_data
+
+    def reload(self) -> bool:
+        """
+        Reload orchestrator.yaml and secrets.yaml from disk.
         
+        Returns:
+            True if reload succeeded, False otherwise
+        """
         try:
-            with open(self.config_file, 'w') as f:
-                json.dump(config, f, indent=2)
+            new_config = self._load_config()
+            if new_config:
+                self.config = new_config
+                logger.info(f"Configuration reloaded from {self.config_path}")
+                return True
+            else:
+                logger.warning("Reload resulted in empty config, keeping existing config")
+                return False
         except Exception as e:
-            print(f"⚠️  Error saving config: {e}")
-            
-    def get(self, key: str, default=None):
-        """Get configuration value."""
-        keys = key.split('.')
-        value = self.config
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
+            logger.error(f"Failed to reload configuration: {e}", exc_info=True)
+            return False
+
+    # --------------------------------------------------------------------- #
+    # Public accessors
+    # --------------------------------------------------------------------- #
+    def get(self, key: str, default: Any = None) -> Any:
+        """Retrieve a dotted-path value from configuration."""
+        if not key:
+            return self.config
+
+        value: Any = self.config
+        for part in key.split("."):
+            if isinstance(value, dict) and part in value:
+                value = value[part]
             else:
                 return default
         return value
-        
-    def set(self, key: str, value: Any):
-        """Set configuration value and save."""
-        keys = key.split('.')
-        config = self.config
-        for k in keys[:-1]:
-            if k not in config:
-                config[k] = {}
-            config = config[k]
-        config[keys[-1]] = value
-        self._save_config(self.config)
-        
-    def get_agent(self) -> str:
-        """Get current default agent selection."""
-        return self.get('default-agent', 'claude_code')
-        
-    def set_agent(self, agent: str):
-        """Set current default agent and save."""
-        if agent not in ['claude_code', 'gemini_cli', 'codex_cli']:
-            raise ValueError(f"Invalid agent: {agent}. Must be one of: claude_code, gemini_cli, codex_cli")
-        self.set('default-agent', agent)
-        
-    def get_cron_jobs(self) -> list:
-        """Get cron jobs from configuration."""
-        return self.get('cron_jobs', [])
-        
-    def get_agent_config(self, agent: str = None) -> Dict[str, Any]:
-        """Get configuration for specific agent."""
-        if agent is None:
-            agent = self.get_agent()
-        agent_config = self.get(f'agents-config.{agent}', {})
-        # Add task management timeout (convert minutes to seconds)
-        agent_config['timeout_seconds'] = self.get_ktp_timeout() * 60
-        return agent_config
-        
-    def get_photo_processing_config(self) -> Dict[str, Any]:
-        """Get photo processing configuration."""
-        return self.get('photo_processing', {
-            'source_folder': 'Ingest/Photolog/Original/',
-            'destination_folder': 'Ingest/Photolog/Processed/',
-            'albums': ['AI4PKM'],
-            'days': 7
-        })
-        
-    def get_photo_source_folder(self) -> str:
-        """Get photo processing source folder."""
-        return self.get('photo_processing.source_folder', 'Ingest/Photolog/Original/')
-        
-    def get_photo_destination_folder(self) -> str:
-        """Get photo processing destination folder."""
-        return self.get('photo_processing.destination_folder', 'Ingest/Photolog/Processed/')
-    
-    def get_photo_albums(self) -> list:
-        """Get photo processing album names."""
-        return self.get('photo_processing.albums', ['AI4PKM'])
-    
-    def get_photo_days(self) -> int:
-        """Get number of days to look back for photos."""
-        return self.get('photo_processing.days', 7)
-    
-    def get_notes_processing_config(self) -> Dict[str, Any]:
-        """Get notes processing configuration."""
-        return self.get('notes_processing', {
-            'destination_folder': 'Ingest/Notes/',
-            'days': 7
-        })
-        
-    def get_notes_destination_folder(self) -> str:
-        """Get notes processing destination folder."""
-        return self.get('notes_processing.destination_folder', 'Ingest/Notes/')
-    
-    def get_notes_days(self) -> int:
-        """Get number of days to look back for notes."""
-        return self.get('notes_processing.days', 7)
-    
-    def get_web_api_port(self) -> int:
-        """Get web API port."""
-        return self.get('web_api.port', 8000)
-    
-    def get_task_management_config(self) -> Dict[str, Any]:
-        """Get task management configuration."""
-        default_agent = self.get_agent()
-        return self.get('task_management', {
-            'max_concurrent': 5,
-            'processing_agent': {
-                'EIC': default_agent,
-                'Research': default_agent,
-                'Analysis': default_agent,
-                'Writing': default_agent,
-                'default': default_agent
-            },
-            'evaluation_agent': default_agent,
-            'timeout_minutes': 30,
-            'max_retries': 2
-        })
-    
-    def get_max_concurrent_tasks(self) -> int:
-        """Get maximum concurrent task operations (generation, processing, evaluation)."""
-        return self.get('task_management.max_concurrent', 5)
-    
-    def get_ktp_routing(self) -> Dict[str, str]:
-        """Get KTP task processing agent configuration (Phase 1 & 2)."""
-        default_agent = self.get_agent()
-        return self.get('task_management.processing_agent', {
-            'EIC': default_agent,
-            'Research': default_agent,
-            'Analysis': default_agent,
-            'Writing': default_agent,
-            'default': default_agent
-        })
-    
-    def get_ktp_timeout(self) -> int:
-        """Get KTP timeout in minutes."""
-        return self.get('task_management.timeout_minutes', 30)
-    
-    def get_ktp_max_retries(self) -> int:
-        """Get KTP maximum retry count."""
-        return self.get('task_management.max_retries', 2)
 
-    def get_evaluation_agent(self) -> str:
-        """Get agent used for task evaluation (Phase 3)."""
-        # Fall back to default agent if not specified
-        return self.get('task_management.evaluation_agent', self.get_agent())
-
-    def get_generation_agent(self) -> str:
-        """Get agent used for task generation (KTG)."""
-        # Fall back to default agent if not specified
-        return self.get('task_management.generation_agent', self.get_agent())
-
-    # Orchestrator configuration
     def get_orchestrator_config(self) -> Dict[str, Any]:
-        """Get orchestrator configuration."""
-        return self.get('orchestrator', {
-            'prompts_dir': '_Settings_/Prompts',
-            'tasks_dir': '_Settings_/Tasks',
-            'logs_dir': '_Settings_/Logs',
-            'skills_dir': '_Settings_/Skills',
-            'bases_dir': '_Settings_/Bases',
-            'max_concurrent': 3,
-            'poll_interval': 1.0
-        })
+        """Get entire orchestrator runtime configuration section."""
+        section = self.get("orchestrator", {})
+        return section.copy() if isinstance(section, dict) else {}
 
     def get_orchestrator_prompts_dir(self) -> str:
-        """Get orchestrator prompts directory."""
-        return self.get('orchestrator.prompts_dir', '_Settings_/Prompts')
+        """Directory containing agent prompt definitions."""
+        return self.get(
+            "orchestrator.prompts_dir",
+            "_Settings_/Prompts",
+        )
 
     def get_orchestrator_tasks_dir(self) -> str:
-        """Get orchestrator tasks directory."""
-        return self.get('orchestrator.tasks_dir', '_Settings_/Tasks')
+        """Directory containing task tracking files."""
+        return self.get(
+            "orchestrator.tasks_dir",
+            "_Settings_/Tasks",
+        )
 
     def get_orchestrator_logs_dir(self) -> str:
-        """Get orchestrator logs directory."""
-        return self.get('orchestrator.logs_dir', '_Settings_/Logs')
+        """Directory where orchestrator writes execution logs."""
+        return self.get(
+            "orchestrator.logs_dir",
+            "_Settings_/Logs",
+        )
 
     def get_orchestrator_skills_dir(self) -> str:
-        """Get orchestrator skills directory (future use)."""
-        return self.get('orchestrator.skills_dir', '_Settings_/Skills')
+        """Directory for orchestrator skills library."""
+        return self.get(
+            "orchestrator.skills_dir",
+            "_Settings_/Skills",
+        )
 
     def get_orchestrator_bases_dir(self) -> str:
-        """Get orchestrator bases directory (future use)."""
-        return self.get('orchestrator.bases_dir', '_Settings_/Bases')
+        """Directory for orchestrator knowledge bases."""
+        return self.get(
+            "orchestrator.bases_dir",
+            "_Settings_/Bases",
+        )
 
     def get_orchestrator_max_concurrent(self) -> int:
-        """Get max concurrent executions."""
-        return self.get('orchestrator.max_concurrent', 3)
+        """Maximum global concurrent executions."""
+        return self.get(
+            "orchestrator.max_concurrent",
+            3,
+        )
 
     def get_orchestrator_poll_interval(self) -> float:
-        """Get event queue poll interval."""
-        return self.get('orchestrator.poll_interval', 1.0)
+        """Event queue poll interval in seconds."""
+        return self.get(
+            "orchestrator.poll_interval",
+            1.0,
+        )
+
+    def get_defaults(self) -> Dict[str, Any]:
+        """Global defaults applied to agents."""
+        section = self.get("defaults", {})
+        return section.copy() if isinstance(section, dict) else {}
+
+    def get_nodes(self) -> Any:
+        """Return configured nodes list."""
+        nodes = self.get("nodes", [])
+        return nodes if isinstance(nodes, list) else []
+
+    def get_pollers_config(self) -> Dict[str, Any]:
+        """Get pollers configuration section."""
+        section = self.get("pollers", {})
+        return section.copy() if isinstance(section, dict) else {}

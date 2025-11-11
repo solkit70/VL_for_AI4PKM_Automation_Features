@@ -3,7 +3,6 @@ Agent registry for orchestrator.
 
 Loads and manages agent definitions from _Settings_/Agents/.
 """
-import logging
 import json
 import re
 import yaml
@@ -15,8 +14,9 @@ from croniter import croniter
 
 from .models import AgentDefinition
 from ..markdown_utils import read_frontmatter, extract_body
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 # JSON Schema for agent definition validation
@@ -30,7 +30,7 @@ AGENT_SCHEMA = {
         "category": {"enum": ["ingestion", "publish", "research"]},
         "trigger_pattern": {"type": "string"},
         "trigger_event": {"enum": ["created", "modified", "deleted", "scheduled", "manual"]},
-        "executor": {"enum": ["claude_code", "gemini_cli", "custom_script"]},
+        "executor": {"enum": ["claude_code", "gemini_cli", "codex_cli", "cursor_agent", "continue_cli", "grok_cli"]},
         "max_parallel": {"type": "integer", "minimum": 1},
         "timeout_minutes": {"type": "integer", "minimum": 1}
     }
@@ -178,7 +178,6 @@ class AgentRegistry:
                 return {'agents': {}, 'defaults': {}}
 
             logger.info(f"Loaded orchestrator configuration from {yaml_path}")
-            logger.info(f"  Agents configured: {len(config.get('agents', {}))}")
 
             return config
         except Exception as e:

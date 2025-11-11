@@ -143,7 +143,7 @@ Each node defines an agent with the following fields:
 - `trigger_exclude_pattern` - Glob pattern to exclude files (e.g., `"*-EIC*"`)
 - `trigger_content_pattern` - Regex to match in file content (e.g., `"(?i)%%.*?#ai\\b.*?%%"`)
 - `post_process_action` - Action after completion (e.g., `"remove_trigger_content"`)
-- `executor` - CLI agent to use (e.g., `"claude_code"`, `"gemini_cli"`)
+- `executor` - CLI agent to use (e.g., `"claude_code"`, `"gemini_cli"`, `"codex_cli"`, `"cursor_agent"`, `"continue_cli"`)
 - `timeout_minutes` - Execution timeout in minutes (e.g., `60`)
 - `max_parallel` - Max concurrent executions for this agent (e.g., `1`)
 - `task_priority` - Task priority level: `"low"`, `"medium"`, or `"high"`

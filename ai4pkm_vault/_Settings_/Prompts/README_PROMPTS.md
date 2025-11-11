@@ -144,7 +144,7 @@ agents:
 output_naming: "{title} - {agent}.md"
 
 # Execution settings
-executor: claude_code|gemini_cli|custom_script
+executor: claude_code|gemini_cli|codex_cli|cursor_agent|continue_cli|grok_cli
 max_parallel: 2
 timeout_minutes: 30
 

@@ -43,11 +43,11 @@ class OrchestratorEICIntegrationTest:
         self.workspace_path = os.getcwd()
 
         # Check for config file in CWD
-        config_path = os.path.join(self.workspace_path, 'ai4pkm_cli.json')
+        config_path = os.path.join(self.workspace_path, 'orchestrator.yaml')
         if not os.path.exists(config_path):
             raise ValueError(
-                f"ai4pkm_cli.json not found in current directory: {self.workspace_path}\n"
-                f"Test must run from vault directory containing ai4pkm_cli.json"
+                f"orchestrator.yaml not found in current directory: {self.workspace_path}\n"
+                f"Test must run from vault directory containing orchestrator.yaml"
             )
 
         # Load config from CWD
@@ -122,7 +122,7 @@ class OrchestratorEICIntegrationTest:
             # Run orchestrator from CWD (inherits working directory from test)
             # Test assumes it's running from vault directory
             self.daemon_process = subprocess.Popen(
-                [sys.executable, '-m', 'ai4pkm_cli.orchestrator_cli', 'daemon'],
+                [sys.executable, '-m', 'ai4pkm_cli.main.cli', '--orchestrator'],
                 stdout=daemon_log_file,
                 stderr=subprocess.STDOUT,
                 text=True

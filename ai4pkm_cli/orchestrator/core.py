@@ -3,7 +3,6 @@ Orchestrator core - main event loop and coordination.
 
 Ties together file monitoring, agent matching, and execution management.
 """
-import logging
 import threading
 import time
 from pathlib import Path
@@ -14,8 +13,9 @@ from .file_monitor import FileSystemMonitor
 from .agent_registry import AgentRegistry
 from .execution_manager import ExecutionManager
 from .models import TriggerEvent, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class Orchestrator:
@@ -28,17 +28,18 @@ class Orchestrator:
     def __init__(
         self,
         vault_path: Path,
+        working_dir: Optional[Path] = None,
         agents_dir: Optional[Path] = None,
         max_concurrent: Optional[int] = None,
         poll_interval: Optional[float] = None,
         config: Optional['Config'] = None,
-        debug: bool = False
     ):
         """
         Initialize orchestrator.
 
         Args:
             vault_path: Path to vault root
+            working_dir: Working directory for agent subprocess execution (defaults to vault_path)
             agents_dir: Directory containing agent definitions (defaults to config orchestrator.prompts_dir)
             max_concurrent: Maximum concurrent task executions (defaults to config)
             poll_interval: Seconds between event queue polls (defaults to config)
@@ -50,7 +51,6 @@ class Orchestrator:
 
         self.vault_path = Path(vault_path)
         self.config = config or Config()
-        self.debug = debug
 
         # Use config values if not explicitly provided
         if agents_dir is None:
@@ -62,9 +62,6 @@ class Orchestrator:
         self.max_concurrent = max_concurrent or self.config.get_orchestrator_max_concurrent()
         self.poll_interval = poll_interval or self.config.get_orchestrator_poll_interval()
 
-        # Setup logging before creating directories
-        self._setup_logging()
-
         # Ensure required directories exist
         self._ensure_directories()
 
@@ -74,7 +71,8 @@ class Orchestrator:
             self.vault_path,
             self.max_concurrent,
             self.config,
-            orchestrator_settings=self.agent_registry.orchestrator_settings
+            orchestrator_settings=self.agent_registry.orchestrator_settings,
+            working_dir=working_dir
         )
         self.file_monitor = FileSystemMonitor(self.vault_path, self.agent_registry)
 
@@ -85,58 +83,29 @@ class Orchestrator:
             self.file_monitor.event_queue
         )
 
+        # Initialize poller manager
+        from .poller_manager import PollerManager
+        self.poller_manager = PollerManager(
+            vault_path=self.vault_path,
+            config=self.config
+        )
+
         # Control state
         self._running = False
         self._event_thread: Optional[threading.Thread] = None
 
+        # Hot-reload state management
+        self._reload_lock = threading.Lock()
+        self._reload_thread: Optional[threading.Thread] = None
+        self._pending_reload_during_reload = False  # Flag to track if reload needed after current reload completes
+        self._swap_lock = threading.Lock()
+        self._swap_in_progress = False
+        self._reload_in_progress = False  # Flag to prevent concurrent reload starts
+        self._reload_start_lock = threading.Lock()  # Lock for atomic reload start check
+
         logger.info(f"Orchestrator initialized for vault: {self.vault_path}")
         logger.info(f"Loaded {len(self.agent_registry.agents)} agents")
-
-    def _setup_logging(self):
-        """
-        Configure logging for orchestrator.
-
-        - Console: INFO+ (or DEBUG+ if debug=True)
-        - File: DEBUG+ (all logs)
-        """
-        from datetime import datetime
-
-        # Get logs directory from config
-        logs_dir = self.vault_path / self.config.get_orchestrator_logs_dir()
-        logs_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create log file with date stamp
-        log_filename = f"orchestrator_{datetime.now().strftime('%Y-%m-%d')}.log"
-        log_file = logs_dir / log_filename
-
-        # Configure file handler (DEBUG level - captures everything)
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(logging.DEBUG)
-        file_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        file_handler.setFormatter(file_formatter)
-
-        # Configure console handler (INFO or DEBUG based on flag)
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
-        console_formatter = logging.Formatter('%(message)s')
-        console_handler.setFormatter(console_formatter)
-
-        # Get root logger for orchestrator modules
-        orchestrator_logger = logging.getLogger('ai4pkm_cli.orchestrator')
-        orchestrator_logger.setLevel(logging.DEBUG)  # Capture all levels
-
-        # Remove existing handlers to avoid duplicates
-        orchestrator_logger.handlers.clear()
-
-        # Add both handlers
-        orchestrator_logger.addHandler(file_handler)
-        orchestrator_logger.addHandler(console_handler)
-
-        # Prevent propagation to root logger (avoid duplicate console output)
-        orchestrator_logger.propagate = False
+        logger.info(f"Loaded {len(self.poller_manager.pollers)} poller(s)")
 
     def _ensure_directories(self):
         """Create orchestrator directories if they don't exist."""
@@ -177,6 +146,9 @@ class Orchestrator:
         # Start cron scheduler
         self.cron_scheduler.start()
 
+        # Start pollers
+        self.poller_manager.start_all()
+
         # Start event processing thread
         self._running = True
         self._event_thread = threading.Thread(target=self._event_loop, daemon=True)
@@ -195,17 +167,172 @@ class Orchestrator:
         # Stop event processing
         self._running = False
 
+        # Stop pollers
+        self.poller_manager.stop_all()
+
         # Stop cron scheduler
         self.cron_scheduler.stop()
 
         # Stop file monitor
         self.file_monitor.stop()
 
+        # Wait for reload thread to finish (if in progress)
+        if self._reload_thread and self._reload_thread.is_alive():
+            logger.info("Waiting for configuration reload to complete...")
+            self._reload_thread.join(timeout=10.0)
+
         # Wait for event thread to finish
         if self._event_thread and self._event_thread.is_alive():
             self._event_thread.join(timeout=5.0)
 
         logger.info("Orchestrator stopped")
+
+    def _trigger_reload(self):
+        """Trigger configuration reload immediately."""
+        # Use lock to atomically check and set reload start flag
+        with self._reload_start_lock:
+            # Double-check after acquiring lock (prevent race condition)
+            if self._reload_in_progress:
+                return
+            
+            # Check if reload thread is already running
+            if self._reload_thread is not None and self._reload_thread.is_alive():
+                return
+            
+            # Set flag and start reload in background thread (atomic)
+            self._reload_in_progress = True
+            self._reload_thread = threading.Thread(
+                target=self._reload_configuration,
+                daemon=True
+            )
+            self._reload_thread.start()
+            logger.info("Starting configuration reload...")
+
+    def _reload_configuration(self):
+        """
+        Two-phase reload: build new config in parallel, then atomically swap.
+        
+        Phase 1: Build new config (non-blocking)
+        Phase 2: Wait for old executions, then atomically swap
+        """
+        # Acquire reload lock to prevent concurrent reloads
+        if not self._reload_lock.acquire(blocking=False):
+            logger.warning("Reload already in progress, skipping")
+            self._reload_in_progress = False  # Reset flag if we couldn't acquire lock
+            return
+
+        try:
+            logger.info("=" * 60)
+            logger.info("🔄 Starting configuration hot-reload", console=True)
+            logger.info("=" * 60)
+
+            # Phase 1: Build New Config (Non-blocking)
+            logger.info("Phase 1: Building new configuration...")
+            
+            # Reload config from disk
+            if not self.config.reload():
+                logger.error("Failed to reload config, aborting reload")
+                return
+            
+            # Create new AgentRegistry instance (doesn't affect running system)
+            new_agent_registry = AgentRegistry(
+                self.agents_dir,
+                self.vault_path,
+                self.config
+            )
+            
+            # Get new orchestrator settings
+            new_orchestrator_settings = new_agent_registry.orchestrator_settings
+            new_max_concurrent = new_orchestrator_settings.get(
+                'max_concurrent',
+                self.config.get_orchestrator_max_concurrent()
+            )
+            
+            logger.info("Phase 1 complete: New configuration built")
+            logger.info(f"  - Agents loaded: {len(new_agent_registry.agents)}")
+            logger.info(f"  - Max concurrent: {new_max_concurrent}")
+
+            # Phase 2: Atomic Swap (Blocking)
+            logger.info("Phase 2: Waiting for running executions to complete...")
+            
+            # Pause event processing during entire Phase 2 (prevents new executions from starting)
+            self._swap_in_progress = True
+            logger.info("Event processing paused - new events will be queued until reload completes")
+            
+            # Wait for all running executions to complete
+            timeout_seconds = 300  # 5 minutes
+            start_wait_time = time.time()
+            last_log_time = start_wait_time
+            
+            while True:
+                running_executions = self.execution_manager.get_running_executions()
+                
+                if not running_executions:
+                    logger.info("All running executions completed")
+                    break
+                
+                # Check timeout
+                elapsed = time.time() - start_wait_time
+                if elapsed > timeout_seconds:
+                    logger.warning(
+                        f"Timeout waiting for {len(running_executions)} execution(s) to complete. "
+                        "Proceeding with reload anyway."
+                    )
+                    break
+                
+                # Log progress every 10 seconds
+                if time.time() - last_log_time >= 10:
+                    logger.info(f"Waiting for {len(running_executions)} execution(s) to complete...")
+                    last_log_time = time.time()
+                
+                time.sleep(0.5)
+            
+            # Atomic swap
+            logger.info("Performing atomic configuration swap...")
+            
+            try:
+                with self._swap_lock:
+                    # Swap agent registry
+                    old_agent_registry = self.agent_registry
+                    self.agent_registry = new_agent_registry
+                    
+                    # Update execution manager settings
+                    self.execution_manager.update_settings(new_max_concurrent)
+                    
+                    # Update max_concurrent for orchestrator
+                    self.max_concurrent = new_max_concurrent
+                    
+                    # Reload pollers
+                    self.poller_manager.reload()
+                    
+                    # Update cron scheduler with new agent registry
+                    self.cron_scheduler.update_agent_registry(new_agent_registry)
+                    
+                    logger.info("Atomic swap complete")
+            
+            finally:
+                self._swap_in_progress = False
+            
+            logger.info("=" * 60)
+            logger.info("🎉 Configuration hot-reload completed successfully", console=True)
+            logger.info("=" * 60)
+            
+            # Process any pending QUEUED tasks with new registry
+            logger.info("Processing pending QUEUED tasks with new configuration...")
+            self._process_queued_tasks()
+
+        except Exception as e:
+            logger.error(f"Error during configuration reload: {e}", exc_info=True)
+            logger.error("Keeping existing configuration active")
+        finally:
+            self._reload_lock.release()
+            self._reload_in_progress = False  # Reset flag when reload completes
+            
+            # Check if another reload was requested during this reload
+            if self._pending_reload_during_reload:
+                logger.info("Another orchestrator.yaml change detected during reload, triggering follow-up reload...")
+                self._pending_reload_during_reload = False
+                self._trigger_reload()
 
     def _event_loop(self):
         """
@@ -217,12 +344,29 @@ class Orchestrator:
 
         while self._running:
             try:
+                # Check if reload is in progress (pause event processing during reload wait phase)
+                if self._swap_in_progress:
+                    time.sleep(0.1)
+                    continue  # Skip event processing - events will queue up and process after reload
+
                 # Poll event queue with timeout
                 try:
                     trigger_event = self.file_monitor.event_queue.get(timeout=self.poll_interval)
                 except Empty:
                     # No events, continue polling
                     continue
+
+                # Handle config reload events specially
+                if trigger_event.event_type == 'config_reload':
+                    logger.info("Detected orchestrator.yaml change")
+                    # If reload is already in progress, mark that we need another reload after this one completes
+                    if self._reload_in_progress:
+                        logger.debug("Reload already in progress, will trigger another reload after current one completes")
+                        self._pending_reload_during_reload = True
+                    else:
+                        # Trigger reload immediately (no debounce)
+                        self._trigger_reload()
+                    continue  # Don't process as regular event
 
                 # Process event
                 self._process_event(trigger_event)
@@ -311,7 +455,7 @@ class Orchestrator:
 
             # Log agent trigger at INFO level for visibility
             input_filename = Path(trigger_event.path).name if trigger_event.path else "scheduled"
-            logger.info(f"Triggering {trigger_event.event_type} agent: {agent.abbreviation} ({input_filename})")
+            logger.info(f"🚀 Triggering {trigger_event.event_type} agent: {agent.abbreviation} ({input_filename})", console=True)
             logger.debug(f"Starting {agent.abbreviation}: {trigger_event.path}")
 
             # Execute in background thread (slot already reserved)
@@ -379,7 +523,16 @@ class Orchestrator:
                 # Look up agent definition
                 agent = self.agent_registry.agents.get(agent_abbr)
                 if not agent:
-                    logger.warning(f"Agent not found for QUEUED task: {agent_abbr}")
+                    logger.warning(
+                        f"Agent '{agent_abbr}' not found for QUEUED task: {task_path.name}. "
+                        "Agent may have been removed in configuration reload."
+                    )
+                    self.execution_manager.task_manager.update_task_status(
+                        task_path,
+                        "FAILED",
+                        error_message=f"Agent '{agent_abbr}' not found after configuration reload"
+                    )
+                    logger.info(f"Marked QUEUED task as FAILED: {task_path.name}")
                     continue
 
                 # Try to reserve a slot atomically
@@ -429,6 +582,7 @@ class Orchestrator:
             'running': self._running,
             'vault_path': str(self.vault_path),
             'agents_loaded': len(self.agent_registry.agents),
+            'pollers_loaded': len(self.poller_manager.pollers),
             'running_executions': self.execution_manager.get_running_count(),
             'max_concurrent': self.max_concurrent,
             'agent_list': [

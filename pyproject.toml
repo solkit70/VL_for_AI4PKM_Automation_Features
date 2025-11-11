@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ai4pkm = "ai4pkm_cli.main:main"
+ai4pkm = "ai4pkm_cli.main.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/rbx-labs/ai4pkm-cli"

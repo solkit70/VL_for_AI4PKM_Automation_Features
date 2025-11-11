@@ -21,6 +21,9 @@ graph.json
 # Environment variables
 .env
 .env.local
+
+# Secrets configuration (overrides orchestrator.yaml)
+secrets.yaml
+**/secrets.yaml
+
 .obsidian/plugins/recent-files-obsidian/data.json
-ai4pkm_cli/README_LOCAL.md
-ai4pkm_cli.json

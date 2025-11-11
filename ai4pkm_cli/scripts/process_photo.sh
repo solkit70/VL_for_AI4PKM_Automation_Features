@@ -83,8 +83,8 @@ fi
 # Skip check already done above - proceeding with processing
 
 # Use YYYY-MM-DD format with space separator to match repo convention
-final_yaml="${DEST_DIR}${photo_date_formatted} ${input_name}.yaml"
-final_jpg="${DEST_DIR}${photo_date_formatted} ${input_name}.jpg"
+final_yaml="${DEST_DIR}/${photo_date_formatted} ${input_name}.yaml"
+final_jpg="${DEST_DIR}/${photo_date_formatted} ${input_name}.jpg"
 
 # --- Metadata file (full YAML) ---
 cat > "$final_yaml" << EOF

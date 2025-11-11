@@ -3,14 +3,14 @@ Task file manager for orchestrator.
 
 Creates and updates task tracking files in _Tasks_/ directory.
 """
-import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
 from .models import AgentDefinition, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 
 class TaskFileManager:
@@ -94,7 +94,7 @@ class TaskFileManager:
 
             # Write task file
             task_path.write_text(task_content, encoding='utf-8')
-            logger.debug(f"Created task file: {task_path.name}")
+            logger.info(f"💾 Created task file: {task_path.name}", console=True)
 
             return task_path
 
@@ -138,12 +138,16 @@ class TaskFileManager:
 
             content = update_frontmatter_fields(content, updates)
 
-            # Write back
-            task_path.write_text(content, encoding='utf-8')
-            logger.info(f"Updated task file status: {status}")
+            # Write back with explicit flush and sync to ensure disk write
+            import os
+            with open(task_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            logger.info(f"🔄 Updated task file ({status}): {task_path.name}", console=True)
 
         except Exception as e:
-            logger.error(f"Failed to update task file: {e}")
+            logger.error(f"❌ Failed to update task file: {e}")
 
     def _truncate_filename_to_bytes(self, filename: str, max_bytes: int = 250) -> str:
         """

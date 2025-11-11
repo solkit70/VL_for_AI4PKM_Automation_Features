@@ -4,7 +4,6 @@ Execution manager for orchestrator.
 Manages concurrent execution of agent tasks without global semaphores.
 Uses simple instance-level counter with threading lock.
 """
-import logging
 import threading
 import subprocess
 import time
@@ -14,8 +13,9 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from .models import AgentDefinition, ExecutionContext
+from ..logger import Logger
 
-logger = logging.getLogger(__name__)
+logger = Logger()
 
 class ExecutionManager:
     """
@@ -25,7 +25,7 @@ class ExecutionManager:
     Each agent can specify max_parallel limit.
     """
 
-    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None):
+    def __init__(self, vault_path: Path, max_concurrent: int = 3, config: Optional['Config'] = None, orchestrator_settings: Optional[dict] = None, working_dir: Optional[Path] = None):
         """
         Initialize execution manager.
 
@@ -34,10 +34,12 @@ class ExecutionManager:
             max_concurrent: Maximum concurrent executions across all agents
             config: Config instance (will create default if None)
             orchestrator_settings: Orchestrator settings from YAML (optional)
+            working_dir: Working directory for agent subprocess execution (defaults to vault_path)
         """
         from ..config import Config
 
         self.vault_path = Path(vault_path)
+        self.working_dir = Path(working_dir) if working_dir else self.vault_path
         self.max_concurrent = max_concurrent
         self.config = config or Config()
 
@@ -162,6 +164,12 @@ class ExecutionManager:
                 self._execute_gemini_cli(agent, ctx, trigger_data)
             elif agent.executor == 'codex_cli':
                 self._execute_codex_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'cursor_agent':
+                self._execute_cursor_agent(agent, ctx, trigger_data)
+            elif agent.executor == 'continue_cli':
+                self._execute_continue_cli(agent, ctx, trigger_data)
+            elif agent.executor == 'grok_cli':
+                self._execute_grok_cli(agent, ctx, trigger_data)
             else:
                 raise ValueError(f"Unknown executor: {agent.executor}")
 
@@ -275,6 +283,117 @@ class ExecutionManager:
         ctx.prompt = self._build_prompt(agent, trigger_data)
         self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
 
+    def _execute_cursor_agent(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Cursor Agent CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        
+        # Build command: cursor-agent --print --output-format text [prompt]
+        cmd = ['cursor-agent', '--print', '--output-format', 'text']
+        
+        # Add model if specified in agent_params
+        if agent.agent_params and 'model' in agent.agent_params:
+            cmd.extend(['--model', agent.agent_params['model']])
+        
+        # Add MCP approval if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('approve_mcps', False):
+            cmd.append('--approve-mcps')
+        
+        # Add browser support if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('browser', False):
+            cmd.append('--browser')
+        
+        # Add the prompt as the final argument
+        cmd.append(ctx.prompt)
+        
+        self._execute_subprocess(ctx, 'Cursor Agent', cmd, agent.timeout_minutes * 60)
+
+    def _execute_continue_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Continue CLI (cn).
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        
+        # Build command: cn --print [options] [prompt]
+        cmd = ['cn', '--print']
+        
+        # Add format if specified in agent_params (default: json for structured output)
+        if agent.agent_params and 'format' in agent.agent_params:
+            output_format = agent.agent_params['format']
+            cmd.extend(['--format', output_format])
+        else:
+            # Default to json for structured output if not specified
+            cmd.extend(['--format', 'json'])
+        
+        # Add silent flag if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('silent', False):
+            cmd.append('--silent')
+        
+        # Add model if specified in agent_params
+        if agent.agent_params and 'model' in agent.agent_params:
+            cmd.extend(['--model', agent.agent_params['model']])
+        
+        # Add MCP servers if specified in agent_params
+        if agent.agent_params and 'mcp' in agent.agent_params:
+            mcp_servers = agent.agent_params['mcp']
+            if isinstance(mcp_servers, list):
+                for mcp in mcp_servers:
+                    cmd.extend(['--mcp', mcp])
+            elif isinstance(mcp_servers, str):
+                cmd.extend(['--mcp', mcp_servers])
+        
+        # Add rules if specified in agent_params
+        if agent.agent_params and 'rule' in agent.agent_params:
+            rules = agent.agent_params['rule']
+            if isinstance(rules, list):
+                for rule in rules:
+                    cmd.extend(['--rule', rule])
+            elif isinstance(rules, str):
+                cmd.extend(['--rule', rules])
+        
+        # Add config if specified in agent_params
+        if agent.agent_params and 'config' in agent.agent_params:
+            cmd.extend(['--config', agent.agent_params['config']])
+        
+        # Add auto mode if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('auto', False):
+            cmd.append('--auto')
+        
+        # Add readonly mode if specified in agent_params
+        if agent.agent_params and agent.agent_params.get('readonly', False):
+            cmd.append('--readonly')
+        
+        # Add the prompt as the final argument
+        cmd.append(ctx.prompt)
+        
+        self._execute_subprocess(ctx, 'Continue CLI', cmd, agent.timeout_minutes * 60)
+
+    def _execute_grok_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
+        """
+        Execute agent using Grok CLI.
+
+        Args:
+            agent: Agent definition
+            ctx: Execution context
+            trigger_data: Trigger event data
+        """
+        # Build prompt
+        ctx.prompt = self._build_prompt(agent, trigger_data)
+        self._execute_subprocess(ctx, 'Grok CLI', ['grok', '--prompt', ctx.prompt], agent.timeout_minutes * 60)
+
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
         process = subprocess.Popen(
             cmd,
@@ -282,8 +401,13 @@ class ExecutionManager:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            cwd=str(self.vault_path)
+            cwd=str(self.working_dir)
         )
+
+        if ctx.task_file:
+            task_identifier = ctx.task_file.name
+        elif ctx.agent and ctx.agent.abbreviation:
+            task_identifier = f"task for {ctx.agent.abbreviation}"
 
         logs = []
         def stream_stderr(proc):
@@ -291,8 +415,21 @@ class ExecutionManager:
                 logs.append(f"[{agent_name}] {line.strip()}")
                 logger.info(logs[-1])
 
-        stderr_thread = threading.Thread(target=stream_stderr, args=(process,))
+        status_stop_event = threading.Event()
+        def print_status():
+            while not status_stop_event.is_set():
+                if process.poll() is None:
+                    logger.info(f"⏳ {agent_name} is running for {task_identifier}", console=True)
+                else:
+                    break
+                if status_stop_event.wait(5.0):
+                    break
+
+        stderr_thread = threading.Thread(target=stream_stderr, args=(process,), daemon=True)
+        status_thread = threading.Thread(target=print_status, daemon=True)
+        
         stderr_thread.start()
+        status_thread.start()
 
         try:
             process.wait(timeout=timeout_seconds)
@@ -300,6 +437,8 @@ class ExecutionManager:
             process.kill()
             raise RuntimeError(f"{agent_name} timed out after {timeout_seconds} seconds")
         finally:
+            status_stop_event.set()
+            status_thread.join()
             stderr_thread.join()
 
         
@@ -494,6 +633,20 @@ class ExecutionManager:
         """
         with self._executions_lock:
             return list(self._running_executions.values())
+
+    def update_settings(self, max_concurrent: int) -> None:
+        """
+        Update execution manager settings.
+        
+        Updates max_concurrent without affecting running executions.
+        
+        Args:
+            max_concurrent: New maximum concurrent executions
+        """
+        with self._count_lock:
+            old_max = self.max_concurrent
+            self.max_concurrent = max_concurrent
+            logger.info(f"Updated max_concurrent: {old_max} -> {max_concurrent}")
 
     def _apply_post_processing(self, agent: AgentDefinition, trigger_data: Dict):
         """

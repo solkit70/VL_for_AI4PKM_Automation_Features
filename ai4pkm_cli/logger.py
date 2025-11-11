@@ -65,7 +65,7 @@ class Logger:
         """Ensure log file exists and add header if it's a new file."""
         # Only write header if file doesn't exist
         if not os.path.exists(self.log_file):
-            with open(self.log_file, 'w') as f:
+            with open(self.log_file, 'w', encoding='utf-8') as f:
                 f.write(f"PKM CLI Log - Started at {datetime.now().isoformat()}\n")
                 f.write("=" * 60 + "\n")
 
@@ -93,8 +93,8 @@ class Logger:
                     log_entry += tb_lines
 
         with self.lock:
-            # Write to main log file
-            with open(self.log_file, 'a') as f:
+            # Write to main log file (use UTF-8 encoding for Windows compatibility)
+            with open(self.log_file, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
 
             # Print to console if requested (message only, no formatting)

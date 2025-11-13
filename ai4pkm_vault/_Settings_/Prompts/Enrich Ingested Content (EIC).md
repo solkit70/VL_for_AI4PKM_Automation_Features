@@ -12,8 +12,10 @@ Improve captured content through transcript correction, summarization, and knowl
 - Original content with potential grammar/transcript errors
 
 ## Output
-- Updated note inline (don't create new note)
-- Status property set to `processed`
+- Create a NEW file in the output directory (specified in Output Configuration)
+- Do NOT modify the input file inline
+- Use naming pattern: `{title} - {agent}.md` (e.g., "Article Title - EIC.md")
+- Status property set to `processed` in the new file
 - Summary section added at beginning
 - Improved formatting and structure
 - Links to existing KB topics

@@ -18,7 +18,7 @@ views:
       - property: created
         direction: DESC
     columnSize:
-      file.name: 372
-      note.output: 381
+      file.name: 409
+      note.output: 236
       note.created: 159
       note.status: 155

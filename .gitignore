@@ -5,6 +5,7 @@ ai4pkm_vault/Ingest/*
 ai4pkm_vault/Journal/*
 ai4pkm_vault/Topics/*
 ai4pkm_vault/AI/*
+ai4pkm_vault/_Settings_/Tasks/*
 
 # Photo processing artifacts
 *.DS_Store

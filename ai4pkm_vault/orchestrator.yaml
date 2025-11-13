@@ -29,14 +29,14 @@ nodes:
     output_path: AI/Articles
     output_type: new_file  # Create new files in AI/Articles
 
-  # Create Thread Postings
-  - type: agent
-    name: Create Thread Postings (CTP)
-    input_path:
-      - AI/Articles
-      - AI/Roundup
-      - AI/Research
-    output_path: AI/Sharable
+  # # Create Thread Postings
+  # - type: agent
+  #   name: Create Thread Postings (CTP)
+  #   input_path:
+  #     - AI/Articles
+  #     - AI/Roundup
+  #     - AI/Research
+  #   output_path: AI/Sharable
 
   # Batch workflow support is TBA
   # # Generate Daily Roundup

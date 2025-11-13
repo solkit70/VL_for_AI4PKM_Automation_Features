@@ -389,10 +389,12 @@ class Orchestrator:
         """
         logger.debug(f"Processing event: {trigger_event.event_type} {trigger_event.path}")
 
-        # Check if this is a TBD task file
-        if self._is_tbd_task_file(trigger_event):
-            logger.debug(f"Detected TBD task file: {trigger_event.path}")
-            self._process_tbd_task(trigger_event)
+        # Check if this is a QUEUED task file that needs enrichment
+        if self._is_queued_task_file(trigger_event):
+            logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
+            self._enrich_queued_task(trigger_event)
+            # After enrichment, process queued tasks to pick it up
+            self._process_queued_tasks()
             return
 
         # Convert TriggerEvent to event_data dict
@@ -522,9 +524,17 @@ class Orchestrator:
                 agent_abbr = fm.get('task_type')
                 trigger_data_json = fm.get('trigger_data_json')
 
-                if not agent_abbr or not trigger_data_json:
-                    logger.warning(f"Malformed QUEUED task: {task_path.name}")
+                if not agent_abbr:
+                    logger.warning(f"Malformed QUEUED task: missing task_type: {task_path.name}")
                     continue
+
+                # If trigger_data_json is missing, enrich the task with trigger data
+                if not trigger_data_json:
+                    logger.debug(f"QUEUED task missing trigger_data_json, enriching: {task_path.name}")
+                    trigger_data_json = self._enrich_queued_task_with_trigger_data(task_path, fm)
+                    if not trigger_data_json:
+                        logger.warning(f"Failed to enrich QUEUED task: {task_path.name}")
+                        continue
 
                 # Look up agent definition
                 agent = self.agent_registry.agents.get(agent_abbr)
@@ -585,15 +595,15 @@ class Orchestrator:
         except Exception as e:
             logger.error(f"Error processing queued tasks: {e}", exc_info=True)
 
-    def _is_tbd_task_file(self, trigger_event: TriggerEvent) -> bool:
+    def _is_queued_task_file(self, trigger_event: TriggerEvent) -> bool:
         """
-        Check if a trigger event is for a TBD task file.
+        Check if a trigger event is for a QUEUED task file that needs enrichment.
 
         Args:
             trigger_event: Trigger event to check
 
         Returns:
-            True if this is a TBD task file in the tasks directory
+            True if this is a QUEUED task file in the tasks directory without trigger_data_json
         """
         try:
             file_path = trigger_event.path
@@ -612,9 +622,13 @@ class Orchestrator:
                 # Check status from frontmatter if available (optimization)
                 if trigger_event.frontmatter:
                     status = trigger_event.frontmatter.get('status', '').upper()
-                    return status == 'TBD'
+                    # Only process QUEUED tasks that don't have trigger_data_json yet
+                    if status == 'QUEUED':
+                        trigger_data_json = trigger_event.frontmatter.get('trigger_data_json')
+                        return not trigger_data_json  # Only enrich if missing
+                    return False
                 
-                # If frontmatter not available, we'll check in _process_tbd_task
+                # If frontmatter not available, we'll check in _enrich_queued_task
                 return True
             except ValueError:
                 # File is not in tasks directory
@@ -660,55 +674,80 @@ class Orchestrator:
         
         return None
 
-    def _process_tbd_task(self, trigger_event: TriggerEvent):
+    def _enrich_queued_task(self, trigger_event: TriggerEvent):
         """
-        Process a TBD task file by transitioning it to QUEUED status.
+        Enrich a QUEUED task file by adding trigger_data_json if missing.
 
-        Reads the task file, extracts agent type and task instructions,
-        creates a synthetic trigger event, and transitions TBD → QUEUED.
+        Reads the task file, extracts agent type and input path,
+        creates synthetic trigger event data, and adds trigger_data_json.
 
         Args:
-            trigger_event: Trigger event for the TBD task file
+            trigger_event: Trigger event for the QUEUED task file
         """
         from ..markdown_utils import read_frontmatter, extract_body
-        import json
-        from datetime import datetime, date
 
         try:
             # Get full path to task file
             task_file_path = self.vault_path / trigger_event.path
             
             if not task_file_path.exists():
-                logger.warning(f"TBD task file not found: {trigger_event.path}")
+                logger.warning(f"QUEUED task file not found: {trigger_event.path}")
                 return
 
             # Read task file
-            task_content = task_file_path.read_text(encoding='utf-8')
             frontmatter = read_frontmatter(task_file_path)
-            task_body = extract_body(task_content)
-
-            # Check if status is actually TBD
+            
+            # Check if status is actually QUEUED and missing trigger_data_json
             current_status = frontmatter.get('status', '').upper()
-            if current_status != 'TBD':
-                logger.debug(f"Task file {trigger_event.path} is not TBD (status: {current_status}), skipping")
+            if current_status != 'QUEUED':
+                logger.debug(f"Task file {trigger_event.path} is not QUEUED (status: {current_status}), skipping")
                 return
 
+            # Skip if trigger_data_json already exists
+            if frontmatter.get('trigger_data_json'):
+                logger.debug(f"QUEUED task already has trigger_data_json: {trigger_event.path}")
+                return
+
+            # Enrich with trigger data
+            trigger_data_json = self._enrich_queued_task_with_trigger_data(task_file_path, frontmatter)
+            if trigger_data_json:
+                logger.info(f"🔄 Enriched QUEUED task with trigger data: {task_file_path.name}", console=True)
+
+        except Exception as e:
+            logger.error(f"Error enriching QUEUED task {trigger_event.path}: {e}", exc_info=True)
+
+    def _enrich_queued_task_with_trigger_data(self, task_file_path: Path, frontmatter: dict) -> Optional[str]:
+        """
+        Enrich a QUEUED task with trigger_data_json by extracting input path and creating synthetic event.
+
+        Args:
+            task_file_path: Path to task file
+            frontmatter: Task file frontmatter
+
+        Returns:
+            JSON string of trigger data, or None if enrichment failed
+        """
+        from ..markdown_utils import extract_body
+        import json
+        from datetime import datetime, date
+
+        try:
             # Extract agent abbreviation
             agent_abbr = frontmatter.get('task_type')
             if not agent_abbr:
-                logger.warning(f"TBD task file missing task_type: {trigger_event.path}")
+                logger.warning(f"QUEUED task file missing task_type: {task_file_path}")
                 self.execution_manager.task_manager.update_task_status(
                     task_file_path,
                     "FAILED",
                     error_message="Missing task_type in frontmatter"
                 )
-                return
+                return None
 
             # Look up agent definition
             agent = self.agent_registry.agents.get(agent_abbr)
             if not agent:
                 logger.warning(
-                    f"Agent '{agent_abbr}' not found for TBD task: {trigger_event.path}. "
+                    f"Agent '{agent_abbr}' not found for QUEUED task: {task_file_path}. "
                     "Agent may have been removed in configuration reload."
                 )
                 self.execution_manager.task_manager.update_task_status(
@@ -716,7 +755,11 @@ class Orchestrator:
                     "FAILED",
                     error_message=f"Agent '{agent_abbr}' not found"
                 )
-                return
+                return None
+
+            # Read task body to extract input path
+            task_content = task_file_path.read_text(encoding='utf-8')
+            task_body = extract_body(task_content)
 
             # Extract input file path from task body
             input_path = self._extract_input_path_from_task_body(task_body)
@@ -745,7 +788,7 @@ class Orchestrator:
 
             # Use task file path as fallback if no input found
             if not input_path:
-                input_path = trigger_event.path
+                input_path = str(task_file_path.relative_to(self.vault_path))
 
             # Create synthetic trigger event data
             def make_json_serializable(obj):
@@ -761,7 +804,7 @@ class Orchestrator:
 
             event_data = {
                 'path': input_path,
-                'event_type': 'tbd_reprocess',
+                'event_type': 'manual_reprocess',
                 'is_directory': False,
                 'timestamp': datetime.now(),
                 'frontmatter': {}
@@ -772,20 +815,18 @@ class Orchestrator:
             # Serialize trigger data (keep as JSON string, will be properly escaped in task_manager)
             trigger_data_json = json.dumps(event_data_serializable)
 
-            # Transition TBD → QUEUED with trigger_data_json
+            # Add trigger_data_json to task file
             self.execution_manager.task_manager.update_task_status_with_trigger_data(
                 task_file_path,
-                "QUEUED",
+                "QUEUED",  # Keep status as QUEUED
                 trigger_data_json
             )
 
-            logger.info(f"🔄 Transitioned TBD task to QUEUED: {task_file_path.name} (agent: {agent_abbr})", console=True)
-
-            # Try to process the newly queued task immediately if capacity is available
-            self._process_queued_tasks()
+            return trigger_data_json
 
         except Exception as e:
-            logger.error(f"Error processing TBD task {trigger_event.path}: {e}", exc_info=True)
+            logger.error(f"Error enriching QUEUED task with trigger data: {e}", exc_info=True)
+            return None
 
     def get_status(self) -> dict:
         """

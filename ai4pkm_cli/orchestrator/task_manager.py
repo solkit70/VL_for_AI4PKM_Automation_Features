@@ -163,7 +163,7 @@ class TaskFileManager:
         """
         Update task file status and add trigger_data_json atomically.
         
-        Used when transitioning TBD tasks to QUEUED status.
+        Used when enriching QUEUED tasks with trigger data.
 
         Args:
             task_path: Path to task file

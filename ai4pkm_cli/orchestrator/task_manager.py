@@ -338,36 +338,55 @@ class TaskFileManager:
         Returns:
             Task file content
         """
-        # Build frontmatter
+        from ruamel.yaml import YAML
+        from ruamel.yaml.scalarstring import DoubleQuotedScalarString
+        from io import StringIO
+        
+        # Build frontmatter data structure
         created_time = ctx.start_time.isoformat() if ctx.start_time else datetime.now().isoformat()
-
-        frontmatter = f"""---
-title: "{agent.abbreviation} - {Path(input_file_path).stem}"
-created: {created_time}
-archived: {str(agent.task_archived).lower()}
-worker: "{agent.executor}"
-status: "{initial_status}"
-priority: "{agent.task_priority}"
-output: ""
-task_type: "{agent.abbreviation}"
-generation_log: "{log_link}"
-"""
-
+        
+        title = f"{agent.abbreviation} - {Path(input_file_path).stem}"
+        
+        frontmatter_data = {
+            'title': title,
+            'created': created_time,
+            'archived': str(agent.task_archived).lower(),
+            'worker': agent.executor,
+            'status': initial_status,
+            'priority': agent.task_priority,
+            'output': "",
+            'task_type': agent.abbreviation,
+            'generation_log': log_link
+        }
+        
         # Add agent_params if available
         if agent.agent_params:
-            frontmatter += "agent_params:\n"
-            for key, value in agent.agent_params.items():
-                # Properly format YAML values
-                if isinstance(value, str):
-                    frontmatter += f'  {key}: "{value}"\n'
-                else:
-                    frontmatter += f'  {key}: {value}\n'
-
+            frontmatter_data['agent_params'] = agent.agent_params
+        
         # Add trigger data for QUEUED tasks
         if trigger_data_json:
-            frontmatter += f'trigger_data_json: "{trigger_data_json}"\n'
-
-        frontmatter += "---"
+            frontmatter_data['trigger_data_json'] = trigger_data_json
+        
+        # Use ruamel.yaml to generate properly quoted YAML
+        yaml_parser = YAML()
+        yaml_parser.preserve_quotes = True
+        yaml_parser.width = 4096
+        
+        # Convert ALL string values to DoubleQuotedScalarString for consistency
+        for key, value in frontmatter_data.items():
+            if isinstance(value, str):
+                # Always quote ALL string fields for consistency
+                frontmatter_data[key] = DoubleQuotedScalarString(value)
+            elif isinstance(value, dict):
+                # Handle nested dicts (like agent_params)
+                for nested_key, nested_value in value.items():
+                    if isinstance(nested_value, str):
+                        value[nested_key] = DoubleQuotedScalarString(nested_value)
+        
+        # Generate YAML frontmatter
+        stream = StringIO()
+        yaml_parser.dump(frontmatter_data, stream)
+        frontmatter = "---\n" + stream.getvalue() + "---"
 
         # Build body
         event_type = ctx.trigger_data.get('event_type', 'unknown')

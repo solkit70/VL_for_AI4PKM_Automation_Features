@@ -47,6 +47,7 @@ class ExecutionManager:
         self.working_dir = Path(working_dir) if working_dir else self.vault_path
         self.max_concurrent = max_concurrent
         self.config = config or Config()
+        self.orchestrator_settings = orchestrator_settings or {}
 
         # Instance-level state (no global state)
         self._running_count = 0
@@ -507,12 +508,20 @@ class ExecutionManager:
 
     def _load_system_prompt(self) -> str:
         """
-        Load system prompt from _Settings_/Prompts/System Prompt.md if it exists.
+        Load system prompt from prompts_dir/System Prompt.md if it exists.
+        
+        Uses prompts_dir from orchestrator_settings or falls back to config.
 
         Returns:
             System prompt content or empty string if not found
         """
-        system_prompt_path = self.vault_path / "_Settings_/Prompts/System Prompt.md"
+        # Get prompts_dir from orchestrator_settings or fallback to config
+        if self.orchestrator_settings and 'prompts_dir' in self.orchestrator_settings:
+            prompts_dir = self.orchestrator_settings['prompts_dir']
+        else:
+            prompts_dir = self.config.get_orchestrator_prompts_dir()
+        
+        system_prompt_path = self.vault_path / prompts_dir / "System Prompt.md"
         if system_prompt_path.exists():
             try:
                 from ..markdown_utils import extract_body

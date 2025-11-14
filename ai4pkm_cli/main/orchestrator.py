@@ -64,6 +64,18 @@ def run_orchestrator_daemon(vault_path: Path = None, debug: bool = False, workin
             f"({agent_info['category']})"
         )
 
+    # Show loaded pollers
+    pollers_list = list(orch.poller_manager.pollers.items())
+    if pollers_list:
+        logger.info(f"\n[green]✓[/green] Loaded {len(pollers_list)} poller(s):")
+        for poller_name, poller in sorted(pollers_list, key=lambda p: p[0]):
+            # Use relative path from config instead of absolute path
+            target_dir_rel = poller.poller_config.get('target_dir', str(poller.target_dir))
+            logger.info(
+                f"  • {poller_name} → {target_dir_rel} "
+                f"(interval: {poller.poll_interval}s)"
+            )
+
     # Start orchestrator
     logger.info("\n[cyan]Starting orchestrator...[/cyan]")
     orch.run_forever()
@@ -96,6 +108,7 @@ def show_orchestrator_status(vault_path: Path = None, working_dir: str = None):
     logger.info(Panel.fit(
         f"[bold]Vault:[/bold] {status['vault_path']}\n"
         f"[bold]Agents loaded:[/bold] {status['agents_loaded']}\n"
+        f"[bold]Pollers loaded:[/bold] {status['pollers_loaded']}\n"
         f"[bold]Max concurrent:[/bold] {status['max_concurrent']}",
         title="Orchestrator Status"
     ))
@@ -106,5 +119,18 @@ def show_orchestrator_status(vault_path: Path = None, working_dir: str = None):
             logger.info(
                 f"  • [{agent_info['abbreviation']}] {agent_info['name']}\n"
                 f"    Category: {agent_info['category']}"
+            )
+
+    # Show pollers
+    pollers_list = list(orch.poller_manager.pollers.items())
+    if pollers_list:
+        logger.info("\n[bold]Available Pollers:[/bold]")
+        for poller_name, poller in sorted(pollers_list, key=lambda p: p[0]):
+            # Use relative path from config instead of absolute path
+            target_dir_rel = poller.poller_config.get('target_dir', str(poller.target_dir))
+            logger.info(
+                f"  • {poller_name}\n"
+                f"    Target: {target_dir_rel}\n"
+                f"    Interval: {poller.poll_interval}s"
             )
 

@@ -11,11 +11,14 @@ import os
 import shutil
 import platform
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
 from .models import AgentDefinition, ExecutionContext
 from ..logger import Logger
+
+if TYPE_CHECKING:
+    from ..config import Config
 
 logger = Logger()
 
@@ -44,6 +47,7 @@ class ExecutionManager:
         self.working_dir = Path(working_dir) if working_dir else self.vault_path
         self.max_concurrent = max_concurrent
         self.config = config or Config()
+        self.orchestrator_settings = orchestrator_settings or {}
 
         # Instance-level state (no global state)
         self._running_count = 0
@@ -60,6 +64,9 @@ class ExecutionManager:
         # Task file manager
         from .task_manager import TaskFileManager
         self.task_manager = TaskFileManager(vault_path, config=self.config, orchestrator_settings=orchestrator_settings)
+        
+        # Load system prompt if it exists
+        self.system_prompt = self._load_system_prompt()
 
     def can_execute(self, agent: AgentDefinition) -> bool:
         """
@@ -191,16 +198,39 @@ class ExecutionManager:
 
             # Update task file with final status
             if ctx.task_file:
+                # Check if agent updated task file
+                agent_status = None
+                agent_output = None
+                if ctx.task_file.exists():
+                    from ..markdown_utils import read_frontmatter
+                    task_fm = read_frontmatter(ctx.task_file)
+                    agent_status = task_fm.get('status', '').upper()
+                    agent_output = task_fm.get('output', '').strip()
+                
                 # Validate output and determine final status
                 final_status = ctx.status
                 output_link = None
                 validation_error = None
 
                 if ctx.status == 'completed' and 'path' in trigger_data:
-                    # Validate output based on output_type
-                    output_valid, output_link, validation_error = self._validate_output(
-                        agent, trigger_data, ctx
-                    )
+                    # Use agent-reported output if present and valid
+                    if agent_status in ['COMPLETED', 'PROCESSED'] and agent_output:
+                        # Validate agent-reported output file exists
+                        output_valid, validated_link, validation_error = self._validate_agent_output(
+                            agent_output, agent, trigger_data, ctx
+                        )
+                        if output_valid:
+                            output_link = validated_link
+                        else:
+                            # Agent reported invalid output, fall back to heuristic discovery
+                            output_valid, output_link, validation_error = self._validate_output(
+                                agent, trigger_data, ctx
+                            )
+                    else:
+                        # Agent didn't update, use heuristic discovery
+                        output_valid, output_link, validation_error = self._validate_output(
+                            agent, trigger_data, ctx
+                        )
 
                     # If validation failed, mark as FAILED
                     if not output_valid:
@@ -217,6 +247,16 @@ class ExecutionManager:
                     output=output_link,
                     error_message=ctx.error_message
                 )
+                
+                # Attach execution summary to Process Log
+                if ctx.log_file and ctx.log_file.exists():
+                    try:
+                        summary = f"Execution completed at {ctx.end_time.isoformat()}. See generation_log for details."
+                        content = ctx.task_file.read_text(encoding='utf-8')
+                        updated = self.task_manager._append_to_process_log(content, summary)
+                        ctx.task_file.write_text(updated, encoding='utf-8')
+                    except Exception as e:
+                        logger.warning(f"Failed to attach execution summary to task file: {e}")
 
             # Post-processing actions (e.g., remove trigger content)
             if ctx.status == 'completed' and agent.post_process_action:
@@ -256,7 +296,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt from agent definition
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         self._execute_subprocess(ctx, 'Claude CLI', ['claude', '--permission-mode', 'bypassPermissions', '--print', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_gemini_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
@@ -269,7 +309,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         self._execute_subprocess(ctx, 'Gemini CLI', ['gemini', '--yolo', '--debug', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_codex_cli(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
@@ -282,7 +322,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_cursor_agent(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
@@ -295,7 +335,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         
         # Build command: cursor-agent --print --output-format text [prompt]
         cmd = ['cursor-agent', '--print', '--output-format', 'text']
@@ -327,7 +367,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         
         # Build command: cn --print [options] [prompt]
         cmd = ['cn', '--print']
@@ -393,7 +433,7 @@ class ExecutionManager:
             trigger_data: Trigger event data
         """
         # Build prompt
-        ctx.prompt = self._build_prompt(agent, trigger_data)
+        ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         self._execute_subprocess(ctx, 'Grok CLI', ['grok', '--prompt', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
@@ -466,24 +506,68 @@ class ExecutionManager:
             ctx.response = "\n".join(logs)
 
 
-    def _build_prompt(self, agent: AgentDefinition, trigger_data: Dict) -> str:
+    def _load_system_prompt(self) -> str:
+        """
+        Load system prompt from prompts_dir/System Prompt.md if it exists.
+        
+        Uses prompts_dir from orchestrator_settings or falls back to config.
+
+        Returns:
+            System prompt content or empty string if not found
+        """
+        # Get prompts_dir from orchestrator_settings or fallback to config
+        if self.orchestrator_settings and 'prompts_dir' in self.orchestrator_settings:
+            prompts_dir = self.orchestrator_settings['prompts_dir']
+        else:
+            prompts_dir = self.config.get_orchestrator_prompts_dir()
+        
+        system_prompt_path = self.vault_path / prompts_dir / "System Prompt.md"
+        if system_prompt_path.exists():
+            try:
+                from ..markdown_utils import extract_body
+                content = system_prompt_path.read_text(encoding='utf-8')
+                return extract_body(content)
+            except Exception as e:
+                logger.warning(f"Failed to load system prompt: {e}")
+                return ""
+        return ""
+
+    def _build_prompt(self, agent: AgentDefinition, trigger_data: Dict, ctx: Optional[ExecutionContext] = None) -> str:
         """
         Build execution prompt from agent definition and trigger data.
 
         Args:
             agent: Agent definition
             trigger_data: Trigger event data
+            ctx: Execution context (optional, needed for task file path)
 
         Returns:
             Formatted prompt string
         """
-        # Start with prompt body from agent definition
-        prompt = agent.prompt_body
+        # Start with system prompt if available
+        prompt = ""
+        if self.system_prompt:
+            prompt = self.system_prompt + "\n\n"
+        
+        # Add agent prompt body
+        prompt += agent.prompt_body
 
         # Add trigger context
         prompt += "\n\n# Trigger Context\n"
         prompt += f"- Event: {trigger_data.get('event_type', 'unknown')}\n"
         prompt += f"- Input Path: {trigger_data.get('path', 'unknown')}\n"
+        
+        # Add task file path if available
+        if ctx and ctx.task_file:
+            try:
+                rel_task = ctx.task_file.relative_to(self.vault_path)
+                task_link = f"[[{rel_task.parent}/{rel_task.stem}]]"
+                prompt += f"- Task File: {task_link}\n"
+                prompt += f"- **Update upon completion**: Set `status:` and `output:` fields\n"
+            except ValueError:
+                # If relative path fails, use absolute path as fallback
+                prompt += f"- Task File: {ctx.task_file}\n"
+                prompt += f"- **Update upon completion**: Set `status:` and `output:` fields\n"
 
         # Add output configuration
         if agent.output_path:
@@ -514,6 +598,42 @@ class ExecutionManager:
                 prompt += f"- {key}: {value}\n"
 
         return prompt
+
+    def _validate_agent_output(self, agent_output: str, agent: AgentDefinition, trigger_data: Dict, ctx: ExecutionContext) -> tuple:
+        """
+        Validate that agent-reported output file exists.
+
+        Args:
+            agent_output: Output file link reported by agent (wiki link format)
+            agent: Agent definition
+            trigger_data: Trigger event data
+            ctx: Execution context
+
+        Returns:
+            Tuple of (is_valid, output_link, error_message)
+        """
+        # Extract file path from wiki link format [[path/to/file]]
+        import re
+        match = re.search(r'\[\[([^\]]+)\]\]', agent_output)
+        if not match:
+            return False, None, f"Invalid output format: {agent_output}. Expected wiki link format [[path/to/file]]"
+        
+        file_path_str = match.group(1)
+        # Handle paths with or without .md extension
+        if not file_path_str.endswith('.md'):
+            file_path_str += '.md'
+        
+        # Try to resolve the file path
+        output_path = self.vault_path / file_path_str
+        if output_path.exists():
+            try:
+                rel_path = output_path.relative_to(self.vault_path)
+                output_link = f"[[{rel_path.parent}/{rel_path.stem}]]"
+                return True, output_link, None
+            except ValueError:
+                return True, f"[[{file_path_str}]]", None
+        else:
+            return False, None, f"Output file not found: {file_path_str}"
 
     def _validate_output(self, agent: AgentDefinition, trigger_data: Dict, ctx: ExecutionContext) -> tuple:
         """

@@ -323,7 +323,7 @@ class ExecutionManager:
         """
         # Build prompt
         ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
-        self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
+        self._execute_subprocess(ctx, 'Codex CLI', ['codex', '--search', 'exec', '--skip-git-repo-check', '--full-auto', ctx.prompt], agent.timeout_minutes * 60)
 
     def _execute_cursor_agent(self, agent: AgentDefinition, ctx: ExecutionContext, trigger_data: Dict):
         """

@@ -389,14 +389,27 @@ class Orchestrator:
         """
         logger.debug(f"Processing event: {trigger_event.event_type} {trigger_event.path}")
 
-        # Check if this is a QUEUED task file that needs enrichment
-        if self._is_queued_task_file(trigger_event):
-            logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
-            self._enrich_queued_task(trigger_event)
-            # After enrichment, process queued tasks to pick it up
-            self._process_queued_tasks()
-            return
+        # 1. Handle Task Files
+        # Task files are special: they control execution flow and shouldn't trigger other agents
+        if self._is_task_file(trigger_event.path):
+            try:
+                # Always read from file to get the latest status
+                from ..markdown_utils import read_frontmatter
+                frontmatter = read_frontmatter(self.vault_path / trigger_event.path)
+                status = frontmatter.get('status', '').upper()
+                
+                if status == 'QUEUED':
+                    logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
+                    self._enrich_queued_task(trigger_event)
+                    self._process_queued_tasks()
+                else:
+                    logger.debug(f"Ignoring task file update (status={status}): {trigger_event.path}")
+            except Exception as e:
+                logger.error(f"Error processing task file {trigger_event.path}: {e}")
+            
+            return  # Stop processing for task files (don't trigger agents)
 
+        # 2. Regular File Processing
         # Convert TriggerEvent to event_data dict
         event_data = {
             'path': trigger_event.path,
@@ -595,43 +608,24 @@ class Orchestrator:
         except Exception as e:
             logger.error(f"Error processing queued tasks: {e}", exc_info=True)
 
-    def _is_queued_task_file(self, trigger_event: TriggerEvent) -> bool:
+    def _is_task_file(self, file_path: str) -> bool:
         """
-        Check if a trigger event is for a QUEUED task file that needs enrichment.
-
+        Check if the file is in the tasks directory.
+        
         Args:
-            trigger_event: Trigger event to check
-
+            file_path: Relative path to check
+            
         Returns:
-            True if this is a QUEUED task file in the tasks directory without trigger_data_json
+            True if file is in tasks directory and is a markdown file
         """
         try:
-            file_path = trigger_event.path
-            
-            # Check if path is in tasks directory
             tasks_dir = self.execution_manager.task_manager.tasks_dir
             file_full_path = self.vault_path / file_path
             
-            # Check if file is in tasks directory
             try:
                 file_full_path.relative_to(tasks_dir)
-                # File is in tasks directory, check if it's a markdown file
-                if not file_path.endswith('.md'):
-                    return False
-                
-                # Check status from frontmatter if available (optimization)
-                if trigger_event.frontmatter:
-                    status = trigger_event.frontmatter.get('status', '').upper()
-                    # Only process QUEUED tasks that don't have trigger_data_json yet
-                    if status == 'QUEUED':
-                        trigger_data_json = trigger_event.frontmatter.get('trigger_data_json')
-                        return not trigger_data_json  # Only enrich if missing
-                    return False
-                
-                # If frontmatter not available, we'll check in _enrich_queued_task
-                return True
+                return file_path.endswith('.md')
             except ValueError:
-                # File is not in tasks directory
                 return False
         except Exception:
             return False

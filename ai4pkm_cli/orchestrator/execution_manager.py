@@ -159,9 +159,17 @@ class ExecutionManager:
         log_path = self._prepare_log_path(agent, ctx)
         ctx.log_file = log_path
 
-        # Create task file BEFORE execution starts
-        task_path = self.task_manager.create_task_file(ctx, agent)
-        ctx.task_file = task_path
+        existing_task_path = trigger_data.get('_existing_task_file')
+        if existing_task_path:
+            task_file = Path(existing_task_path)
+            ctx.task_file = task_file
+
+            self.task_manager.update_task_status(task_file, "IN_PROGRESS")
+            logger.info(f"Using existing task file: {task_file.name}", console=True)
+        else:
+            # Create task file BEFORE execution starts
+            task_path = self.task_manager.create_task_file(ctx, agent)
+            ctx.task_file = task_path
 
         try:
             logger.debug(f"Starting execution: {agent.abbreviation} (ID: {ctx.execution_id})")
@@ -195,6 +203,22 @@ class ExecutionManager:
 
         finally:
             ctx.end_time = datetime.now()
+
+            # Write execution log to file
+            if ctx.log_file:
+                log_content = ""
+                if ctx.response:
+                    log_content = ctx.response
+                elif ctx.error_message:
+                    log_content = ctx.error_message
+                
+                if log_content:
+                    try:
+                        # Overwrite mode (w) for fresh execution logs
+                        ctx.log_file.write_text(log_content, encoding='utf-8')
+                        logger.info(f"Written execution log to: {ctx.log_file.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to write log file: {e}")
 
             # Update task file with final status
             if ctx.task_file:
@@ -734,7 +758,22 @@ class ExecutionManager:
         # Get logs directory from config
         logs_dir = self.config.get_orchestrator_logs_dir()
         log_path = self.vault_path / logs_dir / log_name
+
+        # Try to reuse existing log path from frontmatter
+        log_link = trigger_data.get('_generation_log', '')
+        if log_link and log_link.startswith('[[') and log_link.endswith(']]'):
+            try:
+                log_rel_path = log_link[2:-2]
+                log_path = self.vault_path / log_rel_path
+                logger.info(f"Reusing log file: {log_path.name}", console=True)
+            except Exception as e:
+                logger.warning(f"Failed to parse existing log path: {e}")
+        
         log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create empty log file if it doesn't exist to ensure wiki links work
+        if not log_path.exists():
+            log_path.touch()
 
         return log_path
 

@@ -451,7 +451,7 @@ class Orchestrator:
                 event_data_serializable = make_json_serializable(event_data)
 
                 # Serialize trigger data (escape quotes for YAML)
-                trigger_data_json = json.dumps(event_data_serializable).replace('"', '\\"')
+                trigger_data_json = json.dumps(event_data_serializable, ensure_ascii=False).replace('"', '\\"')
 
                 # Create minimal context for task file creation
                 ctx = ExecutionContext(
@@ -460,9 +460,6 @@ class Orchestrator:
                     start_time=datetime.now()
                 )
 
-                # Prepare log path
-                log_path = self.execution_manager._prepare_log_path(agent, ctx)
-                ctx.log_file = log_path
 
                 # Create QUEUED task
                 self.execution_manager.task_manager.create_task_file(
@@ -594,6 +591,11 @@ class Orchestrator:
                 # Execute agent (slot already reserved)
                 event_path = event_data.get('path', '')
                 logger.debug(f"Starting queued {agent.abbreviation}: {event_path}")
+
+                # Inject existing task file path into event_data
+                event_data['_existing_task_file'] = str(task_path)
+                # Also inject generation_log to avoid re-reading frontmatter
+                event_data['_generation_log'] = fm.get('generation_log', '')
 
                 execution_thread = threading.Thread(
                     target=self._execute_agent,
@@ -807,7 +809,7 @@ class Orchestrator:
             event_data_serializable = make_json_serializable(event_data)
 
             # Serialize trigger data (keep as JSON string, will be properly escaped in task_manager)
-            trigger_data_json = json.dumps(event_data_serializable)
+            trigger_data_json = json.dumps(event_data_serializable, ensure_ascii=False)
 
             # Add trigger_data_json to task file
             self.execution_manager.task_manager.update_task_status_with_trigger_data(

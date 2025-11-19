@@ -760,7 +760,7 @@ class ExecutionManager:
         log_path = self.vault_path / logs_dir / log_name
 
         # Try to reuse existing log path from frontmatter
-        log_link = trigger_data.get('_generation_log', '')
+        log_link = ctx.trigger_data.get('_generation_log', '')
         if log_link and log_link.startswith('[[') and log_link.endswith(']]'):
             try:
                 log_rel_path = log_link[2:-2]

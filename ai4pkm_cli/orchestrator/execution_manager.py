@@ -204,22 +204,6 @@ class ExecutionManager:
         finally:
             ctx.end_time = datetime.now()
 
-            # Write execution log to file
-            if ctx.log_file:
-                log_content = ""
-                if ctx.response:
-                    log_content = ctx.response
-                elif ctx.error_message:
-                    log_content = ctx.error_message
-                
-                if log_content:
-                    try:
-                        # Overwrite mode (w) for fresh execution logs
-                        ctx.log_file.write_text(log_content, encoding='utf-8')
-                        logger.info(f"Written execution log to: {ctx.log_file.name}")
-                    except Exception as e:
-                        logger.error(f"Failed to write log file: {e}")
-
             # Update task file with final status
             if ctx.task_file:
                 # Check if agent updated task file

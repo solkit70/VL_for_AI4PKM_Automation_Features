@@ -585,9 +585,6 @@ class Orchestrator:
                             self.execution_manager._agent_counts[agent.abbreviation] -= 1
                         continue
 
-                # Update task status from QUEUED to IN_PROGRESS
-                self.execution_manager.task_manager.update_task_status(task_path, "IN_PROGRESS")
-
                 # Execute agent (slot already reserved)
                 event_path = event_data.get('path', '')
                 logger.debug(f"Starting queued {agent.abbreviation}: {event_path}")

@@ -401,7 +401,6 @@ class Orchestrator:
                 if status == 'QUEUED':
                     logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
                     self._enrich_queued_task(trigger_event)
-                    self._process_queued_tasks()
                 else:
                     logger.debug(f"Ignoring task file update (status={status}): {trigger_event.path}")
             except Exception as e:

@@ -389,14 +389,26 @@ class Orchestrator:
         """
         logger.debug(f"Processing event: {trigger_event.event_type} {trigger_event.path}")
 
-        # Check if this is a QUEUED task file that needs enrichment
-        if self._is_queued_task_file(trigger_event):
-            logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
-            self._enrich_queued_task(trigger_event)
-            # After enrichment, process queued tasks to pick it up
-            self._process_queued_tasks()
-            return
+        # 1. Handle Task Files
+        # Task files are special: they control execution flow and shouldn't trigger other agents
+        if self._is_task_file(trigger_event.path):
+            try:
+                # Always read from file to get the latest status
+                from ..markdown_utils import read_frontmatter
+                frontmatter = read_frontmatter(self.vault_path / trigger_event.path)
+                status = frontmatter.get('status', '').upper()
+                
+                if status == 'QUEUED':
+                    logger.debug(f"Detected QUEUED task file: {trigger_event.path}")
+                    self._enrich_queued_task(trigger_event)
+                else:
+                    logger.debug(f"Ignoring task file update (status={status}): {trigger_event.path}")
+            except Exception as e:
+                logger.error(f"Error processing task file {trigger_event.path}: {e}")
+            
+            return  # Stop processing for task files (don't trigger agents)
 
+        # 2. Regular File Processing
         # Convert TriggerEvent to event_data dict
         event_data = {
             'path': trigger_event.path,
@@ -438,7 +450,7 @@ class Orchestrator:
                 event_data_serializable = make_json_serializable(event_data)
 
                 # Serialize trigger data (escape quotes for YAML)
-                trigger_data_json = json.dumps(event_data_serializable).replace('"', '\\"')
+                trigger_data_json = json.dumps(event_data_serializable, ensure_ascii=False).replace('"', '\\"')
 
                 # Create minimal context for task file creation
                 ctx = ExecutionContext(
@@ -447,9 +459,6 @@ class Orchestrator:
                     start_time=datetime.now()
                 )
 
-                # Prepare log path
-                log_path = self.execution_manager._prepare_log_path(agent, ctx)
-                ctx.log_file = log_path
 
                 # Create QUEUED task
                 self.execution_manager.task_manager.create_task_file(
@@ -575,12 +584,14 @@ class Orchestrator:
                             self.execution_manager._agent_counts[agent.abbreviation] -= 1
                         continue
 
-                # Update task status from QUEUED to IN_PROGRESS
-                self.execution_manager.task_manager.update_task_status(task_path, "IN_PROGRESS")
-
                 # Execute agent (slot already reserved)
                 event_path = event_data.get('path', '')
                 logger.debug(f"Starting queued {agent.abbreviation}: {event_path}")
+
+                # Inject existing task file path into event_data
+                event_data['_existing_task_file'] = str(task_path)
+                # Also inject generation_log to avoid re-reading frontmatter
+                event_data['_generation_log'] = fm.get('generation_log', '')
 
                 execution_thread = threading.Thread(
                     target=self._execute_agent,
@@ -595,43 +606,24 @@ class Orchestrator:
         except Exception as e:
             logger.error(f"Error processing queued tasks: {e}", exc_info=True)
 
-    def _is_queued_task_file(self, trigger_event: TriggerEvent) -> bool:
+    def _is_task_file(self, file_path: str) -> bool:
         """
-        Check if a trigger event is for a QUEUED task file that needs enrichment.
-
+        Check if the file is in the tasks directory.
+        
         Args:
-            trigger_event: Trigger event to check
-
+            file_path: Relative path to check
+            
         Returns:
-            True if this is a QUEUED task file in the tasks directory without trigger_data_json
+            True if file is in tasks directory and is a markdown file
         """
         try:
-            file_path = trigger_event.path
-            
-            # Check if path is in tasks directory
             tasks_dir = self.execution_manager.task_manager.tasks_dir
             file_full_path = self.vault_path / file_path
             
-            # Check if file is in tasks directory
             try:
                 file_full_path.relative_to(tasks_dir)
-                # File is in tasks directory, check if it's a markdown file
-                if not file_path.endswith('.md'):
-                    return False
-                
-                # Check status from frontmatter if available (optimization)
-                if trigger_event.frontmatter:
-                    status = trigger_event.frontmatter.get('status', '').upper()
-                    # Only process QUEUED tasks that don't have trigger_data_json yet
-                    if status == 'QUEUED':
-                        trigger_data_json = trigger_event.frontmatter.get('trigger_data_json')
-                        return not trigger_data_json  # Only enrich if missing
-                    return False
-                
-                # If frontmatter not available, we'll check in _enrich_queued_task
-                return True
+                return file_path.endswith('.md')
             except ValueError:
-                # File is not in tasks directory
                 return False
         except Exception:
             return False
@@ -813,7 +805,7 @@ class Orchestrator:
             event_data_serializable = make_json_serializable(event_data)
 
             # Serialize trigger data (keep as JSON string, will be properly escaped in task_manager)
-            trigger_data_json = json.dumps(event_data_serializable)
+            trigger_data_json = json.dumps(event_data_serializable, ensure_ascii=False)
 
             # Add trigger_data_json to task file
             self.execution_manager.task_manager.update_task_status_with_trigger_data(

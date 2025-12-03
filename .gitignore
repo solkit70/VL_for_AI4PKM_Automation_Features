@@ -28,3 +28,20 @@ secrets.yaml
 **/secrets.yaml
 
 .obsidian/plugins/recent-files-obsidian/data.json
+
+# Personal learning materials (excluded from Team Repository PR)
+changsoo_study/
+VL_AI4PKM_Automation/
+AI4PKM_Onboarding_feedback.md
+CLAUDE.md
+
+# Temporary reference files
+github_issue_windows_executor.md
+issue_comment.md
+pr_description.md
+
+# Local vault content folders (user-specific data)
+AI/
+Ingest/
+Journal/
+ai4pkm_cli.json

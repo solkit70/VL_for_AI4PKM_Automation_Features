@@ -12,6 +12,16 @@ orchestrator:
   max_concurrent: 3
   poll_interval: 1.0
 
+  # Optional: Specify executor command paths
+  # Useful on Windows or when executors are not in PATH
+  # executors:
+  #   claude:
+  #     command: "C:\\Users\\username\\AppData\\Roaming\\npm\\claude.cmd"
+  #   gemini:
+  #     command: "C:\\Users\\username\\AppData\\Roaming\\npm\\gemini.cmd"
+  #   codex:
+  #     command: "codex"  # Uses default PATH resolution
+
 # Global defaults for all agents
 defaults:
   executor: claude_code

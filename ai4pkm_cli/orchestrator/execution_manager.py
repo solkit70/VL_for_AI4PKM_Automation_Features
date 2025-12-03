@@ -444,22 +444,69 @@ class ExecutionManager:
         ctx.prompt = self._build_prompt(agent, trigger_data, ctx)
         self._execute_subprocess(ctx, 'Grok CLI', ['grok', '--prompt', ctx.prompt], agent.timeout_minutes * 60)
 
+    def _resolve_executor_path(self, executor_name: str) -> Optional[str]:
+        """
+        Resolve executor command path with the following priority:
+        1. orchestrator_settings['executors'] config (highest priority)
+        2. shutil.which() for PATH resolution
+        3. Common Windows npm installation paths
+
+        Args:
+            executor_name: Name of the executor (e.g., 'claude', 'gemini', 'codex')
+
+        Returns:
+            Resolved executor path or None if not found
+        """
+        # Priority 1: Check orchestrator_settings for executor config
+        if self.orchestrator_settings:
+            executors_config = self.orchestrator_settings.get('executors', {})
+            if executor_name in executors_config:
+                cmd_path = executors_config[executor_name].get('command')
+                if cmd_path:
+                    cmd_path_obj = Path(cmd_path)
+                    if cmd_path_obj.exists():
+                        logger.debug(f"Found {executor_name} in orchestrator config: {cmd_path}")
+                        return str(cmd_path_obj)
+                    else:
+                        logger.warning(f"Configured path for {executor_name} does not exist: {cmd_path}")
+
+        # Priority 2: Try shutil.which() for PATH resolution
+        resolved = shutil.which(executor_name)
+        if resolved:
+            logger.debug(f"Found {executor_name} in PATH: {resolved}")
+            return resolved
+
+        # Also try with .cmd extension on Windows
+        if platform.system() == 'Windows' and not os.path.splitext(executor_name)[1]:
+            cmd_with_ext = executor_name + '.cmd'
+            resolved_cmd = shutil.which(cmd_with_ext)
+            if resolved_cmd:
+                logger.debug(f"Found {executor_name} with .cmd extension: {resolved_cmd}")
+                return resolved_cmd
+
+        # Priority 3: Check common Windows npm installation paths
+        if platform.system() == 'Windows':
+            npm_dir = Path.home() / "AppData" / "Roaming" / "npm"
+            for ext in ['.cmd', '.bat', '']:
+                cmd_path = npm_dir / f"{executor_name}{ext}"
+                if cmd_path.exists():
+                    logger.debug(f"Found {executor_name} in npm directory: {cmd_path}")
+                    return str(cmd_path)
+
+        logger.warning(f"Could not resolve path for executor: {executor_name}")
+        return None
+
     def _execute_subprocess(self, ctx: ExecutionContext, agent_name: str, cmd: List[str], timeout_seconds: int):
-        # On Windows, resolve .cmd/.bat files to their full paths
-        if platform.system() == 'Windows' and cmd:
+        # Resolve executor path
+        if cmd:
             executable = cmd[0]
-            # Try to find the executable (handles .cmd, .bat, .exe)
-            resolved = shutil.which(executable)
-            if resolved:
-                # Use the resolved full path
-                cmd = [resolved] + cmd[1:]
-            elif not os.path.splitext(executable)[1]:  # No extension
-                # Try .cmd extension explicitly
-                cmd_cmd = executable + '.cmd'
-                resolved_cmd = shutil.which(cmd_cmd)
-                if resolved_cmd:
-                    cmd = [resolved_cmd] + cmd[1:]
-        
+            resolved_path = self._resolve_executor_path(executable)
+            if resolved_path:
+                cmd = [resolved_path] + cmd[1:]
+            else:
+                # If resolution failed, log warning and try original command
+                logger.warning(f"Executor '{executable}' not found, attempting to use as-is")
+
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,

@@ -1,79 +1,57 @@
 ---
 title: Enrich Ingested Content (EIC)
 abbreviation: EIC
-category: ingestion
+category: learning
 ---
-Improve captured content through transcript correction, summarization, and knowledge linking.
+
+Enrich web clippings and raw content for Personal Knowledge Management.
 
 ## Input
-- Target note file
-- Long articles may need chunking to avoid partial processing
-- Original content with potential grammar/transcript errors
+- Source: vl_ai4pkm_clippings/*.md
+- Raw markdown files with web clippings or notes
 
 ## Output
-- Status property set to `processed`
-- Summary section added at beginning
-- Improved formatting and structure
+- File: vl_ai4pkm_materials/{{filename}}_enriched.md
+- Well-structured and enriched content
 
 ## Main Process
 ```
-1. IMPROVE CAPTURE & TRANSCRIPT (ICT)
-   - Fix all grammar or transcript errors
-   - Translate to Korean for Clippings
-   - Remove extra/duplicated newlines
-   - Add chapters using heading3 (###)
-   - Add formatting (lists, highlights)
-   - Keep overall length equal to original
-   - Set status property to processed
+1. ANALYZE CONTENT
+   - Read and understand the main concepts
+   - Identify key insights and arguments
+   - Extract important quotes
 
-2. ADD SUMMARY FOR THREAD
-   - Add Summary section at beginning (##)
-   - Write catchy summaries for Threads sharing
-   - Use quotes verbatim to convey author's voice
-   - Don't add highlights in summary
+2. STRUCTURE
+   - Create clear title
+   - Add summary section
+   - Organize with proper headings
+   - Add key takeaways
 
-3. ENRICH USING TOPICS
-   - Link related KB topics (existing only)
-   - Add one-line summary to relevant KB topics
-   - Link to related summaries (books, etc.)
+3. ENHANCE
+   - Add context where needed
+   - Suggest related topics
+   - Add relevant tags
 ```
 
-## Caveats
+## Output Format
+```markdown
+# Title
 
-### Content Completeness - CRITICAL
+## Summary
+[2-3 sentence summary]
 
-⚠️ **CRITICAL**: ICT section must be COMPLETE - not truncated
+## Content
+[Well-organized content with headings]
 
-**Common failure pattern:**
-- Agent starts ICT section
-- Hits token/context limit mid-processing
-- ICT cuts off mid-sentence: "Since I last wrote at the beginning of the summer, my methodol..."
-- Agent marks status as PROCESSED anyway ❌ WRONG
+## Key Takeaways
+- Point 1
+- Point 2
+- Point 3
 
-**Prevention measures:**
-1. **Check article length FIRST** before starting
-2. **If source >3000 words**, process in chunks OR request context extension
-3. **VERIFY ICT ends at natural stopping point** (end of paragraph/section, not mid-sentence)
-4. **Self-check before marking PROCESSED**: "Does the last paragraph in ICT feel complete?"
-5. **If truncated**, FINISH it before updating status to PROCESSED
+## Tags
+#tag1 #tag2 #tag3
 
-**Quality verification:**
-- ICT section should have multiple ### subsections (not just one incomplete section)
-- Last sentence should end with proper punctuation, not "..." or cut-off text
-- Length should be comparable to original source (not 30-50% shorter due to truncation)
-
-**If you cannot complete full ICT:**
-- Mark task as NEEDS_INPUT explaining length/complexity issue
-- DO NOT mark PROCESSED with incomplete work
-
-### Rename Filenames
-* Convert " " (curly/typographic quotes) to " (straight quote)
-   * Same for single quotes
-* Remove incomplete words -- 40살 전에 알았다면 `얼마ᄂ`
-* Remove `Readwise` at the end
-
-### Formatting Standards
-- Use heading3 (###) for chapters
-- Limit highlights to essence (one per chapter)
-- Preserve original prose structure
-- Overall length should equal original
+## Related Topics
+- [[Topic 1]]
+- [[Topic 2]]
+```

@@ -12,6 +12,13 @@ orchestrator:
   max_concurrent: 3
   poll_interval: 1.0
 
+  # Windows executor paths (from ai4pkm_cli.json)
+  executors:
+    claude_code:
+      command: "C:\\Users\\dougg\\AppData\\Roaming\\npm\\claude.cmd"
+    gemini:
+      command: "C:\\Users\\dougg\\AppData\\Roaming\\npm\\gemini.cmd"
+
 # Global defaults for all agents
 defaults:
   executor: claude_code
@@ -25,18 +32,22 @@ nodes:
   # Enrich Ingested Content
   - type: agent
     name: Enrich Ingested Content (EIC)
-    input_path: Ingest/Clippings
-    output_path: AI/Articles
-    output_type: new_file  # Create new files in AI/Articles
+    abbreviation: "eic"
+    executor: claude_code
+    input_path: vl_ai4pkm_clippings
+    output_path: vl_ai4pkm_materials
+    output_type: new_file  # Create new files in vl_ai4pkm_materials
 
   # Create Thread Postings
   - type: agent
     name: Create Thread Postings (CTP)
+    abbreviation: "ctp"
+    executor: claude_code
     input_path:
-      - AI/Articles
-      - AI/Roundup
-      - AI/Research
-    output_path: AI/Sharable
+      - vl_ai4pkm_materials
+      - 01-AI4PKM_CLI_Structure
+      - 02-Basic_Commands
+    output_path: Publish
 
   # Batch workflow support is TBA
   # # Generate Daily Roundup

@@ -1,52 +1,59 @@
 ---
 title: Create Thread Postings (CTP)
 abbreviation: CTP
-category: publish
+category: publishing
 ---
-Generate social media thread candidates from personal content.
+
+Create social media thread postings from enriched content.
 
 ## Input
-- Life log content from AI/Lifelog (memorable conversations)
-- Readings & clippings (summaries and quotes)
-- Other content (projects and miscellaneous)
-- [[Social Media Template]] for structure
+- Source: vl_ai4pkm_materials/*.md
+- Enriched content files
 
 ## Output
-- Organized thread content (max 1k characters each)
-- Source links under each post
-- Up to 5 threads per output note
+- File: Publish/{{filename}}_thread.md
+- Social media thread format
 
 ## Main Process
 ```
-1. CONTENT COLLECTION
-   - Gather summaries and quotes from readings & clippings
+1. EXTRACT KEY INSIGHTS
+   - Identify 3-5 main points
+   - Find compelling quotes
+   - Determine hook
 
-2. THREAD ORGANIZATION
-   - Use [[Social Media Template]] structure
-   - Organize contents by threads of similar lengths
-   - Ensure maximum 1k characters per thread
+2. CREATE THREAD
+   - Write 5-10 tweets
+   - Each under 280 characters
+   - Engaging and conversational
 
-3. FORMATTING & SOURCING
-   - Add source link under each post
-   - Organize up to 5 threads per output note
-   - Place output files in AI/Sharable directory
+3. ENHANCE
+   - Add relevant hashtags
+   - Include call-to-action
+   - Use emojis sparingly
 ```
 
-## Caveats
-### Content Selection Criteria
-⚠️ **CRITICAL**: Focus on memorable and shareable content within date range
+## Output Format
+```markdown
+# Thread: [Title]
 
-### Thread Length Limits
-- Maximum 1k characters per thread
-- Organize by similar lengths for consistency
-- Balance brevity with meaningful content
+**Source**: [[original file]]
 
-### Source Attribution
-- Add source link under each post
-- Maintain traceability to original content
-- Ensure proper attribution for all materials
+## Thread Content
 
-### Output Organization
-- Maximum 5 threads per output note
-- Use AI/Sharable directory for all outputs
-- Follow [[Social Media Template]] structure
+**Tweet 1/N** (Hook)
+[Attention-grabbing opening]
+
+**Tweet 2/N**
+[First key point]
+
+**Tweet 3/N**
+[Second key point]
+
+**Tweet N/N** (CTA)
+[Call to action + hashtags]
+
+---
+
+## Hashtags
+#hashtag1 #hashtag2 #hashtag3
+```

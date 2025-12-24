@@ -37,5 +37,19 @@ nodes:
       - 01-AI4PKM_CLI_Structure
       - 02-Basic_Commands
     output_path: Publish
+  - type: agent
+    name: Summarize Note for Study (SNS)
+    abbreviation: sns
+    executor: claude_code
+    input_path:
+      - vl_ai4pkm_materials
+      - 01-AI4PKM_CLI_Structure
+      - 02-Basic_Commands
+      - 03-Orchestrator_Deep_Dive
+    output_path: AI/Study
+    output_type: new_file
+    timeout_minutes: 15
+    max_parallel: 2
+    enabled: true
 id: VL_AI4PKM_Automation
 name: VL_AI4PKM_Automation

@@ -4,19 +4,24 @@
 
 ## 프로젝트 정보
 
-**학습 중인 프로젝트**: [프로젝트명을 여기에 기입하세요]
-**프로젝트 Repository**: [GitHub URL을 여기에 기입하세요]
+**학습 중인 프로젝트**: AI4PKM (AI-powered Personal Knowledge Management)
+**프로젝트 Repository**: https://github.com/jykim/AI4PKM
 
-**학습 RoadMap 위치**: `vl_roadmap/` 폴더
-**학습 프롬프트 위치**: `vl_prompts/` 폴더
-**학습 WorkLog 위치**: `vl_worklog/` 폴더
-**학습 산출물 위치**: `01-xxx/`, `02-xxx/`, `03-xxx/` ... (번호순 폴더)
+**학습 자료 Repository**: https://github.com/solkit70/VL_for_AI4PKM_Automation_Features.git
+**학습 자료 폴더**: `VL_AI4PKM_Automation/`
+
+**학습 RoadMap 위치**: `VL_AI4PKM_Automation/vl_roadmap/` 폴더
+**학습 프롬프트 위치**: `VL_AI4PKM_Automation/vl_prompts/` 폴더
+**학습 WorkLog 위치**: `VL_AI4PKM_Automation/vl_worklog/` 폴더
+**학습 산출물 위치**: `VL_AI4PKM_Automation/01-xxx/`, `02-xxx/`, `03-xxx/` ... (번호순 폴더)
 
 ---
 
 ## Continuous Vibe Learning - 지속적 학습 프로세스 (매우 중요!)
 
 많은 프로젝트들이 활발하게 개발 중입니다. 학습 중에도 프로젝트가 계속 업데이트되므로, **매 학습 세션 시작 전 Remote Repository와의 동기화 확인**이 필요합니다.
+
+**중요**: Repository 동기화는 **학습 대상 프로젝트**(예: https://github.com/jykim/AI4PKM)와 비교합니다. 학습 자료 폴더(예: `VL_AI4PKM_Automation/`)는 별도 Repository에서 관리되므로 비교 대상에서 제외합니다.
 
 ### 학습 시작 전 필수 단계
 
@@ -45,6 +50,8 @@
 3. **변경사항 분석**
    - Remote와 로컬의 차이 확인
    - 어떤 파일이 변경되었는지 파악
+   - **학습 자료 폴더는 분석 대상에서 제외** (별도 Repository에서 관리)
+   - 학습 대상 프로젝트의 코어 코드 변경만 평가
    - 변경 내용의 규모와 영향도 평가
 
 4. **사용자에게 변경사항 보고**
@@ -72,8 +79,8 @@ git status
 # Remote와의 차이 확인
 git log HEAD..[remote-name]/[branch-name] --oneline
 
-# 변경된 파일 목록
-git diff --name-status HEAD [remote-name]/[branch-name]
+# 변경된 파일 목록 (학습 자료 폴더 제외)
+git diff --name-status HEAD [remote-name]/[branch-name] -- . ':!VL_*' ':!**/vl_*'
 ```
 
 #### 단계 2: 변경 내용 분석 및 보고
@@ -224,29 +231,41 @@ git merge [remote-name]/[branch-name]
 
 Vibe Learning 방법론을 따르는 모든 프로젝트는 다음 구조를 사용합니다:
 
+**중요**: 학습 자료는 **별도 폴더**에서 관리되며, 학습 대상 프로젝트와 구분됩니다.
+
 ```
-프로젝트_루트/
-├── vl_roadmap/           # 학습 로드맵 파일들
-│   └── YYYYMMDD_RoadMap_Title.md
+학습_대상_프로젝트_루트/        # 예: AI4PKM (https://github.com/jykim/AI4PKM)
+├── ai4pkm_cli/                # 학습 대상 코드
+├── orchestrator/              # 학습 대상 코드
+├── ...
 │
-├── vl_prompts/           # 학습 프롬프트 파일들
-│   ├── YYYYMMDD_Prompt_Name.md
-│   └── 20251121_Each_Day_Learning_prompt.md  (이 파일)
-│
-├── vl_worklog/           # 학습 작업 로그
-│   ├── YYYYMMDD_Day1_Topic.md
-│   ├── YYYYMMDD_Day2_Topic.md
-│   └── YYYYMMDD_Update_Work.md
-│
-├── 01-TopicName/         # 학습 산출물 폴더 (순서대로 번호)
-│   ├── document1.md
-│   └── example_code.py
-│
-├── 02-NextTopic/         # 다음 주제 산출물
-│   └── ...
-│
-└── ...
+└── VL_학습자료_폴더/           # 예: VL_AI4PKM_Automation (별도 Repository 관리)
+    ├── vl_roadmap/           # 학습 로드맵 파일들
+    │   └── YYYYMMDD_RoadMap_Title.md
+    │
+    ├── vl_prompts/           # 학습 프롬프트 파일들
+    │   ├── YYYYMMDD_Prompt_Name.md
+    │   └── 20251121_Each_Day_Learning_prompt.md  (이 파일)
+    │
+    ├── vl_worklog/           # 학습 작업 로그
+    │   ├── YYYYMMDD_Day1_Topic.md
+    │   ├── YYYYMMDD_Day2_Topic.md
+    │   └── YYYYMMDD_Update_Work.md
+    │
+    ├── 01-TopicName/         # 학습 산출물 폴더 (순서대로 번호)
+    │   ├── document1.md
+    │   └── example_code.py
+    │
+    ├── 02-NextTopic/         # 다음 주제 산출물
+    │   └── ...
+    │
+    └── ...
 ```
+
+**Repository 관리 원칙**:
+- 학습 대상 프로젝트: 원본 Repository (예: jykim/AI4PKM)
+- 학습 자료 폴더: 별도 Repository (예: solkit70/VL_for_AI4PKM_Automation_Features)
+- 동기화 시 학습 자료 폴더는 비교 대상에서 제외
 
 ---
 

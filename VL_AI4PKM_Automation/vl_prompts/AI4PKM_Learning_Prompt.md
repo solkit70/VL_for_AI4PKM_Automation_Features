@@ -41,6 +41,58 @@ git diff --name-status HEAD upstream/main -- . ':!VL_*' ':!**/vl_*'
 - **동기화 시**: 학습 자료 폴더는 비교 대상에서 제외
 - **코드 기여**: 팀 Repository(upstream)에 PR
 
+### Git 워크플로우 명확화 (중요!)
+
+이 프로젝트는 **두 개의 Repository**를 사용합니다:
+
+```
+Repository 구조:
+
+upstream: https://github.com/jykim/AI4PKM
+  ↓ (fetch/merge)
+
+로컬: C:/AI_study/PKM_Project/AI4PKM_2/AI4PKM
+├── ai4pkm_cli/              ← upstream에서 동기화
+├── orchestrator/            ← upstream에서 동기화
+├── ...
+└── VL_AI4PKM_Automation/    ← 학습 자료 (동기화 대상 아님)
+
+  ↓ (add/commit/push - 전체 프로젝트)
+
+origin: https://github.com/solkit70/VL_for_AI4PKM_Automation_Features
+```
+
+**워크플로우 1: 학습 시작 전 동기화**
+```bash
+# upstream에서 학습 대상 프로젝트 업데이트 확인
+git fetch upstream
+git log HEAD..upstream/main --oneline
+git diff --name-status HEAD upstream/main -- . ':!VL_*' ':!**/vl_*'
+
+# 필요 시 병합
+git merge upstream/main
+```
+- **대상**: upstream (jykim/AI4PKM)
+- **목적**: 학습 대상 프로젝트의 최신 변경사항 확인
+- **제외**: VL_AI4PKM_Automation 폴더
+
+**워크플로우 2: 학습 완료 후 저장**
+```bash
+# 모든 변경사항 (학습 자료 + upstream 코드) 저장
+git status
+git add -f VL_AI4PKM_Automation/  # force add 필수
+git add [기타_변경된_파일들]
+git commit -m "docs: 학습 내용"
+git push origin main
+```
+- **대상**: origin (solkit70/VL_for_AI4PKM_Automation_Features)
+- **목적**: 학습 자료와 모든 변경사항 저장
+- **포함**: VL_AI4PKM_Automation + upstream에서 가져온 코드
+
+**절대 금지**:
+- ❌ upstream에 push하지 마세요 (읽기 전용)
+- ✅ origin에만 push하세요 (학습 자료 저장소)
+
 ### 주요 학습 영역
 
 **AI4PKM CLI 구조** (코드 영역 - 동기화 필요):

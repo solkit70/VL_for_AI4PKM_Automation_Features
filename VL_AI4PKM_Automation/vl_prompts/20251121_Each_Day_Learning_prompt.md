@@ -269,6 +269,109 @@ Vibe Learning 방법론을 따르는 모든 프로젝트는 다음 구조를 사
 
 ---
 
+## Git 워크플로우 (매우 중요!)
+
+이 프로젝트는 **두 개의 Repository**를 사용합니다. 혼동하지 않도록 명확하게 구분하세요.
+
+### Repository 구조
+
+```
+로컬 프로젝트 루트
+├── ai4pkm_cli/              ← upstream (jykim/AI4PKM)에서 동기화
+├── orchestrator/            ← upstream (jykim/AI4PKM)에서 동기화
+├── ...                      ← upstream (jykim/AI4PKM)에서 동기화
+│
+└── VL_AI4PKM_Automation/    ← 학습 자료 (동기화 대상 제외)
+    ├── vl_roadmap/
+    ├── vl_worklog/
+    ├── 01-xxx/
+    └── ...
+
+Git Remotes:
+- upstream: https://github.com/jykim/AI4PKM (학습 대상 프로젝트)
+- origin: https://github.com/solkit70/VL_for_AI4PKM_Automation_Features (학습 자료 저장소)
+```
+
+### 워크플로우 1: 학습 시작 전 - Upstream 동기화 확인
+
+**목적**: 학습 대상 프로젝트(jykim/AI4PKM)의 최신 변경사항 확인
+
+```bash
+# 1. upstream에서 최신 코드 가져오기
+git fetch upstream
+
+# 2. 변경사항 확인 (VL_AI4PKM_Automation 폴더 제외)
+git log HEAD..upstream/main --oneline
+git diff --name-status HEAD upstream/main -- . ':!VL_*' ':!**/vl_*'
+
+# 3. 필요시 upstream 변경사항을 로컬에 병합
+# (주의: VL_AI4PKM_Automation은 .gitignore로 보호되므로 영향 없음)
+git merge upstream/main
+```
+
+**중요**:
+- VL_AI4PKM_Automation 폴더는 동기화 분석에서 **반드시 제외**
+- upstream은 **읽기 전용** - 동기화만 하고 push하지 않음
+
+### 워크플로우 2: 학습 완료 후 - Origin에 Push
+
+**목적**: 학습 자료와 모든 변경사항을 학습 Repository에 저장
+
+```bash
+# 1. 변경된 파일 확인
+git status
+
+# 2. 학습 자료 추가 (VL_AI4PKM_Automation 폴더는 .gitignore에 있으므로 -f 필요)
+git add -f VL_AI4PKM_Automation/
+
+# 3. 기타 변경된 파일도 추가 (필요시)
+git add [다른_파일들]
+
+# 4. Commit 생성
+git commit -m "docs: [학습 내용 요약]
+
+[상세 설명]
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+
+# 5. origin에 push
+git push origin main
+```
+
+**중요**:
+- origin은 **학습 자료 저장소** - 여기에만 push
+- VL_AI4PKM_Automation 폴더와 upstream에서 동기화된 모든 파일 포함
+- upstream에서 가져온 코드도 origin에 함께 push됨
+
+### 워크플로우 요약표
+
+| 작업 | Repository | 명령어 | 포함 범위 |
+|------|-----------|--------|----------|
+| **학습 전 동기화** | upstream (jykim/AI4PKM) | `git fetch upstream`<br>`git merge upstream/main` | 학습 대상 프로젝트 코드만<br>(VL_ 폴더 제외) |
+| **학습 후 저장** | origin (solkit70/VL_...) | `git add -f VL_AI4PKM_Automation/`<br>`git commit`<br>`git push origin main` | **전체 프로젝트**<br>(VL_ 폴더 + upstream 코드) |
+
+### 주의사항
+
+1. **절대 upstream에 push하지 마세요**
+   - upstream은 학습 대상 프로젝트 (jykim/AI4PKM)
+   - 읽기 전용으로만 사용
+
+2. **origin에만 push하세요**
+   - origin은 학습 자료 저장소 (solkit70/VL_for_AI4PKM_Automation_Features)
+   - 모든 학습 성과를 여기에 저장
+
+3. **VL_AI4PKM_Automation은 force add 필요**
+   - `.gitignore`에 포함되어 있음
+   - `git add -f VL_AI4PKM_Automation/` 사용
+
+4. **동기화 시 VL_ 폴더 제외**
+   - upstream과 비교 시 학습 자료는 제외
+   - `':!VL_*' ':!**/vl_*'` 패턴 사용
+
+---
+
 ## WorkLog 파일 관리 규칙 (중요!)
 
 ### WorkLog 파일명 규칙
